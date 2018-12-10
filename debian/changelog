@@ -1,8 +1,8 @@
-codelite (10.0+dfsg-5) UNRELEASED; urgency=medium
+codelite (10.0+dfsg-5) unstable; urgency=medium
 
-  *
+  * Oprhaning this package. (See: #852312)
 
- -- James Cowgill <jcowgill@debian.org>  Mon, 10 Dec 2018 12:10:14 +0000
+ -- James Cowgill <jcowgill@debian.org>  Mon, 10 Dec 2018 12:11:03 +0000
 
 codelite (10.0+dfsg-4) unstable; urgency=medium
 
