@@ -148,12 +148,13 @@ int CodeLiteLLDBApp::OnExit()
 bool CodeLiteLLDBApp::OnInit()
 {
     try {
-        if(m_port != wxNOT_FOUND) {
-            m_acceptSocket.CreateServer(m_ip.mb_str(wxConvUTF8).data(), m_port);
-
+        wxString connectionString;
+        if(m_port == wxNOT_FOUND) {
+            connectionString << "unix://" << m_debuggerSocketPath;
         } else {
-            m_acceptSocket.CreateServer(m_debuggerSocketPath.mb_str(wxConvUTF8).data());
+           connectionString << "tcp://" << m_ip << ":" << m_port;
         }
+        m_acceptSocket.Start(connectionString);
 
     } catch(clSocketException& e) {
         if(m_port == wxNOT_FOUND) {
@@ -180,9 +181,8 @@ bool CodeLiteLLDBApp::InitializeLLDB(const LLDBCommand& command)
     if(!command.GetWorkingDirectory().IsEmpty()) {
         ::wxSetWorkingDirectory(command.GetWorkingDirectory());
     }
-
     wxPrintf("codelite-lldb: working directory is set to %s\n", ::wxGetCwd());
-#ifdef __WXMAC__
+#if defined(__WXOSX__) || defined(__WXGTK__)
     // On OSX, debugserver executable must exists otherwise lldb will not work properly
     // we ensure that it exists by checking the environment variable LLDB_DEBUGSERVER_PATH
     wxString lldbDebugServer;
@@ -267,6 +267,15 @@ void CodeLiteLLDBApp::NotifyBreakpointsUpdated()
             // Add the parent breakpoint
             LLDBBreakpoint::Ptr_t mainBreakpoint(new LLDBBreakpoint());
             mainBreakpoint->SetId(bp.GetID());
+
+            lldb::SBBreakpointLocation loc = bp.GetLocationAtIndex(0);
+            lldb::SBFileSpec fileLoc = loc.GetAddress().GetLineEntry().GetFileSpec();
+            wxFileName bpFile(fileLoc.GetDirectory(), fileLoc.GetFilename());
+
+            mainBreakpoint->SetType(LLDBBreakpoint::kFileLine);
+            mainBreakpoint->SetFilename(bpFile.GetFullPath());
+            mainBreakpoint->SetLineNumber(loc.GetAddress().GetLineEntry().GetLine());
+
             if(bp.GetNumLocations() > 1) {
 
                 // add all the children locations to the main breakpoint
@@ -284,16 +293,8 @@ void CodeLiteLLDBApp::NotifyBreakpointsUpdated()
                     new_bp->SetName(loc.GetAddress().GetFunction().GetName());
                     mainBreakpoint->GetChildren().push_back(new_bp);
                 }
-
             } else {
-                lldb::SBBreakpointLocation loc = bp.GetLocationAtIndex(0);
-                lldb::SBFileSpec fileLoc = loc.GetAddress().GetLineEntry().GetFileSpec();
-                wxFileName bpFile(fileLoc.GetDirectory(), fileLoc.GetFilename());
-
-                mainBreakpoint->SetType(LLDBBreakpoint::kFileLine);
                 mainBreakpoint->SetName(loc.GetAddress().GetFunction().GetName());
-                mainBreakpoint->SetFilename(bpFile.GetFullPath());
-                mainBreakpoint->SetLineNumber(loc.GetAddress().GetLineEntry().GetLine());
             }
             breakpoints.push_back(mainBreakpoint);
         }
@@ -335,6 +336,15 @@ void CodeLiteLLDBApp::NotifyRunning()
     m_variables.clear();
     LLDBReply reply;
     reply.SetReplyType(kReplyTypeDebuggerRunning);
+    SendReply(reply);
+}
+
+void CodeLiteLLDBApp::NotifyLaunchSuccess()
+{
+    wxPrintf("codelite-lldb: NotifyLaunchSuccess. Target Process ID %d\n", m_debuggeePid);
+    m_variables.clear();
+    LLDBReply reply;
+    reply.SetReplyType(kReplyTypeLaunchSuccess);
     SendReply(reply);
 }
 
@@ -523,7 +533,11 @@ void CodeLiteLLDBApp::RunDebugger(const LLDBCommand& command)
 
         } else {
             m_debuggeePid = process.GetProcessID();
+#ifdef __WXGTK__
+            NotifyLaunchSuccess();
+#else
             NotifyRunning();
+#endif
         }
     }
 }
@@ -691,7 +705,7 @@ void CodeLiteLLDBApp::Interrupt(const LLDBCommand& command)
     m_target.GetProcess().SendAsyncInterrupt();
 }
 
-void CodeLiteLLDBApp::AcceptNewConnection() throw(clSocketException)
+void CodeLiteLLDBApp::AcceptNewConnection()
 {
     m_replySocket.reset(NULL);
     wxPrintf("codelite-lldb: waiting for new connection\n");

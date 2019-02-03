@@ -25,10 +25,10 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 -            list(APPEND LINKER_OPTIONS "-s") ## strip binaries
 -        endif()
 -    endif()
-     
+ 
      set( CL_PCH_FILE "${CL_SRC_ROOT}/PCH/precompiled_header_release.h")
      set( CL_PCH_TARGET "precompiled_header_release.h.gch")
-@@ -379,9 +365,6 @@ else ()
+@@ -381,9 +367,6 @@ else ()
      message("-- Shared Objects will be written into ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
  
      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")        ## Optimize

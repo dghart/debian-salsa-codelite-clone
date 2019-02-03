@@ -194,7 +194,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 +    "</BODY></HTML>";
 --- a/CodeLite/ctags_manager.cpp
 +++ b/CodeLite/ctags_manager.cpp
-@@ -572,7 +572,7 @@ bool TagsManager::WordCompletionCandidat
+@@ -559,7 +559,7 @@ bool TagsManager::WordCompletionCandidat
              GetKeywordsTagsForLanguage(word, kCxx, keywords);
          }
  
@@ -205,7 +205,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
 --- a/CodeLite/language.cpp
 +++ b/CodeLite/language.cpp
-@@ -361,7 +361,7 @@ bool Language::ProcessExpression(const w
+@@ -543,7 +543,7 @@ bool Language::ProcessExpression(const w
      scopeName = GetScopeName(visibleScope, &additionalScopes);
      CL_DEBUG(wxT("Obtaining the scope name...done"));
  
@@ -234,7 +234,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 +}
 --- a/LiteEditor/new_build_tab.cpp
 +++ b/LiteEditor/new_build_tab.cpp
-@@ -293,7 +293,7 @@ void NewBuildTab::OnBuildStarted(clComma
+@@ -285,7 +285,7 @@ void NewBuildTab::OnBuildStarted(clComma
  
  void NewBuildTab::OnBuildAddLine(clCommandEvent& e)
  {
@@ -256,16 +256,16 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
      
 --- a/LiteEditor/tags_options_base_dlg.cpp
 +++ b/LiteEditor/tags_options_base_dlg.cpp
-@@ -124,7 +124,7 @@ TagsOptionsBaseDlg::TagsOptionsBaseDlg(w
+@@ -125,7 +125,7 @@ TagsOptionsBaseDlg::TagsOptionsBaseDlg(w
      
-     m_checkBoxDeepUsingNamespaceResolving = new wxCheckBox(m_paneDisplayAndBehavior, wxID_ANY, _("Scan all included files to locate 'using namespace' statements"), wxDefaultPosition, wxDLG_UNIT(m_paneDisplayAndBehavior, wxSize(-1, -1)), 0);
+     m_checkBoxDeepUsingNamespaceResolving = new wxCheckBox(m_paneDisplayAndBehavior, wxID_ANY, _("Crawl all files to locate 'using namespace' calls"), wxDefaultPosition, wxDLG_UNIT(m_paneDisplayAndBehavior, wxSize(-1, -1)), 0);
      m_checkBoxDeepUsingNamespaceResolving->SetValue(false);
 -    m_checkBoxDeepUsingNamespaceResolving->SetToolTip(_("Allways search for 'using namespace' statements in all included files"));
 +    m_checkBoxDeepUsingNamespaceResolving->SetToolTip(_("Always search for 'using namespace' statements in all included files"));
      
-     flexGridSizer59->Add(m_checkBoxDeepUsingNamespaceResolving, 0, wxALL, WXC_FROM_DIP(5));
+     flexGridSizer127->Add(m_checkBoxDeepUsingNamespaceResolving, 0, wxALL, WXC_FROM_DIP(5));
      
-@@ -202,8 +202,8 @@ TagsOptionsBaseDlg::TagsOptionsBaseDlg(w
+@@ -174,8 +174,8 @@ TagsOptionsBaseDlg::TagsOptionsBaseDlg(w
      
      fgSizer4->Add(0, 0, 1, wxEXPAND, WXC_FROM_DIP(5));
      
@@ -302,43 +302,36 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
      compiler->AddLinkerOption("/OPT:NOREF", "Controls LINK optimizations.");
 --- a/formbuilder/tags_options_base_dlg.wxcp
 +++ b/formbuilder/tags_options_base_dlg.wxcp
-@@ -1299,7 +1299,7 @@
- 																				}, {
- 																					"type":	"multi-string",
- 																					"m_label":	"Tooltip:",
--																					"m_value":	"Allways search for 'using namespace' statements in all included files"
-+																					"m_value":	"Always search for 'using namespace' statements in all included files"
- 																				}, {
- 																					"type":	"colour",
- 																					"m_label":	"Bg Colour:",
-@@ -2046,7 +2046,7 @@
- 																				}, {
- 																					"type":	"multi-string",
- 																					"m_label":	"Tooltip:",
--																					"m_value":	"Minimun chars to type:"
-+																					"m_value":	"Minimum chars to type:"
- 																				}, {
- 																					"type":	"colour",
- 																					"m_label":	"Bg Colour:",
-@@ -2086,7 +2086,7 @@
- 																				}, {
- 																					"type":	"multi-string",
- 																					"m_label":	"Label:",
--																					"m_value":	"Minimun chars to type:"
-+																					"m_value":	"Minimum chars to type:"
- 																				}, {
- 																					"type":	"string",
- 																					"m_label":	"Wrap:",
-@@ -6303,4 +6303,4 @@
- 						}]
- 				}]
- 		}]
--}
-\ No newline at end of file
-+}
+@@ -1389,7 +1389,7 @@
+                   }, {
+                    "type": "multi-string",
+                    "m_label": "Tooltip:",
+-                   "m_value": "Allways search for 'using namespace' statements in all included files"
++                   "m_value": "Always search for 'using namespace' statements in all included files"
+                   }, {
+                    "type": "colour",
+                    "m_label": "Bg Colour:",
+@@ -2070,7 +2070,7 @@
+                     }, {
+                      "type": "multi-string",
+                      "m_label": "Tooltip:",
+-                     "m_value": "Minimun chars to type:"
++                     "m_value": "Minimum chars to type:"
+                     }, {
+                      "type": "colour",
+                      "m_label": "Bg Colour:",
+@@ -2110,7 +2110,7 @@
+                     }, {
+                      "type": "multi-string",
+                      "m_label": "Label:",
+-                     "m_value": "Minimun chars to type:"
++                     "m_value": "Minimum chars to type:"
+                     }, {
+                      "type": "string",
+                      "m_label": "Wrap:",
 --- a/git/git.cpp
 +++ b/git/git.cpp
-@@ -860,7 +860,7 @@ void GitPlugin::OnListModified(wxCommand
+@@ -862,7 +862,7 @@ void GitPlugin::OnListModified(wxCommand
  
      if(choices.GetCount() == 0) return;
  
@@ -347,7 +340,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
      if(!choice.IsEmpty()) {
          wxTreeItemId id = modifiedIDs[choice];
          if(id.IsOk()) {
-@@ -1338,7 +1338,7 @@ void GitPlugin::FinishGitListAction(cons
+@@ -1330,7 +1330,7 @@ void GitPlugin::FinishGitListAction(cons
          m_trackedFiles.swap(gitFileSet);
  
      } else if(ga.action == gitListModified) {
@@ -419,6 +412,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  msgstr ""
  
  #: LiteEditor/tags_options_base_dlg.cpp:164
+index cb7f70352..95a805200 100644
 --- a/translations/zh_CN/LC_MESSAGES/codelite.po
 +++ b/translations/zh_CN/LC_MESSAGES/codelite.po
 @@ -10562,7 +10562,7 @@ msgid "Selected Text Background Colour:"
@@ -430,7 +424,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  msgstr "使用自定义选择设置前景颜色："
  
  #: LiteEditor/syntaxhighlightbasedlg.cpp:380
-@@ -10899,7 +10899,7 @@ msgid "Scan all included files to locate
+@@ -10899,7 +10899,7 @@ msgid "Scan all included files to locate 'using namespace' statements"
  msgstr "在全部包含的文件中查找“using namespace”声明"
  
  #: LiteEditor/tags_options_base_dlg.cpp:123
@@ -439,7 +433,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  msgstr "总在全部包含的文件中查找“正在使用命名空间”声明"
  
  #: LiteEditor/tags_options_base_dlg.cpp:128
-@@ -11010,7 +11010,7 @@ msgstr "当使用时，CodeLite 将在�
+@@ -11010,7 +11010,7 @@ msgstr "当使用时，CodeLite 将在输入 N 字符后显示代码补全框"
  
  #: LiteEditor/tags_options_base_dlg.cpp:201
  #: LiteEditor/tags_options_base_dlg.cpp:202
@@ -448,7 +442,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  msgstr "至少键入的字符数："
  
  #: LiteEditor/tags_options_base_dlg.cpp:207
-@@ -17908,11 +17908,11 @@ msgid "Are you sure that you want to dis
+@@ -17908,11 +17908,11 @@ msgid "Are you sure that you want to discard all local changes?"
  msgstr "你确定要放弃所有本地变更？"
  
  #: git/git.cpp:841
@@ -471,3 +465,42 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  msgstr "着色已修改的 git 文件..."
  
  #: git/git.cpp:1343
+diff --git a/CodeFormatter/codeformatterdlg.wxcp b/CodeFormatter/codeformatterdlg.wxcp
+index d64ffa779..f49c2e9c1 100644
+--- a/CodeFormatter/codeformatterdlg.wxcp
++++ b/CodeFormatter/codeformatterdlg.wxcp
+@@ -5152,7 +5152,7 @@
+                               }, {
+                                "type": "multi-string",
+                                "m_label": "Tooltip:",
+-                               "m_value": "Spacing around concatination dots."
++                               "m_value": "Spacing around concatenation dots."
+                               }, {
+                                "type": "colour",
+                                "m_label": "Bg Colour:",
+diff --git a/CodeFormatter/codeformatterdlgbase.cpp b/CodeFormatter/codeformatterdlgbase.cpp
+index 14f831406..222d6c887 100644
+--- a/CodeFormatter/codeformatterdlgbase.cpp
++++ b/CodeFormatter/codeformatterdlgbase.cpp
+@@ -653,7 +653,7 @@ CodeFormatterBaseDlg::CodeFormatterBaseDlg(wxWindow* parent, wxWindowID id, cons
+     m_pgMgrPHPCsFixerIntArr.Add(kPcfConcatSpaceNone);
+     m_pgMgrPHPCsFixerIntArr.Add(kPcfConcatSpaceOne);
+     m_pgPropPHPCsFixerConcatSpace = m_pgMgrPHPCsFixer->AppendIn( m_pgPropPhpCSFixer,  new wxEnumProperty( _("Concat space"), wxPG_LABEL, m_pgMgrPHPCsFixerArr, m_pgMgrPHPCsFixerIntArr, 0) );
+-    m_pgPropPHPCsFixerConcatSpace->SetHelpString(_("Spacing around concatination dots."));
++    m_pgPropPHPCsFixerConcatSpace->SetHelpString(_("Spacing around concatenation dots."));
+     
+     m_pgMgrPHPCsFixerArr.Clear();
+     m_pgMgrPHPCsFixerIntArr.Clear();
+diff --git a/LLDBDebugger/LLDBPlugin.cpp b/LLDBDebugger/LLDBPlugin.cpp
+index 3c21f4a61..7fca1637c 100644
+--- a/LLDBDebugger/LLDBPlugin.cpp
++++ b/LLDBDebugger/LLDBPlugin.cpp
+@@ -319,7 +319,7 @@ void LLDBPlugin::OnDebugStart(clDebugEvent& event)
+ 
+         BuildConfigPtr bldConf = clCxxWorkspaceST::Get()->GetProjBuildConf(pProject->GetName(), wxEmptyString);
+         if(!bldConf) {
+-            ::wxMessageBox(wxString() << _("Could not locate the requested buid configuration"), "LLDB Debugger",
++            ::wxMessageBox(wxString() << _("Could not locate the requested build configuration"), "LLDB Debugger",
+                            wxICON_ERROR | wxOK | wxCENTER);
+             return;
+         }

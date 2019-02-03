@@ -4,8 +4,8 @@
 // Do not modify this file by hand!
 //////////////////////////////////////////////////////////////////////
 
-#ifndef CODELITE_SUBVERSION2_SUBVERSION2_BASE_CLASSES_H
-#define CODELITE_SUBVERSION2_SUBVERSION2_BASE_CLASSES_H
+#ifndef _CODELITE_SUBVERSION2_SUBVERSION2_BASE_CLASSES_H
+#define _CODELITE_SUBVERSION2_SUBVERSION2_BASE_CLASSES_H
 
 #include <wx/settings.h>
 #include <wx/xrc/xmlres.h>
@@ -14,7 +14,7 @@
 #include <wx/artprov.h>
 #include <wx/sizer.h>
 #include <wx/splitter.h>
-#include <wx/treectrl.h>
+#include <wx/dataview.h>
 #include <wx/stc/stc.h>
 #include <wx/dialog.h>
 #include <wx/iconbndl.h>
@@ -57,20 +57,21 @@ class SubversionPageBase : public wxPanel
 protected:
     wxSplitterWindow* m_splitter17;
     wxPanel* m_splitterPageLeft;
-    wxTreeCtrl* m_treeCtrl;
+    wxDataViewListCtrl* m_dvListCtrl;
     wxPanel* m_splitterPageRight;
     wxStyledTextCtrl* m_sci;
 
 protected:
-    virtual void OnItemActivated(wxTreeEvent& event) { event.Skip(); }
-    virtual void OnTreeMenu(wxTreeEvent& event) { event.Skip(); }
+    virtual void OnItemActivated(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnContextMenu(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnViewUpdateUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnUpdateUI(wxStyledTextEvent& event) { event.Skip(); }
     virtual void OnCharAdded(wxStyledTextEvent& event) { event.Skip(); }
     virtual void OnKeyDown(wxKeyEvent& event) { event.Skip(); }
     virtual void OnSciStcChange(wxStyledTextEvent& event) { event.Skip(); }
 
 public:
-    wxTreeCtrl* GetTreeCtrl() { return m_treeCtrl; }
+    wxDataViewListCtrl* GetDvListCtrl() { return m_dvListCtrl; }
     wxPanel* GetSplitterPageLeft() { return m_splitterPageLeft; }
     wxStyledTextCtrl* GetSci() { return m_sci; }
     wxPanel* GetSplitterPageRight() { return m_splitterPageRight; }
@@ -459,6 +460,29 @@ public:
     }
 
     virtual ~SubversionImages();
+};
+
+
+class SvnShowRecentChangesBaseDlg : public wxDialog
+{
+protected:
+    wxListBox* m_listBoxRevisions;
+    wxStaticText* m_staticTextDesc;
+    wxStyledTextCtrl* m_stcDiff;
+    wxStyledTextCtrl* m_stcComment;
+    wxStdDialogButtonSizer* m_stdBtnSizer62;
+    wxButton* m_button64;
+
+protected:
+    virtual void OnRevisionSelected(wxCommandEvent& event) { event.Skip(); }
+
+public:
+    wxListBox* GetListBoxRevisions() { return m_listBoxRevisions; }
+    wxStaticText* GetStaticTextDesc() { return m_staticTextDesc; }
+    wxStyledTextCtrl* GetStcDiff() { return m_stcDiff; }
+    wxStyledTextCtrl* GetStcComment() { return m_stcComment; }
+    SvnShowRecentChangesBaseDlg(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Subversion: Show Recent Changes"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    virtual ~SvnShowRecentChangesBaseDlg();
 };
 
 #endif

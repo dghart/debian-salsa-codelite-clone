@@ -1,4 +1,5 @@
 version=3
 
-opts=filenamemangle=s/.+\/v?(\d\S*)\.tar\.gz/codelite-$1\.tar\.gz/,dversionmangle=s/\+dfsg\d?$//,uversionmangle=s/-/./ \
+opts=filenamemangle=s/.+\/v?(\d\S*)\.tar\.gz/codelite-$1\.tar\.gz/,dversionmangle=s/\+dfsg\d?$//,\
+uversionmangle=s/-/./,oversionmangle=s/$/+dfsg/ \
   https://github.com/eranif/codelite/tags .*/v?(\d\S*)\.tar\.gz

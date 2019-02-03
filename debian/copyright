@@ -3,6 +3,10 @@ Upstream-Name: CodeLite
 Upstream-Contact: Eran Ifrah <eran.ifrah@gmail.com>
 Source: https://github.com/eranif/codelite
 Files-Excluded:
+ .clang-format
+ .editorconfig
+ make-weekly
+ make-weekly.bat
  *.exe
  *.dll
  codelitephp/bin
@@ -21,6 +25,7 @@ Files-Excluded:
  sdk/wxflatnotebook
  sdk/wxsqlite3
  sqlite3
+ LiteEditor/resource.h
  SpellChecker/hunspell
  Runtime/debugserver
  Runtime/src

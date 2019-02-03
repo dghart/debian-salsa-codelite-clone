@@ -5,11 +5,11 @@ Forwarded: not-needed
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -634,7 +634,6 @@ if(NOT SDK_ONLY)
+@@ -647,7 +647,6 @@ if(NOT SDK_ONLY)
      add_subdirectory(codelite_make)
      add_subdirectory(codelite_terminal)
      add_subdirectory(sdk/codelite_indexer)
 -    add_subdirectory(sdk/codelite_cppcheck)
      add_subdirectory(codelite_echo)
- endif()
- ##
+     if(DEBUG_BUILD)
+         add_subdirectory(CodeCompletionsTests)

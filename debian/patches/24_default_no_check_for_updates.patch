@@ -5,11 +5,11 @@ Description: Do not check for updates by default
  default setting.
 Author: James Cowgill <jcowgill@debian.org>
 Forwarded: not-needed
----
-This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+diff --git a/LiteEditor/editorsettingsmiscpanel.cpp b/LiteEditor/editorsettingsmiscpanel.cpp
+index 23df8dc9e..8dd812c55 100644
 --- a/LiteEditor/editorsettingsmiscpanel.cpp
 +++ b/LiteEditor/editorsettingsmiscpanel.cpp
-@@ -93,7 +93,7 @@ EditorSettingsMiscPanel::EditorSettingsM
+@@ -93,7 +93,7 @@ EditorSettingsMiscPanel::EditorSettingsMiscPanel(wxWindow* parent)
      m_fileEncoding->SetSelection(iCurrSelId);
  
      m_singleAppInstance->SetValue(clConfig::Get().Read(kConfigSingleInstance, false));
@@ -18,14 +18,19 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
      m_maxItemsFindReplace->ChangeValue(::wxIntToString(clConfig::Get().Read(kConfigMaxItemsInFindReplaceDialog, 15)));
      m_spinCtrlMaxOpenTabs->ChangeValue(::wxIntToString(clConfig::Get().Read(kConfigMaxOpenedTabs, 15)));
      m_choice4->SetStringSelection(
+diff --git a/LiteEditor/frame.cpp b/LiteEditor/frame.cpp
+index 9e33922c1..27ae73179 100644
 --- a/LiteEditor/frame.cpp
 +++ b/LiteEditor/frame.cpp
-@@ -3000,7 +3000,7 @@ void clMainFrame::OnTimer(wxTimerEvent&
-         wxLogMessage("Running under Cygwin environment");
-     }
+@@ -2944,11 +2944,6 @@ void clMainFrame::OnTimer(wxTimerEvent& event)
+     wxLogMessage("Using " + wxStyledTextCtrl::GetLibraryVersionInfo().ToString());
+     if(::clIsCygwinEnvironment()) { wxLogMessage("Running under Cygwin environment"); }
  
 -    if(clConfig::Get().Read(kConfigCheckForNewVersion, true)) {
-+    if(clConfig::Get().Read(kConfigCheckForNewVersion, false)) {
-         JobQueueSingleton::Instance()->PushJob(new WebUpdateJob(this, false));
-     }
+-        m_webUpdate = new WebUpdateJob(this, false, clConfig::Get().Read("PromptForNewReleaseOnly", false));
+-        m_webUpdate->Check();
+-    }
+-
+     // enable/disable plugins toolbar functionality
+     PluginManager::Get()->EnableToolbars();
  
