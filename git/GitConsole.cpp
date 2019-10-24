@@ -24,125 +24,104 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "GitConsole.h"
-#include "git.h"
-#include "cl_config.h"
-#include "gitentry.h"
-#include <wx/datetime.h>
-#include "event_notifier.h"
+#include "GitResetDlg.h"
 #include "bitmap_loader.h"
-#include <algorithm>
+#include "clBitmap.h"
+#include "clCommandProcessor.h"
+#include "cl_aui_tool_stickness.h"
+#include "cl_config.h"
+#include "drawingutils.h"
+#include "editor_config.h"
+#include "event_notifier.h"
 #include "fileextmanager.h"
+#include "git.h"
+#include "gitentry.h"
+#include "globals.h"
+#include "lexer_configuration.h"
+#include "macros.h"
+#include <algorithm>
+#include <wx/datetime.h>
 #include <wx/icon.h>
 #include <wx/tokenzr.h>
-#include "lexer_configuration.h"
-#include "editor_config.h"
-#include "drawingutils.h"
-#include "cl_aui_tool_stickness.h"
-#include "macros.h"
-#include "globals.h"
-#include "clCommandProcessor.h"
 #include <wx/wupdlock.h>
-#include "clBitmap.h"
 
 #define GIT_MESSAGE(...) AddText(wxString::Format(__VA_ARGS__));
-#define GIT_MESSAGE1(...)                       \
-    if(IsVerbose()) {                           \
-        AddText(wxString::Format(__VA_ARGS__)); \
-    }
+#define GIT_MESSAGE1(...) \
+    if(IsVerbose()) { AddText(wxString::Format(__VA_ARGS__)); }
 
-class GitClientData : public wxClientData
+#define GIT_ITEM_DATA(viewItem) reinterpret_cast<GitClientData*>(m_dvListCtrl->GetItemData(viewItem))
+
+enum class eGitFile {
+    kUnknown = -1,
+    kNewFile,
+    kDeletedFile,
+    kModifiedFile,
+    kUntrackedFile,
+    kRenamedFile,
+};
+
+class GitClientData
 {
     wxString m_path;
+    eGitFile m_kind;
 
 public:
-    GitClientData(const wxString& path)
+    GitClientData(const wxString& path, eGitFile kind)
         : m_path(path)
+        , m_kind(kind)
     {
     }
     virtual ~GitClientData() {}
 
     void SetPath(const wxString& path) { this->m_path = path; }
     const wxString& GetPath() const { return m_path; }
-};
-
-// we use a custom column randerer so can have a better control over the font
-class GitMyTextRenderer : public wxDataViewCustomRenderer
-{
-    wxDataViewListCtrl* m_listctrl;
-    wxVariant m_value;
-    wxFont m_font;
-
-public:
-    GitMyTextRenderer(wxDataViewListCtrl* listctrl)
-        : m_listctrl(listctrl)
-    {
-        m_font = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
-        m_font.SetFamily(wxFONTFAMILY_TELETYPE);
-
-        wxBitmap bmp(1, 1);
-        wxMemoryDC dc;
-        dc.SelectObject(bmp);
-        int xx, yy;
-        wxFont f = m_font;
-        dc.GetTextExtent("Tp", &xx, &yy, NULL, NULL, &f);
-        m_listctrl->SetRowHeight(yy);
-    }
-
-    virtual ~GitMyTextRenderer() {}
-
-    virtual wxSize GetSize() const
-    {
-        int xx, yy;
-        wxBitmap bmp(1, 1);
-        wxMemoryDC dc;
-        dc.SelectObject(bmp);
-
-        wxString s = m_value.GetString();
-        wxFont f = m_font;
-        dc.GetTextExtent(s, &xx, &yy, NULL, NULL, &f);
-        return wxSize(xx, yy);
-    }
-
-    virtual bool SetValue(const wxVariant& value)
-    {
-        m_value = value;
-        return true;
-    }
-
-    virtual bool GetValue(wxVariant& value) const
-    {
-        value = m_value;
-        return true;
-    }
-
-    virtual bool Render(wxRect cell, wxDC* dc, int state)
-    {
-        wxVariant v;
-        GetValue(v);
-        wxString str = v.GetString();
-        str.Trim();
-        wxPoint pt = cell.GetTopLeft();
-        wxFont f = m_font;
-        dc->SetFont(f);
-        dc->DrawText(str, pt);
-        return true;
-    }
+    eGitFile GetKind() const { return m_kind; }
 };
 
 // ---------------------------------------------------------------------
-void PopulateAuiToolbarOverflow(wxAuiToolBarItemArray& append_items,
+void PopulateAuiToolbarOverflow(
+    wxAuiToolBarItemArray& append_items,
     const GitImages& images) // Helper function, partly because there's no convenient wxAuiToolBarItem ctor
 {
-    static const char* labels[] = { wxTRANSLATE("Create local branch"), wxTRANSLATE("Switch to local branch"),
-        wxTRANSLATE("Switch to remote branch"), "", wxTRANSLATE("Refresh"), wxTRANSLATE("Apply Patch"), "",
-        wxTRANSLATE("Start gitk"), wxTRANSLATE("Garbage collect"), "", wxTRANSLATE("Plugin settings"),
-        wxTRANSLATE("Set repository path"), wxTRANSLATE("Clone a git repository") };
-    static const char* bitmapnames[] = { "gitNewBranch", "gitSwitchLocalBranch", "gitSwitchRemoteBranch", "",
-        "gitRefresh", "gitApply", "", "gitStart", "gitTrash", "", "gitSettings", "gitPath", "gitClone" };
-    static const int IDs[] = { XRCID("git_create_branch"), XRCID("git_switch_branch"),
-        XRCID("git_switch_to_remote_branch"), 0, XRCID("git_refresh"), XRCID("git_apply_patch"), 0,
-        XRCID("git_start_gitk"), XRCID("git_garbage_collection"), 0, XRCID("git_settings"), XRCID("git_set_repository"),
-        XRCID("git_clone") };
+    static const char* labels[] = { wxTRANSLATE("Create local branch"),
+                                    wxTRANSLATE("Switch to local branch"),
+                                    wxTRANSLATE("Switch to remote branch"),
+                                    "",
+                                    wxTRANSLATE("Refresh"),
+                                    wxTRANSLATE("Apply Patch"),
+                                    "",
+                                    wxTRANSLATE("Start gitk"),
+                                    wxTRANSLATE("Garbage collect"),
+                                    "",
+                                    wxTRANSLATE("Plugin settings"),
+                                    wxTRANSLATE("Set repository path"),
+                                    wxTRANSLATE("Clone a git repository") };
+    static const char* bitmapnames[] = { "gitNewBranch",
+                                         "gitSwitchLocalBranch",
+                                         "gitSwitchRemoteBranch",
+                                         "",
+                                         "gitRefresh",
+                                         "gitApply",
+                                         "",
+                                         "gitStart",
+                                         "gitTrash",
+                                         "",
+                                         "gitSettings",
+                                         "gitPath",
+                                         "gitClone" };
+    static const int IDs[] = { XRCID("git_create_branch"),
+                               XRCID("git_switch_branch"),
+                               XRCID("git_switch_to_remote_branch"),
+                               0,
+                               XRCID("git_refresh"),
+                               XRCID("git_apply_patch"),
+                               0,
+                               XRCID("git_start_gitk"),
+                               XRCID("git_garbage_collection"),
+                               0,
+                               XRCID("git_settings"),
+                               XRCID("git_set_repository"),
+                               XRCID("git_clone") };
     size_t IDsize = sizeof(IDs) / sizeof(int);
     wxCHECK_RET(sizeof(labels) / sizeof(char*) == IDsize, "Mismatched arrays");
     wxCHECK_RET(sizeof(bitmapnames) / sizeof(char*) == IDsize, "Mismatched arrays");
@@ -171,27 +150,22 @@ GitConsole::GitConsole(wxWindow* parent, GitPlugin* git)
 {
     // set the font to fit the C++ lexer default font
     LexerConf::Ptr_t lexCpp = EditorConfigST::Get()->GetLexer("text");
-    if(lexCpp) {
-        lexCpp->Apply(m_stcLog);
-    }
+    if(lexCpp) { lexCpp->Apply(m_stcLog); }
     m_bitmapLoader = clGetManager()->GetStdIcons();
 
     GitImages m_images;
     m_images.SetBitmapResolution(clBitmap::ShouldLoadHiResImages() ? "@2x" : "");
-
     m_bitmaps = m_bitmapLoader->MakeStandardMimeMap();
-    m_modifiedBmp = m_bitmapLoader->LoadBitmap("warning");
+    m_modifiedBmp = m_bitmapLoader->LoadBitmap("modified");
     m_untrackedBmp = m_bitmapLoader->LoadBitmap("info");
-    m_folderBmp = m_bitmapLoader->LoadBitmap("folder");
+    m_folderBmp = m_bitmapLoader->LoadBitmap("folder-yellow");
     m_newBmp = m_bitmapLoader->LoadBitmap("plus");
     m_deleteBmp = m_bitmapLoader->LoadBitmap("minus");
 
-    EventNotifier::Get()->Connect(
-        wxEVT_GIT_CONFIG_CHANGED, wxCommandEventHandler(GitConsole::OnConfigurationChanged), NULL, this);
-    EventNotifier::Get()->Connect(
-        wxEVT_WORKSPACE_CLOSED, wxCommandEventHandler(GitConsole::OnWorkspaceClosed), NULL, this);
-    EventNotifier::Get()->Connect(
-        wxEVT_CL_THEME_CHANGED, wxCommandEventHandler(GitConsole::OnEditorThemeChanged), NULL, this);
+    EventNotifier::Get()->Connect(wxEVT_GIT_CONFIG_CHANGED, wxCommandEventHandler(GitConsole::OnConfigurationChanged),
+                                  NULL, this);
+    EventNotifier::Get()->Connect(wxEVT_WORKSPACE_CLOSED, wxCommandEventHandler(GitConsole::OnWorkspaceClosed), NULL,
+                                  this);
     clConfig conf("git.conf");
     GitEntry data;
     conf.ReadItem(&data);
@@ -205,13 +179,13 @@ GitConsole::GitConsole(wxWindow* parent, GitPlugin* git)
 
     m_auibar->AddTool(XRCID("git_clear_log"), _("Clear Git Log"), bmps->LoadBitmap("clear"), _("Clear Git Log"));
     m_auibar->AddTool(XRCID("git_stop_process"), _("Terminate Git Process"), bmps->LoadBitmap("execute_stop"),
-        _("Terminate Git Process"));
+                      _("Terminate Git Process"));
     m_auibar->AddSeparator();
     m_auibar->AddTool(XRCID("git_console_add_file"), _("Add File"), bmps->LoadBitmap("plus"), _("Add File"));
     m_auibar->AddTool(XRCID("git_console_reset_file"), _("Reset File"), bmps->LoadBitmap("undo"), _("Reset File"));
 
-    m_auibar->AddTool(
-        XRCID("git_reset_repository"), _("Reset"), m_images.Bitmap("gitResetRepo"), _("Reset repository"));
+    m_auibar->AddTool(XRCID("git_reset_repository"), _("Reset"), m_images.Bitmap("gitResetRepo"),
+                      _("Reset repository"));
     m_auibar->AddSeparator();
 
     m_auibar->AddTool(XRCID("git_pull"), _("Pull"), m_images.Bitmap("gitPull"), _("Pull remote changes"));
@@ -222,21 +196,19 @@ GitConsole::GitConsole(wxWindow* parent, GitPlugin* git)
     m_auibar->SetToolDropDown(XRCID("git_rebase"), true);
     m_auibar->AddSeparator();
     m_auibar->AddTool(XRCID("git_commit_diff"), _("Diffs"), m_images.Bitmap("gitDiffs"), _("Show current diffs"));
-    m_auibar->AddTool(
-        XRCID("git_browse_commit_list"), _("Log"), m_images.Bitmap("gitCommitedFiles"), _("Browse commit history"));
-    m_auibar->AddTool(
-        XRCID("git_blame"), _("Blame"), m_images.Bitmap("gitBlame"), _("Git blame"));
+    m_auibar->AddTool(XRCID("git_browse_commit_list"), _("Log"), m_images.Bitmap("gitCommitedFiles"),
+                      _("Browse commit history"));
+    m_auibar->AddTool(XRCID("git_blame"), _("Blame"), m_images.Bitmap("gitBlame"), _("Git blame"));
 
 #ifdef __WXMSW__
     m_auibar->AddSeparator();
     m_auibar->AddTool(XRCID("git_msysgit"), _("Open MSYS Git"), m_images.Bitmap("msysgit"),
-        _("Open MSYS Git at the current file location"));
+                      _("Open MSYS Git at the current file location"));
 #endif
 
     // Bind the events
     Bind(wxEVT_MENU, &GitConsole::OnClearGitLog, this, XRCID("git_clear_log"));
     Bind(wxEVT_UPDATE_UI, &GitConsole::OnClearGitLogUI, this, XRCID("git_clear_log"));
-    Bind(wxEVT_MENU, &GitConsole::OnAddFile, this, XRCID("git_console_add_file"));
     Bind(wxEVT_MENU, &GitConsole::OnResetFile, this, XRCID("git_console_reset_file"));
     Bind(wxEVT_MENU, &GitConsole::OnStopGitProcess, this, XRCID("git_stop_process"));
     Bind(wxEVT_UPDATE_UI, &GitConsole::OnStopGitProcessUI, this, XRCID("git_stop_process"));
@@ -251,9 +223,9 @@ GitConsole::GitConsole(wxWindow* parent, GitPlugin* git)
     m_auibar->Realize();
 
     Bind(wxEVT_AUITOOLBAR_TOOL_DROPDOWN, wxAuiToolBarEventHandler(GitConsole::OnGitPullDropdown), this,
-        XRCID("git_pull"));
+         XRCID("git_pull"));
     Bind(wxEVT_AUITOOLBAR_TOOL_DROPDOWN, wxAuiToolBarEventHandler(GitConsole::OnGitRebaseDropdown), this,
-        XRCID("git_rebase"));
+         XRCID("git_rebase"));
 
     // Adjust the h-scrollbar of git log
     ::clRecalculateSTCHScrollBar(m_stcLog);
@@ -267,28 +239,21 @@ GitConsole::~GitConsole()
     data.SetGitConsoleSashPos(m_splitter->GetSashPosition());
     conf.WriteItem(&data);
 
-    EventNotifier::Get()->Disconnect(
-        wxEVT_GIT_CONFIG_CHANGED, wxCommandEventHandler(GitConsole::OnConfigurationChanged), NULL, this);
-    EventNotifier::Get()->Disconnect(
-        wxEVT_WORKSPACE_CLOSED, wxCommandEventHandler(GitConsole::OnWorkspaceClosed), NULL, this);
-    EventNotifier::Get()->Disconnect(
-        wxEVT_CL_THEME_CHANGED, wxCommandEventHandler(GitConsole::OnEditorThemeChanged), NULL, this);
-
+    EventNotifier::Get()->Disconnect(wxEVT_GIT_CONFIG_CHANGED,
+                                     wxCommandEventHandler(GitConsole::OnConfigurationChanged), NULL, this);
+    EventNotifier::Get()->Disconnect(wxEVT_WORKSPACE_CLOSED, wxCommandEventHandler(GitConsole::OnWorkspaceClosed), NULL,
+                                     this);
     Unbind(wxEVT_AUITOOLBAR_TOOL_DROPDOWN, wxAuiToolBarEventHandler(GitConsole::OnGitPullDropdown), this,
-        XRCID("git_pull"));
+           XRCID("git_pull"));
 }
 
 void GitConsole::OnClearGitLog(wxCommandEvent& event) { m_stcLog->ClearAll(); }
 
 void GitConsole::OnStopGitProcess(wxCommandEvent& event)
 {
-    if(m_git->GetProcess()) {
-        m_git->GetProcess()->Terminate();
-    }
+    if(m_git->GetProcess()) { m_git->GetProcess()->Terminate(); }
 
-    if(m_git->GetFolderProcess()) {
-        m_git->GetFolderProcess()->Terminate();
-    }
+    if(m_git->GetFolderProcess()) { m_git->GetFolderProcess()->Terminate(); }
 }
 
 void GitConsole::OnStopGitProcessUI(wxUpdateUIEvent& event)
@@ -303,9 +268,7 @@ void GitConsole::AddText(const wxString& text)
     wxWindowUpdateLocker locker(m_stcLog);
     wxString tmp = text;
     tmp.Replace("\r\n", "\n");
-    if(!tmp.EndsWith("\n")) {
-        tmp.Append("\n");
-    }
+    if(!tmp.EndsWith("\n")) { tmp.Append("\n"); }
     wxString curtext = m_stcLog->GetText();
     curtext << tmp;
     m_stcLog->SetText(curtext);
@@ -327,30 +290,11 @@ void GitConsole::OnConfigurationChanged(wxCommandEvent& e)
 
 void GitConsole::UpdateTreeView(const wxString& output)
 {
-    m_dvFilesModel->Clear();
+    Clear();
     wxVector<wxVariant> cols;
-
-    cols.clear();
-    cols.push_back(MakeIconText(_("Modified"), m_modifiedBmp));
-    m_itemModified = m_dvFilesModel->AppendItem(wxDataViewItem(0), cols, new wxStringClientData("Modified"));
-
-    cols.clear();
-    cols.push_back(MakeIconText(_("New Files"), m_newBmp));
-    m_itemNew = m_dvFilesModel->AppendItem(wxDataViewItem(0), cols, new wxStringClientData("New Files"));
-
-    cols.clear();
-    cols.push_back(MakeIconText(_("Deleted Files"), m_deleteBmp));
-    m_itemDeleted = m_dvFilesModel->AppendItem(wxDataViewItem(0), cols, new wxStringClientData("Deleted Files"));
-
-    cols.clear();
-    cols.push_back(MakeIconText(_("Untracked"), m_untrackedBmp));
-    m_itemUntracked = m_dvFilesModel->AppendItem(wxDataViewItem(0), cols, new wxStringClientData("Untracked"));
-
     wxArrayString files = ::wxStringTokenize(output, "\n\r", wxTOKEN_STRTOK);
     std::sort(files.begin(), files.end());
-
     for(size_t i = 0; i < files.GetCount(); ++i) {
-
         wxString filename = files.Item(i);
         filename.Trim().Trim(false);
         filename.Replace("\t", " ");
@@ -363,160 +307,118 @@ void GitConsole::UpdateTreeView(const wxString& output)
         wxFileName fn(filename);
         if(fn.IsRelative()) {
             fn.MakeAbsolute(m_git->GetRepositoryDirectory());
-            if(fn.FileExists()) {
-                filenameFullpath = fn.GetFullPath();
-            }
+            if(fn.FileExists()) { filenameFullpath = fn.GetFullPath(); }
         }
 
+        if(filename.EndsWith("/")) { continue; }
         wxBitmap bmp;
-        if(filename.EndsWith("/")) {
-            bmp = m_folderBmp;
-        } else if(m_bitmaps.count(FileExtManager::GetType(filename))) {
+        if(m_bitmaps.count(FileExtManager::GetType(filename))) {
             bmp = m_bitmaps[FileExtManager::GetType(filename)];
         } else {
             bmp = m_bitmaps[FileExtManager::TypeText];
         }
 
-        cols.clear();
-        cols.push_back(MakeIconText(filename, bmp));
-
         wxChar chX = prefix[0];
         wxChar chY = 0;
-        if(prefix.length() > 1) {
-            chY = prefix[1];
+        if(prefix.length() > 1) { chY = prefix[1]; }
+
+        wxBitmap statusBmp;
+        eGitFile kind = eGitFile::kUntrackedFile;
+        switch(chX) {
+        case 'M':
+            statusBmp = m_modifiedBmp;
+            kind = eGitFile::kModifiedFile;
+            break;
+        case 'A':
+            statusBmp = m_newBmp;
+            kind = eGitFile::kNewFile;
+            break;
+        case 'D':
+            statusBmp = m_deleteBmp;
+            kind = eGitFile::kDeletedFile;
+            break;
+        case 'R':
+            statusBmp = m_modifiedBmp;
+            kind = eGitFile::kRenamedFile;
+            break;
+        default:
+            statusBmp = m_untrackedBmp;
+            kind = eGitFile::kUntrackedFile;
+            break;
         }
 
-        if(chX == 'M') {
-            m_dvFilesModel->AppendItem(m_itemModified, cols, new GitClientData(filenameFullpath));
-
-        } else if(chX == 'A') {
-            m_dvFilesModel->AppendItem(m_itemNew, cols, new GitClientData(filenameFullpath));
-
-        } else if(chX == 'D') {
-            // Delete from index
-            m_dvFilesModel->AppendItem(m_itemDeleted, cols, new GitClientData(filenameFullpath));
-
-        } else if(chX == 'R') {
-            // Renamed in index
-            // for now, we will treat renamed file as modified file
-            m_dvFilesModel->AppendItem(m_itemModified, cols, new GitClientData(filenameFullpath));
-
-        } else {
-            m_dvFilesModel->AppendItem(m_itemUntracked, cols, new GitClientData(filenameFullpath));
+        if(kind != eGitFile::kUntrackedFile) {
+            cols.clear();
+            cols.push_back(wxString() << chX);
+            cols.push_back(MakeIconText(filename, bmp));
+            m_dvListCtrl->AppendItem(cols, (wxUIntPtr) new GitClientData(filenameFullpath, kind));
         }
     }
-
-#ifndef __WXMAC__
-    if(!m_dvFilesModel->HasChildren(m_itemModified)) {
-        m_dvFilesModel->DeleteItem(m_itemModified);
-        m_itemModified = wxDataViewItem();
-    } else {
-        m_dvFiles->Expand(m_itemModified);
-    }
-
-    if(!m_dvFilesModel->HasChildren(m_itemUntracked)) {
-        m_dvFilesModel->DeleteItem(m_itemUntracked);
-        m_itemUntracked = wxDataViewItem();
-    }
-
-    if(!m_dvFilesModel->HasChildren(m_itemNew)) {
-        m_dvFilesModel->DeleteItem(m_itemNew);
-        m_itemNew = wxDataViewItem();
-    } else {
-        m_dvFiles->Expand(m_itemNew);
-    }
-
-    if(!m_dvFilesModel->HasChildren(m_itemDeleted)) {
-        m_dvFilesModel->DeleteItem(m_itemDeleted);
-        m_itemDeleted = wxDataViewItem();
-    } else {
-        m_dvFiles->Expand(m_itemDeleted);
-    }
-#endif
 }
 
 void GitConsole::OnContextMenu(wxDataViewEvent& event)
 {
     wxMenu menu;
-    menu.Append(XRCID("git_console_open_file"), _("Open File"));
-    menu.AppendSeparator();
-    menu.Append(XRCID("git_console_add_file"), _("Add file"));
-    menu.Append(XRCID("git_console_reset_file"), _("Reset file"));
-    menu.AppendSeparator();
+    bool hasSelection = (m_dvListCtrl->GetSelectedItemsCount() > 0);
+    if(hasSelection) {
+        menu.Append(XRCID("git_console_open_file"), _("Open File"));
+        menu.AppendSeparator();
+        menu.Append(XRCID("git_console_reset_file"), _("Reset file"));
+        menu.AppendSeparator();
+    }
     menu.Append(XRCID("git_console_close_view"), _("Close View"));
 
-    menu.Bind(wxEVT_MENU, &GitConsole::OnOpenFile, this, XRCID("git_console_open_file"));
+    if(hasSelection) {
+        menu.Bind(wxEVT_MENU, &GitConsole::OnOpenFile, this, XRCID("git_console_open_file"));
+    }
     menu.Bind(wxEVT_MENU, &GitConsole::OnCloseView, this, XRCID("git_console_close_view"));
-    m_dvFiles->PopupMenu(&menu);
-}
-
-void GitConsole::OnAddFile(wxCommandEvent& event)
-{
-    wxDataViewItemArray items;
-    m_dvFiles->GetSelections(items);
-    wxArrayString files;
-    for(size_t i = 0; i < items.GetCount(); ++i) {
-        GitClientData* gcd = dynamic_cast<GitClientData*>(m_dvFilesModel->GetClientObject(items.Item(i)));
-        if(gcd) {
-            wxString path = gcd->GetPath();
-            path.Trim().Trim(false);
-            path.Replace("\\", "/");
-            files.push_back(path);
-        }
-    }
-
-    if(!files.IsEmpty()) {
-        m_git->AddFiles(files);
-    }
+    m_dvListCtrl->PopupMenu(&menu);
 }
 
 void GitConsole::OnResetFile(wxCommandEvent& event)
 {
     wxDataViewItemArray items;
-    m_dvFiles->GetSelections(items);
-    wxArrayString filesToRemove, filesToRevert;
-    for(size_t i = 0; i < items.GetCount(); ++i) {
-        wxString parentNodeName;
-        wxDataViewItem parent = m_dvFilesModel->GetParent(items.Item(i));
-        if(parent.IsOk()) {
-            wxStringClientData* gcd = dynamic_cast<wxStringClientData*>(m_dvFilesModel->GetClientObject(parent));
-            parentNodeName = gcd->GetData();
-        }
+    m_dvListCtrl->GetSelections(items);
+    wxArrayString filesToRevert, filesToRemove;
 
-        GitClientData* gcd = dynamic_cast<GitClientData*>(m_dvFilesModel->GetClientObject(items.Item(i)));
+    for(size_t i = 0; i < items.GetCount(); ++i) {
+        GitClientData* gcd = reinterpret_cast<GitClientData*>(m_dvListCtrl->GetItemData(items.Item(i)));
         if(gcd) {
-            if(parentNodeName == "New Files") {
+            if(gcd->GetKind() == eGitFile::kNewFile) {
                 filesToRemove.push_back(gcd->GetPath());
 
-            } else if(parentNodeName == "Modified") {
+            } else if((gcd->GetKind() == eGitFile::kModifiedFile) || (gcd->GetKind() == eGitFile::kRenamedFile)) {
                 filesToRevert.push_back(gcd->GetPath());
             }
         }
     }
+    if(filesToRevert.IsEmpty() && filesToRemove.IsEmpty()) { return; }
 
-    if(!filesToRevert.IsEmpty()) {
-        m_git->ResetFiles(filesToRevert);
-    }
+    GitResetDlg dlg(EventNotifier::Get()->TopFrame(), filesToRevert, filesToRemove);
+    if(dlg.ShowModal() != wxID_OK) { return; }
 
-    if(!filesToRemove.IsEmpty()) {
-        m_git->UndoAddFiles(filesToRemove);
-    }
+    filesToRevert = dlg.GetItemsToRevert();
+    filesToRemove = dlg.GetItemsToRemove();
+
+    if(!filesToRevert.IsEmpty()) { m_git->ResetFiles(filesToRevert); }
+
+    if(!filesToRemove.IsEmpty()) { m_git->UndoAddFiles(filesToRemove); }
 }
 void GitConsole::OnWorkspaceClosed(wxCommandEvent& e)
 {
     e.Skip();
-    m_dvFilesModel->Clear();
+    Clear();
     OnClearGitLog(e);
 }
 
-void GitConsole::OnItemSelectedUI(wxUpdateUIEvent& event) { event.Enable(m_dvFiles->GetSelectedItemsCount()); }
+void GitConsole::OnItemSelectedUI(wxUpdateUIEvent& event) { event.Enable(m_dvListCtrl->GetSelectedItemsCount()); }
 
 void GitConsole::OnFileActivated(wxDataViewEvent& event)
 {
     CHECK_ITEM_RET(event.GetItem());
 
     wxArrayString files;
-    GitClientData* gcd = dynamic_cast<GitClientData*>(m_dvFilesModel->GetClientObject(event.GetItem()));
+    GitClientData* gcd = GIT_ITEM_DATA(event.GetItem());
     if(gcd) {
         GIT_MESSAGE("Showing diff for: %s", gcd->GetPath().c_str());
         files.push_back(gcd->GetPath());
@@ -527,13 +429,11 @@ void GitConsole::OnFileActivated(wxDataViewEvent& event)
 void GitConsole::OnOpenFile(wxCommandEvent& e)
 {
     wxDataViewItemArray items;
-    m_dvFiles->GetSelections(items);
+    m_dvListCtrl->GetSelections(items);
     wxArrayString files;
     for(size_t i = 0; i < items.GetCount(); ++i) {
-        GitClientData* gcd = dynamic_cast<GitClientData*>(m_dvFilesModel->GetClientObject(items.Item(i)));
-        if(gcd) {
-            files.push_back(gcd->GetPath());
-        }
+        GitClientData* gcd = GIT_ITEM_DATA(items.Item(i));
+        if(gcd) { files.push_back(gcd->GetPath()); }
     }
 
     if(files.IsEmpty()) {
@@ -549,17 +449,6 @@ void GitConsole::OnOpenFile(wxCommandEvent& e)
 }
 
 void GitConsole::OnApplyPatch(wxCommandEvent& event) { wxPostEvent(m_git, event); }
-
-void GitConsole::OnEditorThemeChanged(wxCommandEvent& e)
-{
-    e.Skip();
-
-    for(int i = 0; i <= wxSTC_STYLE_DEFAULT; ++i) {
-        m_stcLog->StyleSetBackground(i, DrawingUtils::GetOutputPaneBgColour());
-        m_stcLog->StyleSetForeground(i, DrawingUtils::GetOutputPaneFgColour());
-    }
-    m_stcLog->Refresh();
-}
 
 struct GitCommandData : public wxObject {
     GitCommandData(const wxArrayString a, const wxString n, int i)
@@ -598,7 +487,7 @@ void GitConsole::DoOnDropdown(wxAuiToolBarEvent& e, const wxString& commandName,
         arr.Add(entries.at(n).command);
     }
     menu.Bind(wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(GitConsole::OnDropDownMenuEvent), this, 0,
-        arr.GetCount(), new GitCommandData(arr, commandName, id));
+              arr.GetCount(), new GitCommandData(arr, commandName, id));
 
     wxAuiToolBar* auibar = dynamic_cast<wxAuiToolBar*>(e.GetEventObject());
     if(auibar) {
@@ -609,7 +498,7 @@ void GitConsole::DoOnDropdown(wxAuiToolBarEvent& e, const wxString& commandName,
         PopupMenu(&menu, pt);
     }
     menu.Unbind(wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(GitConsole::OnDropDownMenuEvent), this, 0,
-        arr.GetCount(), new GitCommandData(arr, commandName, id));
+                arr.GetCount(), new GitCommandData(arr, commandName, id));
 }
 
 void GitConsole::OnDropDownMenuEvent(wxCommandEvent& event)
@@ -668,14 +557,8 @@ bool GitConsole::IsProgressShown() const { return m_gauge->IsShown(); }
 
 void GitConsole::PulseProgress() { m_gauge->Pulse(); }
 
-bool GitConsole::IsDirty() const
-{
-    bool hasDeleted = m_itemDeleted.IsOk() && m_dvFilesModel->HasChildren(m_itemDeleted);
-    bool hasModified = m_itemModified.IsOk() && m_dvFilesModel->HasChildren(m_itemModified);
-    bool hasNew = m_itemNew.IsOk() && m_dvFilesModel->HasChildren(m_itemNew);
+bool GitConsole::IsDirty() const { return (m_dvListCtrl->GetItemCount() > 0); }
 
-    return hasDeleted || hasModified || hasNew;
-}
 void GitConsole::OnStclogStcChange(wxStyledTextEvent& event)
 {
     event.Skip();
@@ -701,8 +584,18 @@ void GitConsole::OnCloseView(wxCommandEvent& e)
 
     // Clear the source control image
     clStatusBar* sb = clGetManager()->GetStatusBar();
-    if(sb) {
-        sb->SetSourceControlBitmap(wxNullBitmap, "", "");
-    }
+    if(sb) { sb->SetSourceControlBitmap(wxNullBitmap, "", ""); }
     OnWorkspaceClosed(e);
 }
+
+void GitConsole::Clear()
+{
+    int count = m_dvListCtrl->GetItemCount();
+    for(int i = 0; i < count; ++i) {
+        GitClientData* cd = GIT_ITEM_DATA(m_dvListCtrl->RowToItem(i));
+        if(cd) { wxDELETE(cd); }
+    }
+    m_dvListCtrl->DeleteAllItems();
+}
+
+void GitConsole::OnUpdateUI(wxUpdateUIEvent& event) { event.Enable(!m_git->GetRepositoryDirectory().IsEmpty()); }
