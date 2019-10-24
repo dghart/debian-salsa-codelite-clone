@@ -23,27 +23,33 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "unixprocess_impl.h"
 #include "file_logger.h"
+#include "unixprocess_impl.h"
+#include <cstring>
+#include "file_logger.h"
+#include "fileutils.h"
+#include "SocketAPI/clSocketBase.h"
+#include <thread>
+#include "StringUtils.h"
 
 #if defined(__WXMAC__) || defined(__WXGTK__)
 
-#include <wx/stdpaths.h>
-#include <wx/filename.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/select.h>
-#include <errno.h>
-#include <sys/wait.h>
-#include <string.h>
 #include "procutils.h"
+#include <errno.h>
+#include <signal.h>
+#include <string.h>
+#include <sys/select.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <wx/filename.h>
+#include <wx/stdpaths.h>
 
 #ifdef __WXGTK__
 #ifdef __FreeBSD__
+#include <libutil.h>
 #include <sys/ioctl.h>
 #include <termios.h>
-#include <libutil.h>
 #else
 #include <pty.h>
 #include <utmp.h>
@@ -64,8 +70,8 @@ static int argc = 0;
 #ifdef __STDC__
 
 #include <stddef.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #else /* !__STDC__ */
 
@@ -239,39 +245,14 @@ static void make_argv(const wxString& cmd)
     }
 }
 
-#define BUFF_STATE_NORMAL 0
-#define BUFF_STATE_IN_ESC 1
-
 static void RemoveTerminalColoring(char* buffer)
 {
-    char* saved_buff = buffer;
-    char tmpbuf[BUFF_SIZE + 1];
-    memset(tmpbuf, 0, sizeof(tmpbuf));
+    std::string cinput = buffer;
+    std::string coutout;
+    StringUtils::StripTerminalColouring(cinput, coutout);
 
-    short state = BUFF_STATE_NORMAL;
-    size_t i(0);
-
-    while((*buffer) != 0) {
-        switch(state) {
-        case BUFF_STATE_NORMAL:
-            if(*buffer == 0x1B) { // found ESC char
-                state = BUFF_STATE_IN_ESC;
-
-            } else {
-                tmpbuf[i] = *buffer;
-                i++;
-            }
-            break;
-        case BUFF_STATE_IN_ESC:
-            if(*buffer == 'm') { // end of color sequence
-                state = BUFF_STATE_NORMAL;
-            }
-            break;
-        }
-        buffer++;
-    }
-    memset(saved_buff, 0, BUFF_SIZE);
-    memcpy(saved_buff, tmpbuf, strlen(tmpbuf));
+    // coutout is ALWAYS <= cinput, so we can safely copy the content to the buffer
+    strcpy(buffer, coutout.c_str());
 }
 
 UnixProcessImpl::UnixProcessImpl(wxEvtHandler* parent)
@@ -288,7 +269,7 @@ void UnixProcessImpl::Cleanup()
 {
     close(GetReadHandle());
     close(GetWriteHandle());
-
+    if(GetStderrHandle() != wxNOT_FOUND) { close(GetStderrHandle()); }
     if(m_thr) {
         // Stop the reader thread
         m_thr->Stop();
@@ -306,13 +287,38 @@ void UnixProcessImpl::Cleanup()
 
 bool UnixProcessImpl::IsAlive() { return kill(m_pid, 0) == 0; }
 
-bool UnixProcessImpl::Read(wxString& buff)
+bool UnixProcessImpl::ReadFromFd(int fd, fd_set& rset, wxString& output)
+{
+    if(fd == wxNOT_FOUND) { return false; }
+    if(FD_ISSET(fd, &rset)) {
+        // there is something to read
+        char buffer[BUFF_SIZE + 1]; // our read buffer
+        int bytesRead = read(fd, buffer, sizeof(buffer));
+        if(bytesRead > 0) {
+            buffer[bytesRead] = 0; // always place a terminator
+
+            // Remove coloring chars from the incomnig buffer
+            // colors are marked with ESC and terminates with lower case 'm'
+            if(!(this->m_flags & IProcessRawOutput)) { RemoveTerminalColoring(buffer); }
+            wxString convBuff = wxString(buffer, wxConvUTF8);
+            if(convBuff.IsEmpty()) { convBuff = wxString::From8BitData(buffer); }
+
+            output = convBuff;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool UnixProcessImpl::Read(wxString& buff, wxString& buffErr)
 {
     fd_set rs;
     timeval timeout;
 
     memset(&rs, 0, sizeof(rs));
     FD_SET(GetReadHandle(), &rs);
+    if(m_stderrHandle != wxNOT_FOUND) { FD_SET(m_stderrHandle, &rs); }
+
     timeout.tv_sec = 0;      // 0 seconds
     timeout.tv_usec = 50000; // 50 ms
 
@@ -320,39 +326,22 @@ bool UnixProcessImpl::Read(wxString& buff)
     errno = 0;
 
     buff.Clear();
-    int rc = select(GetReadHandle() + 1, &rs, NULL, NULL, &timeout);
+    int maxFd = wxMax(GetStderrHandle(), GetReadHandle());
+    int rc = select(maxFd + 1, &rs, NULL, NULL, &timeout);
     errCode = errno;
     if(rc == 0) {
         // timeout
         return true;
 
     } else if(rc > 0) {
-        // there is something to read
-        char buffer[BUFF_SIZE + 1]; // our read buffer
-        memset(buffer, 0, sizeof(buffer));
-        int bytesRead = read(GetReadHandle(), buffer, sizeof(buffer));
-        if(bytesRead > 0) {
-            buffer[BUFF_SIZE] = 0; // allways place a terminator
-
-            // Remove coloring chars from the incomnig buffer
-            // colors are marked with ESC and terminates with lower case 'm'
-            RemoveTerminalColoring(buffer);
-
-            wxString convBuff = wxString(buffer, wxConvUTF8);
-            if(convBuff.IsEmpty()) {
-                convBuff = wxString::From8BitData(buffer);
-            }
-
-            buff = convBuff;
-            return true;
-        }
-        return false;
+        // We differentiate between stdout and stderr?
+        bool stderrRead = ReadFromFd(GetStderrHandle(), rs, buffErr);
+        bool stdoutRead = ReadFromFd(GetReadHandle(), rs, buff);
+        return stderrRead || stdoutRead;
 
     } else {
 
-        if(errCode == EINTR || errCode == EAGAIN) {
-            return true;
-        }
+        if(errCode == EINTR || errCode == EAGAIN) { return true; }
 
         // Process terminated
         // the exit code will be set in the sigchld event handler
@@ -360,23 +349,33 @@ bool UnixProcessImpl::Read(wxString& buff)
     }
 }
 
-bool UnixProcessImpl::Write(const wxString& buff)
+bool UnixProcessImpl::Write(const std::string& buff) { return WriteRaw(buff + "\n"); }
+
+bool UnixProcessImpl::Write(const wxString& buff) { return Write(FileUtils::ToStdString(buff)); }
+
+bool UnixProcessImpl::WriteRaw(const wxString& buff) { return WriteRaw(FileUtils::ToStdString(buff)); }
+bool UnixProcessImpl::WriteRaw(const std::string& buff)
 {
-    wxString tmpbuf = buff;
-    tmpbuf << wxT("\n");
-    int bytes = write(GetWriteHandle(), tmpbuf.mb_str(wxConvUTF8).data(), tmpbuf.Length());
-    return bytes == (int)tmpbuf.length();
+    std::string tmpbuf = buff;
+    const int chunk_size = 1024;
+    while(!tmpbuf.empty()) {
+        int bytes_written =
+            ::write(GetWriteHandle(), tmpbuf.c_str(), tmpbuf.length() > chunk_size ? chunk_size : tmpbuf.length());
+        if(bytes_written <= 0) { return false; }
+        tmpbuf.erase(0, bytes_written);
+    }
+    return true;
 }
 
-IProcess* UnixProcessImpl::Execute(
-    wxEvtHandler* parent, const wxString& cmd, size_t flags, const wxString& workingDirectory, IProcessCallback* cb)
+IProcess* UnixProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, size_t flags,
+                                   const wxString& workingDirectory, IProcessCallback* cb)
 {
     wxString newCmd = cmd;
     if((flags & IProcessCreateAsSuperuser)) {
         if(wxFileName::Exists("/usr/bin/sudo")) {
             newCmd.Prepend("/usr/bin/sudo --askpass ");
             clDEBUG1() << "Executing command:" << newCmd << clEndl;
-            
+
         } else {
             clWARNING() << "Unable to run command: '" << cmd
                         << "' as superuser: /usr/bin/sudo: no such file or directory" << clEndl;
@@ -386,33 +385,63 @@ IProcess* UnixProcessImpl::Execute(
     }
 
     make_argv(newCmd);
-    if(argc == 0) {
-        return NULL;
-    }
+    if(argc == 0) { return NULL; }
 
     // fork the child process
     wxString curdir = wxGetCwd();
 
     // Prentend that we are a terminal...
     int master, slave;
-    openpty(&master, &slave, NULL, NULL, NULL);
+    char pts_name[1024];
+    memset(pts_name, 0x0, sizeof(pts_name));
+    openpty(&master, &slave, pts_name, NULL, NULL);
+
+    // Create a one-way communication channel (pipe).
+    // If successful, two file descriptors are stored in stderrPipes;
+    // bytes written on stderrPipes[1] can be read from stderrPipes[0].
+    // Returns 0 if successful, -1 if not.
+    int stderrPipes[2] = { 0, 0 };
+    if(flags & IProcessStderrEvent) {
+        errno = 0;
+        if(pipe(stderrPipes) < 0) {
+            clERROR() << "Failed to create pipe for stderr redirecting." << strerror(errno);
+            flags &= ~IProcessStderrEvent;
+        }
+    }
 
     int rc = fork();
     if(rc == 0) {
+        //===-------------------------------------------------------
+        // Child process
+        //===-------------------------------------------------------
+        struct termios termio;
+        tcgetattr(slave, &termio);
+        cfmakeraw(&termio);
+        termio.c_lflag = ICANON;
+        termio.c_oflag = ONOCR | ONLRET;
+        tcsetattr(slave, TCSANOW, &termio);
+
+        // Set 'slave' as STD{IN|OUT|ERR} and close slave FD
         login_tty(slave);
         close(master); // close the un-needed master end
 
+        // Incase the user wants to get separate events for STDERR, dup2 STDERR to the PIPE write end
+        // we opened earlier
+        if(flags & IProcessStderrEvent) {
+            // Dup stderrPipes[1] into stderr
+            close(STDERR_FILENO);
+            dup2(stderrPipes[1], STDERR_FILENO);
+            close(stderrPipes[0]); // close the read end
+        }
+        close(slave);
+
         // at this point, slave is used as stdin/stdout/stderr
         // Child process
-        if(workingDirectory.IsEmpty() == false) {
-            wxSetWorkingDirectory(workingDirectory);
-        }
+        if(workingDirectory.IsEmpty() == false) { wxSetWorkingDirectory(workingDirectory); }
 
         // execute the process
         errno = 0;
-        if(execvp(argv[0], argv) < 0) {
-            clERROR() << "execvp('" << newCmd << "') error:" << strerror(errno) << clEndl;
-        }
+        if(execvp(argv[0], argv) < 0) { clERROR() << "execvp('" << newCmd << "') error:" << strerror(errno) << clEndl; }
 
         // if we got here, we failed...
         exit(0);
@@ -426,8 +455,9 @@ IProcess* UnixProcessImpl::Execute(
         return NULL;
 
     } else {
-
+        //===-------------------------------------------------------
         // Parent
+        //===-------------------------------------------------------
         close(slave);
         freeargv(argv);
         argc = 0;
@@ -435,6 +465,7 @@ IProcess* UnixProcessImpl::Execute(
         // disable ECHO
         struct termios termio;
         tcgetattr(master, &termio);
+        cfmakeraw(&termio);
         termio.c_lflag = ICANON;
         termio.c_oflag = ONOCR | ONLRET;
         tcsetattr(master, TCSANOW, &termio);
@@ -444,14 +475,21 @@ IProcess* UnixProcessImpl::Execute(
 
         UnixProcessImpl* proc = new UnixProcessImpl(parent);
         proc->m_callback = cb;
+        if(flags & IProcessStderrEvent) {
+            close(stderrPipes[1]); // close the write end
+            // set the stderr handle
+            proc->SetStderrHandle(stderrPipes[0]);
+        }
+
         proc->SetReadHandle(master);
         proc->SetWriteHandler(master);
         proc->SetPid(rc);
         proc->m_flags = flags; // Keep the creation flags
-
-        if(!(proc->m_flags & IProcessCreateSync)) {
-            proc->StartReaderThread();
-        }
+        
+        // Keep the terminal name, we will need it
+        proc->SetTty(pts_name);
+        
+        if(!(proc->m_flags & IProcessCreateSync)) { proc->StartReaderThread(); }
         return proc;
     }
 }

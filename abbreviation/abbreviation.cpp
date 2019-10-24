@@ -23,34 +23,32 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include <algorithm>
-#include <wx/textdlg.h>
+#include "abbreviation.h"
 #include "abbreviationentry.h"
 #include "abbreviationssettingsdlg.h"
-#include <wx/bitmap.h>
-#include <wx/menu.h>
-#include "event_notifier.h"
-#include "abbreviation.h"
-#include <wx/xrc/xmlres.h>
-#include <wx/app.h>
-#include <wx/log.h>
-#include <wx/regex.h>
-#include "cl_config.h"
-#include "macromanager.h"
 #include "clKeyboardManager.h"
+#include "cl_config.h"
+#include "event_notifier.h"
+#include "globals.h"
+#include "macromanager.h"
 #include "wxCodeCompletionBoxEntry.h"
 #include "wxCodeCompletionBoxManager.h"
+#include <algorithm>
+#include <wx/app.h>
+#include <wx/bitmap.h>
 #include <wx/clntdata.h>
-#include "globals.h"
+#include <wx/log.h>
+#include <wx/menu.h>
+#include <wx/regex.h>
+#include <wx/textdlg.h>
+#include <wx/xrc/xmlres.h>
 
 static AbbreviationPlugin* thePlugin = NULL;
 
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new AbbreviationPlugin(manager);
-    }
+    if(thePlugin == 0) { thePlugin = new AbbreviationPlugin(manager); }
     return thePlugin;
 }
 
@@ -83,17 +81,13 @@ AbbreviationPlugin::AbbreviationPlugin(IManager* manager)
     m_topWindow = m_mgr->GetTheApp();
     EventNotifier::Get()->Bind(wxEVT_CCBOX_SELECTION_MADE, &AbbreviationPlugin::OnAbbrevSelected, this);
     EventNotifier::Get()->Bind(wxEVT_CCBOX_SHOWING, &AbbreviationPlugin::OnCompletionBoxShowing, this);
-    EventNotifier::Get()->Bind(wxEVT_CC_WORD_COMPLETE, &AbbreviationPlugin::OnWordComplete, this);
+    m_helper = new AbbreviationServiceProvider(this);
     InitDefaults();
 }
 
 AbbreviationPlugin::~AbbreviationPlugin() {}
 
-clToolBar* AbbreviationPlugin::CreateToolBar(wxWindow* parent)
-{
-    wxUnusedVar(parent);
-    return NULL;
-}
+void AbbreviationPlugin::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
 
 void AbbreviationPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
 {
@@ -115,10 +109,10 @@ void AbbreviationPlugin::HookPopupMenu(wxMenu* menu, MenuType type)
 
 void AbbreviationPlugin::UnPlug()
 {
+    wxDELETE(m_helper);
     m_topWindow->Unbind(wxEVT_MENU, &AbbreviationPlugin::OnSettings, this, XRCID("abbrev_settings"));
     EventNotifier::Get()->Unbind(wxEVT_CCBOX_SELECTION_MADE, &AbbreviationPlugin::OnAbbrevSelected, this);
     EventNotifier::Get()->Unbind(wxEVT_CCBOX_SHOWING, &AbbreviationPlugin::OnCompletionBoxShowing, this);
-    EventNotifier::Get()->Unbind(wxEVT_CC_WORD_COMPLETE, &AbbreviationPlugin::OnWordComplete, this);
 }
 
 void AbbreviationPlugin::OnSettings(wxCommandEvent& e)
@@ -240,15 +234,11 @@ bool AbbreviationPlugin::InsertExpansion(const wxString& abbreviation)
         wxString textOrig;
         wxString textLeadingSpaces;
 
-        if(typedWordLen < 0) {
-            typedWordLen = 0;
-        }
+        if(typedWordLen < 0) { typedWordLen = 0; }
 
         // format the text to insert
         bool appendEol(false);
-        if(text.EndsWith(wxT("\r")) || text.EndsWith(wxT("\n"))) {
-            appendEol = true;
-        }
+        if(text.EndsWith(wxT("\r")) || text.EndsWith(wxT("\n"))) { appendEol = true; }
 
         textOrig = text;
         text.Trim(false);
@@ -320,8 +310,25 @@ void AbbreviationPlugin::OnCompletionBoxShowing(clCodeCompletionEvent& event)
     event.Skip();
 }
 
-void AbbreviationPlugin::OnWordComplete(clCodeCompletionEvent& event)
+// Helper
+AbbreviationServiceProvider::AbbreviationServiceProvider(AbbreviationPlugin* plugin)
+    : ServiceProvider("Abbreviations", eServiceType::kCodeCompletion)
+    , m_plugin(plugin)
+{
+    SetPriority(10);
+    Bind(wxEVT_CC_WORD_COMPLETE, &AbbreviationServiceProvider::OnWordComplete, this);
+}
+
+AbbreviationServiceProvider::~AbbreviationServiceProvider()
+{
+    Unbind(wxEVT_CC_WORD_COMPLETE, &AbbreviationServiceProvider::OnWordComplete, this);
+}
+
+void AbbreviationServiceProvider::OnWordComplete(clCodeCompletionEvent& event)
 {
     event.Skip();
-    AddAbbreviations(event);
+    if(event.GetTriggerKind() == LSP::CompletionItem::kTriggerUser) {
+        // user used Ctr-SPACE
+        m_plugin->AddAbbreviations(event);
+    }
 }

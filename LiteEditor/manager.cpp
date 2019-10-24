@@ -22,7 +22,6 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#include "clang_code_completion.h"
 #include "code_completion_manager.h"
 #include "crawler_include.h"
 #include "dbcontentcacher.h"
@@ -51,15 +50,16 @@
 #include <wx/stdpaths.h>
 #include <wx/tokenzr.h>
 
-#include "CompileCommandsCreateor.h"
 #include "CompilersModifiedDlg.h"
 #include "DebuggerCallstackView.h"
 #include "NewProjectWizard.h"
 #include "WSImporter.h"
+#include "asyncprocess.h"
 #include "attachdbgprocdlg.h"
 #include "breakpointdlg.h"
 #include "build_settings_config.h"
 #include "buildmanager.h"
+#include "clConsoleBase.h"
 #include "clFileSystemEvent.h"
 #include "clKeyboardManager.h"
 #include "clProfileHandler.h"
@@ -67,7 +67,6 @@
 #include "clWorkspaceView.h"
 #include "cl_command_event.h"
 #include "cl_editor.h"
-#include "clang_compilation_db_thread.h"
 #include "clean_request.h"
 #include "code_completion_manager.h"
 #include "compile_request.h"
@@ -94,6 +93,7 @@
 #include "new_build_tab.h"
 #include "parse_thread.h"
 #include "pluginmanager.h"
+#include "processreaderthread.h"
 #include "reconcileproject.h"
 #include "refactorengine.h"
 #include "search_thread.h"
@@ -106,6 +106,7 @@
 #include "workspace_pane.h"
 #include "workspacetab.h"
 #include "wxCodeCompletionBoxManager.h"
+#include "ServiceProviderManager.h"
 
 #ifndef __WXMSW__
 #include <sys/wait.h>
@@ -182,7 +183,7 @@ static wxArrayString DoGetTemplateTypes(const wxString& tmplDecl)
 
 Manager::Manager(void)
     : m_shellProcess(NULL)
-    , m_asyncExeCmd(NULL)
+    , m_programProcess(NULL)
     , m_breakptsmgr(new BreakptMgr)
     , m_isShutdown(false)
     , m_workspceClosing(false)
@@ -196,6 +197,9 @@ Manager::Manager(void)
 {
     m_codeliteLauncher = wxFileName(wxT("codelite_launcher"));
     Bind(wxEVT_RESTART_CODELITE, &Manager::OnRestart, this);
+    Bind(wxEVT_ASYNC_PROCESS_OUTPUT, &Manager::OnProcessOutput, this);
+    Bind(wxEVT_ASYNC_PROCESS_TERMINATED, &Manager::OnProcessEnd, this);
+
     Connect(wxEVT_CMD_RESTART_CODELITE, wxCommandEventHandler(Manager::OnCmdRestart), NULL, this);
 
     Connect(wxEVT_PARSE_THREAD_SCAN_INCLUDES_DONE, wxCommandEventHandler(Manager::OnIncludeFilesScanDone), NULL, this);
@@ -208,8 +212,12 @@ Manager::Manager(void)
     EventNotifier::Get()->Connect(wxEVT_BUILD_ENDED, clBuildEventHandler(Manager::OnBuildEnded), NULL, this);
     EventNotifier::Get()->Connect(wxEVT_BUILD_STARTING, clBuildEventHandler(Manager::OnBuildStarting), NULL, this);
     EventNotifier::Get()->Connect(wxEVT_PROJ_RENAMED, clCommandEventHandler(Manager::OnProjectRenamed), NULL, this);
-    EventNotifier::Get()->Connect(wxEVT_CMD_FIND_IN_FILES_DISMISSED,
-                                  clCommandEventHandler(Manager::OnFindInFilesDismissed), NULL, this);
+    EventNotifier::Get()->Bind(wxEVT_FINDINFILES_DLG_DISMISSED, &Manager::OnFindInFilesDismissed, this);
+    EventNotifier::Get()->Bind(wxEVT_FINDINFILES_DLG_SHOWING, &Manager::OnFindInFilesShowing, this);
+
+    EventNotifier::Get()->Bind(wxEVT_DEBUGGER_REFRESH_PANE, &Manager::OnUpdateDebuggerActiveView, this);
+    EventNotifier::Get()->Bind(wxEVT_DEBUGGER_SET_MEMORY, &Manager::OnDebuggerSetMemory, this);
+    EventNotifier::Get()->Bind(wxEVT_TOOLTIP_DESTROY, &Manager::OnHideGdbTooltip, this);
 
     // Add new workspace type
     clWorkspaceManager::Get().RegisterWorkspace(new clCxxWorkspace());
@@ -220,7 +228,11 @@ Manager::Manager(void)
 
 Manager::~Manager(void)
 {
+    EventNotifier::Get()->Unbind(wxEVT_TOOLTIP_DESTROY, &Manager::OnHideGdbTooltip, this);
     Unbind(wxEVT_RESTART_CODELITE, &Manager::OnRestart, this);
+    Unbind(wxEVT_ASYNC_PROCESS_OUTPUT, &Manager::OnProcessOutput, this);
+    Unbind(wxEVT_ASYNC_PROCESS_TERMINATED, &Manager::OnProcessEnd, this);
+
     Disconnect(wxEVT_CMD_RESTART_CODELITE, wxCommandEventHandler(Manager::OnCmdRestart), NULL, this);
 
     EventNotifier::Get()->Disconnect(wxEVT_CMD_PROJ_SETTINGS_SAVED,
@@ -228,8 +240,11 @@ Manager::~Manager(void)
     EventNotifier::Get()->Disconnect(wxEVT_BUILD_ENDED, clBuildEventHandler(Manager::OnBuildEnded), NULL, this);
     EventNotifier::Get()->Disconnect(wxEVT_BUILD_STARTING, clBuildEventHandler(Manager::OnBuildStarting), NULL, this);
     EventNotifier::Get()->Disconnect(wxEVT_PROJ_RENAMED, clCommandEventHandler(Manager::OnProjectRenamed), NULL, this);
-    EventNotifier::Get()->Disconnect(wxEVT_CMD_FIND_IN_FILES_DISMISSED,
-                                     clCommandEventHandler(Manager::OnFindInFilesDismissed), NULL, this);
+    EventNotifier::Get()->Unbind(wxEVT_FINDINFILES_DLG_DISMISSED, &Manager::OnFindInFilesDismissed, this);
+    EventNotifier::Get()->Unbind(wxEVT_FINDINFILES_DLG_SHOWING, &Manager::OnFindInFilesShowing, this);
+    EventNotifier::Get()->Unbind(wxEVT_DEBUGGER_REFRESH_PANE, &Manager::OnUpdateDebuggerActiveView, this);
+    EventNotifier::Get()->Unbind(wxEVT_DEBUGGER_SET_MEMORY, &Manager::OnDebuggerSetMemory, this);
+
     // stop background processes
     IDebugger* debugger = DebuggerMgr::Get().GetActiveDebugger();
 
@@ -239,14 +254,11 @@ Manager::~Manager(void)
         JobQueueSingleton::Instance()->Stop();
         ParseThreadST::Get()->Stop();
         SearchThreadST::Get()->Stop();
-        ClangCompilationDbThreadST::Get()->Stop();
     }
 
     // free all plugins
     PluginManager::Get()->UnLoad();
-
-    // release singleton objects
-    ClangCompilationDbThreadST::Free();
+    ServiceProviderManager::Get().UnregisterAll();
     DebuggerMgr::Free();
     JobQueueSingleton::Release();
     ParseThreadST::Free(); // since the parser is making use of the TagsManager,
@@ -259,10 +271,6 @@ Manager::~Manager(void)
     SearchThreadST::Free();
     MenuManager::Free();
     EnvironmentConfig::Release();
-
-#if HAS_LIBCLANG
-    ClangCodeCompletion::Release();
-#endif
 
     wxDELETE(m_shellProcess);
     wxDELETE(m_breakptsmgr);
@@ -307,10 +315,7 @@ void Manager::OpenWorkspace(const wxString& path)
 
     // OpenWorkspace returned true, but errMsg is not empty
     // this could only mean that we removed a fauly project
-    if(errMsg.IsEmpty() == false) {
-        clMainFrame::Get()->GetMainBook()->ShowMessage(
-            errMsg, true, PluginManager::Get()->GetStdIcons()->LoadBitmap(wxT("messages/48/error")));
-    }
+    if(errMsg.IsEmpty() == false) { clMainFrame::Get()->GetMessageBar()->DisplayMessage(errMsg, wxICON_ERROR); }
 
     if(GetActiveProjectName().IsEmpty()) {
         // This might happen if a removed faulty project was active
@@ -342,19 +347,16 @@ void Manager::DoSetupWorkspace(const wxString& path)
     wxBusyCursor cursor;
     AddToRecentlyOpenedWorkspaces(path);
 
+    // set the C++ workspace as the active one
+    clWorkspaceManager::Get().SetWorkspace(clCxxWorkspaceST::Get());
+
     wxCommandEvent evtWorkspaceLoaded(wxEVT_WORKSPACE_LOADED);
     evtWorkspaceLoaded.SetString(path);
     EventNotifier::Get()->ProcessEvent(evtWorkspaceLoaded);
 
-    // set the C++ workspace as the active one
-    clWorkspaceManager::Get().SetWorkspace(clCxxWorkspaceST::Get());
-
     // Update the refactoring cache
     wxFileList_t allfiles;
     GetWorkspaceFiles(allfiles, true);
-
-    // Initialize the cache
-    RefactoringEngine::Instance()->InitializeCache(allfiles);
 
     {
         SessionEntry session;
@@ -367,6 +369,9 @@ void Manager::DoSetupWorkspace(const wxString& path)
             clMainFrame::Get()->GetDebuggerPane()->GetBreakpointView()->Initialize();
         }
     }
+
+    // clear old paths
+    ParseThreadST::Get()->ClearPaths();
 
     // Update the parser search paths
     UpdateParserPaths(false);
@@ -409,6 +414,8 @@ void Manager::CloseWorkspace()
     SessionEntry session;
     session.SetWorkspaceName(clCxxWorkspaceST::Get()->GetWorkspaceFileName().GetFullPath());
     clMainFrame::Get()->GetMainBook()->SaveSession(session);
+
+    // Store the session
     GetBreakpointsMgr()->SaveSession(session);
     SessionManager::Get().Save(clCxxWorkspaceST::Get()->GetWorkspaceFileName().GetFullPath(), session);
 
@@ -693,7 +700,7 @@ ProjectPtr Manager::GetProject(const wxString& name) const
     wxString errMsg;
     ProjectPtr proj = clCxxWorkspaceST::Get()->FindProjectByName(name, errMsg);
     if(!proj) {
-        wxLogMessage(errMsg);
+        clLogMessage(errMsg);
         return NULL;
     }
     return proj;
@@ -888,11 +895,6 @@ void Manager::RetagWorkspace(TagsManager::RetagType type)
     // it is faster to drop the tables instead of deleting
     if(type == TagsManager::Retag_Full) { TagsManagerST::Get()->GetDatabase()->RecreateDatabase(); }
 
-    // Incase anything was changed, update the parser search paths
-    clDEBUG() << "Updating parser paths..." << clEndl;
-    UpdateParserPaths(false);
-    clDEBUG() << "Updating parser paths...done" << clEndl;
-
     clDEBUG() << "Fetching project list..." << clEndl;
     // Start the parsing by collecing list of files to parse
     wxArrayString projects;
@@ -903,19 +905,21 @@ void Manager::RetagWorkspace(TagsManager::RetagType type)
     for(size_t i = 0; i < projects.GetCount(); i++) {
         ProjectPtr proj = GetProject(projects.Item(i));
         if(proj) {
-            clDEBUG() << "Fetching files for project:" << proj->GetName() << clEndl;
+            clDEBUG1() << "Fetching files for project:" << proj->GetName() << clEndl;
             proj->GetFilesAsVectorOfFileName(projectFiles);
-            clDEBUG() << "Fetching files for project:" << proj->GetName() << "...done" << clEndl;
+            clDEBUG1() << "Fetching files for project:" << proj->GetName() << "...done" << clEndl;
         }
     }
 
     // Create a parsing request
     ParseRequest* parsingRequest = new ParseRequest(clMainFrame::Get());
     clDEBUG() << "Filtering non relevant files..." << clEndl;
+    parsingRequest->_workspaceFiles.reserve(projectFiles.size());
+
     for(size_t i = 0; i < projectFiles.size(); i++) {
         // filter any non valid coding file
-        if(!TagsManagerST::Get()->IsValidCtagsFile(projectFiles.at(i))) continue;
-        parsingRequest->_workspaceFiles.push_back(projectFiles.at(i).GetFullPath().mb_str(wxConvUTF8).data());
+        const wxFileName& fn = projectFiles[i];
+        parsingRequest->_workspaceFiles.push_back(fn.GetFullPath().ToAscii().data());
     }
 
     clDEBUG() << "Filtering non relevant files...done" << clEndl;
@@ -944,14 +948,10 @@ void Manager::RetagWorkspace(TagsManager::RetagType type)
 
 void Manager::RetagFile(const wxString& filename)
 {
-    if(IsWorkspaceClosing()) {
-        wxLogMessage(wxString::Format(wxT("Workspace in being closed, skipping re-tag for file %s"), filename.c_str()));
-        return;
-    }
-    if(!TagsManagerST::Get()->IsValidCtagsFile(wxFileName(filename))) {
-        wxLogMessage(wxT("Not a valid C tags file type: %s. Skipping."), filename.c_str());
-        return;
-    }
+    if(IsWorkspaceClosing()) { return; }
+
+    // Is this a C++ file?
+    if(!FileExtManager::IsCxxFile(wxFileName(filename))) { return; }
 
     wxFileName absFile(filename);
     absFile.MakeAbsolute();
@@ -1268,7 +1268,7 @@ bool Manager::RenameFile(const wxString& origName, const wxString& newName, cons
 
                 replaceWith.Replace(strippedOldInc.GetFullName(), newFile.GetFullName());
 
-                LEditor* editor = clMainFrame::Get()->GetMainBook()->OpenFile(editorFileName, wxEmptyString, 0);
+                clEditor* editor = clMainFrame::Get()->GetMainBook()->OpenFile(editorFileName, wxEmptyString, 0);
                 if(editor && (editor->GetFileName().GetFullPath().CmpNoCase(editorFileName) == 0)) {
                     editor->ReplaceAllExactMatch(findWhat, replaceWith);
                 }
@@ -1331,6 +1331,11 @@ void Manager::GetProjectFiles(const wxString& project, wxArrayString& files)
 
 wxString Manager::GetProjectNameByFile(const wxString& fullPathFileName, bool caseSensitive /*= false*/)
 {
+    wxString fPFN(fullPathFileName);
+    return GetProjectNameByFile(fPFN, caseSensitive);
+}
+wxString Manager::GetProjectNameByFile(wxString& fullPathFileName, bool caseSensitive /*= false*/)
+{
     wxArrayString projects;
     GetProjectList(projects);
 
@@ -1339,11 +1344,16 @@ wxString Manager::GetProjectNameByFile(const wxString& fullPathFileName, bool ca
     wxString linkDestination = CLRealPath(fullPathFileName);
     for(size_t i = 0; i < projects.GetCount(); i++) {
         ProjectPtr proj = GetProject(projects.Item(i));
-        if(proj->IsFileExist(fullPathFileName) || proj->IsFileExist(linkDestination)) {
+        // The second call copes with the searched-for file being a symlink
+        if(proj->IsFileExist(fullPathFileName) || proj->IsFileExist(linkDestination)) { return proj->GetName(); }
+#if defined(__WXGTK__)
+        wxString fileNameInProject; // Try again, checking if the _project_ filePath is a symlink
+        if(proj->IsFileExist(fullPathFileName, fileNameInProject)) {
+            fullPathFileName = fileNameInProject; // Hopefully the calling function will now use this
             return proj->GetName();
-        } else {
-            // TODO:: add support for case insensitive search in project
         }
+#endif
+        // TODO:: add support for case insensitive search in project
     }
 
     return wxEmptyString;
@@ -1367,7 +1377,7 @@ ProjectSettingsPtr Manager::GetProjectSettings(const wxString& projectName) cons
     wxString errMsg;
     ProjectPtr proj = clCxxWorkspaceST::Get()->FindProjectByName(projectName, errMsg);
     if(!proj) {
-        wxLogMessage(errMsg);
+        clLogMessage(errMsg);
         return NULL;
     }
 
@@ -1379,7 +1389,7 @@ void Manager::SetProjectSettings(const wxString& projectName, ProjectSettingsPtr
     wxString errMsg;
     ProjectPtr proj = clCxxWorkspaceST::Get()->FindProjectByName(projectName, errMsg);
     if(!proj) {
-        wxLogMessage(errMsg);
+        clLogMessage(errMsg);
         return;
     }
 
@@ -1391,7 +1401,7 @@ void Manager::SetProjectGlobalSettings(const wxString& projectName, BuildConfigC
     wxString errMsg;
     ProjectPtr proj = clCxxWorkspaceST::Get()->FindProjectByName(projectName, errMsg);
     if(!proj) {
-        wxLogMessage(errMsg);
+        clLogMessage(errMsg);
         return;
     }
 
@@ -1400,11 +1410,20 @@ void Manager::SetProjectGlobalSettings(const wxString& projectName, BuildConfigC
 
 wxString Manager::GetProjectExecutionCommand(const wxString& projectName, wxString& wd, bool considerPauseWhenExecuting)
 {
-    BuildConfigPtr bldConf = clCxxWorkspaceST::Get()->GetProjBuildConf(projectName, wxEmptyString);
-    if(!bldConf) {
-        wxLogMessage(wxT("failed to find project configuration for project '") + projectName + wxT("'"));
+    ProjectPtr proj = GetProject(projectName);
+    if(!proj) {
+        clWARNING() << "Manager::GetProjectExecutionCommand(): could not find project:" << projectName;
         return wxEmptyString;
     }
+
+    BuildConfigPtr bldConf = clCxxWorkspaceST::Get()->GetProjBuildConf(projectName, wxEmptyString);
+    if(!bldConf) {
+        clWARNING() << "Manager::GetProjectExecutionCommand(): failed to find project configuration for project:"
+                    << projectName;
+        return wxEmptyString;
+    }
+
+    wxString projectPath = proj->GetFileName().GetPath();
 
     // expand variables
     wxString cmd = bldConf->GetCommand();
@@ -1414,91 +1433,36 @@ wxString Manager::GetProjectExecutionCommand(const wxString& projectName, wxStri
     cmdArgs = MacroManager::Instance()->Expand(cmdArgs, NULL, projectName);
 
     // Execute command & cmdArgs
-    wxString execLine(cmd + wxT(" ") + cmdArgs);
-    execLine.Trim().Trim(false);
     wd = bldConf->GetWorkingDirectory();
     wd = MacroManager::Instance()->Expand(wd, NULL, projectName);
 
-    wxFileName fnCodeliteTerminal(clStandardPaths::Get().GetExecutablePath());
-    fnCodeliteTerminal.SetFullName("codelite-terminal");
+    wxFileName workingDir(wd, "");
+    if(workingDir.IsRelative()) { workingDir.MakeAbsolute(projectPath); }
 
-    wxString title;
-    title << cmd << " " << cmdArgs;
+    wxFileName fileExe(cmd);
+    if(fileExe.IsRelative()) { fileExe.MakeAbsolute(workingDir.GetPath()); }
+    fileExe.Normalize();
 
-    OptionsConfigPtr opts = EditorConfigST::Get()->GetOptions();
-
-    // change directory to the working directory
-    if(considerPauseWhenExecuting && !bldConf->IsGUIProgram()) {
-
-        ProjectPtr proj = GetProject(projectName);
-
-#if defined(__WXMAC__)
-        wxFileName fnWD(wd, "");
-        if(fnWD.IsRelative()) { fnWD.MakeAbsolute(GetProject(projectName)->GetFileName().GetPath()); }
-        execLine = FileUtils::GetOSXTerminalCommand(cmd + " " + cmdArgs, fnWD.GetPath());
-
-#elif defined(__WXGTK__)
-
-        // Set a console to the execute target
-        if(opts->HasOption(OptionsConfig::Opt_Use_CodeLite_Terminal) && !bldConf->IsGUIProgram()) {
-            wxString newCommand;
-            newCommand << fnCodeliteTerminal.GetFullPath() << " --exit ";
-            if(bldConf->GetPauseWhenExecEnds()) { newCommand << " --wait "; }
-            newCommand << " --cmd " << title;
-            execLine = newCommand;
-
-        } else if(bldConf->IsGUIProgram()) {
-            // do nothing run the command as-is
-
-        } else {
-            wxString term;
-            term = opts->GetProgramConsoleCommand();
-            term.Replace(wxT("$(TITLE)"), title);
-
-            // build the command
-            wxString command;
-            if(bldConf->GetPauseWhenExecEnds()) {
-                wxString ld_lib_path;
-                wxFileName exePath(clStandardPaths::Get().GetExecutablePath());
-                wxFileName exeWrapper(exePath.GetPath(), wxT("codelite_exec"));
-
-                if(wxGetEnv(wxT("LD_LIBRARY_PATH"), &ld_lib_path) && ld_lib_path.IsEmpty() == false) {
-                    command << wxT("/bin/sh -f ") << exeWrapper.GetFullPath() << wxT(" LD_LIBRARY_PATH=") << ld_lib_path
-                            << wxT(" ");
-                } else {
-                    command << wxT("/bin/sh -f ") << exeWrapper.GetFullPath() << wxT(" ");
-                }
-            }
-
-            command << execLine;
-            term.Replace(wxT("$(CMD)"), command);
-            execLine = term;
-        }
-#elif defined(__WXMSW__)
-
-        if(!bldConf->IsGUIProgram()) {
-            if(bldConf->GetPauseWhenExecEnds() && opts->HasOption(OptionsConfig::Opt_Use_CodeLite_Terminal)) {
-
-                // codelite-terminal does not like forward slashes...
-                wxString commandToRun;
-                commandToRun << cmd << " ";
-                commandToRun.Replace("/", "\\");
-                commandToRun << cmdArgs;
-                commandToRun.Trim().Trim(false);
-
-                wxString newCommand;
-                newCommand << fnCodeliteTerminal.GetFullPath() << " --exit ";
-                if(bldConf->GetPauseWhenExecEnds()) { newCommand << " --wait "; }
-
-                newCommand << " --cmd " << commandToRun;
-                execLine = newCommand;
-            } else if(bldConf->GetPauseWhenExecEnds()) {
-                execLine.Prepend("le_exec.exe ");
-            }
-        }
-#endif
+#ifdef __WXMSW__
+    if(!fileExe.Exists() && fileExe.GetExt().IsEmpty()) {
+        // Try with .exe
+        wxFileName withExe(fileExe);
+        withExe.SetExt("exe");
+        if(withExe.Exists()) { fileExe = withExe; }
     }
-    return execLine;
+#endif
+    wd = workingDir.GetPath();
+    cmd = fileExe.GetFullPath();
+
+    clDEBUG() << "Command to execute:" << cmd;
+    clDEBUG() << "Working directory:" << wd;
+
+    clConsoleBase::Ptr_t console = clConsoleBase::GetTerminal();
+    console->SetWorkingDirectory(wd);
+    console->SetCommand(cmd, cmdArgs);
+    console->SetWaitWhenDone(considerPauseWhenExecuting);
+    console->SetTerminalNeeded(!bldConf->IsGUIProgram());
+    return console->PrepareCommand();
 }
 
 //--------------------------- Top Level Pane Management -----------------------------
@@ -1542,7 +1506,7 @@ bool Manager::ShowOutputPane(wxString focusWin, bool commit)
 
     if(index != wxNOT_FOUND && index != pane->GetNotebook()->GetSelection()) {
         wxWindow* focus = wxWindow::FindFocus();
-        LEditor* editor = dynamic_cast<LEditor*>(focus);
+        clEditor* editor = dynamic_cast<clEditor*>(focus);
         pane->GetNotebook()->SetSelection((size_t)index);
         if(editor) { editor->SetFocus(); }
     }
@@ -1651,12 +1615,12 @@ void Manager::UpdateMenuAccelerators(wxFrame* frame)
 
 //--------------------------- Run Program (No Debug) -----------------------------
 
-bool Manager::IsProgramRunning() const { return (m_asyncExeCmd && m_asyncExeCmd->IsBusy()); }
+bool Manager::IsProgramRunning() const { return m_programProcess; }
 
 void Manager::ExecuteNoDebug(const wxString& projectName)
 {
     // an instance is already running
-    if(m_asyncExeCmd && m_asyncExeCmd->IsBusy()) { return; }
+    if(IsProgramRunning()) { return; }
     wxString wd;
 
     // we call it here once for the 'wd'
@@ -1671,16 +1635,18 @@ void Manager::ExecuteNoDebug(const wxString& projectName)
 
     DirSaver ds;
 
-    // print the current directory
-    ::wxSetWorkingDirectory(proj->GetFileName().GetPath());
-
-    // now set the working directory according to working directory field from the
-    // project settings
-    ::wxSetWorkingDirectory(wd);
-
-    // execute the command line
-    // the a sync command is a one time executable object,
-    m_asyncExeCmd = new AsyncExeCmd(clMainFrame::Get()->GetOutputPane()->GetOutputWindow());
+    // Build the working directory
+    // Expand macros
+    wd = MacroManager::Instance()->Expand(wd, NULL, projectName);
+    wd = wd.Trim().Trim(false);
+    if(!wd.IsEmpty()) {
+        wxFileName projectWd(wd, "");
+        if(!projectWd.IsAbsolute()) { projectWd.MakeAbsolute(proj->GetFileName().GetPath()); }
+        wd = projectWd.GetPath();
+    } else {
+        // Set the working directory to the project path
+        wd = proj->GetFileName().GetPath();
+    }
 
     // execute the program:
     //- no hiding the console
@@ -1692,36 +1658,39 @@ void Manager::ExecuteNoDebug(const wxString& projectName)
 
     // call it again here to get the actual exection line - we do it here since
     // the environment has been applied
-    execLine = GetProjectExecutionCommand(projectName, wd, true);
-    m_asyncExeCmd->Execute(execLine, false, false);
+    size_t createProcessFlags = IProcessCreateDefault;
+    if(!bldConf->IsGUIProgram()) { createProcessFlags = IProcessNoRedirect | IProcessCreateConsole; }
+#ifdef __WXMSW__
+    createProcessFlags |= IProcessCreateConsole;
+#endif
 
-    if(m_asyncExeCmd->GetProcess()) {
-        m_asyncExeCmd->GetProcess()->Connect(wxEVT_END_PROCESS, wxProcessEventHandler(Manager::OnProcessEnd), NULL,
-                                             this);
+    wxString dummy;
+    execLine = GetProjectExecutionCommand(projectName, dummy, bldConf->GetPauseWhenExecEnds());
+    wxUnusedVar(dummy);
+
+    m_programProcess = ::CreateAsyncProcess(this, execLine, createProcessFlags, wd);
+    if(m_programProcess) {
+        clGetManager()->AppendOutputTabText(kOutputTab_Output, wxString()
+                                                                   << _("Working directory is set to: ") << wd << "\n");
+        clGetManager()->AppendOutputTabText(kOutputTab_Output, wxString() << _("Executing: ") << execLine << "\n");
     }
 }
 
 void Manager::KillProgram()
 {
     if(!IsProgramRunning()) return;
-
-    m_asyncExeCmd->Terminate();
+    m_programProcess->Terminate();
 }
 
-void Manager::OnProcessEnd(wxProcessEvent& event)
+void Manager::OnProcessOutput(clProcessEvent& event)
 {
-    m_asyncExeCmd->ProcessEnd(event);
-    m_asyncExeCmd->GetProcess()->Disconnect(wxEVT_END_PROCESS, wxProcessEventHandler(Manager::OnProcessEnd), NULL,
-                                            this);
+    clMainFrame::Get()->GetOutputPane()->GetOutputWindow()->AppendText(event.GetOutput());
+}
 
-#ifdef __WXMSW__
-    // On Windows, sometimes killing the DOS Windows, does not kill the children
-    m_asyncExeCmd->Terminate();
-#endif
-
-    delete m_asyncExeCmd;
-    m_asyncExeCmd = NULL;
-
+void Manager::OnProcessEnd(clProcessEvent& event)
+{
+    wxDELETE(m_programProcess);
+    clGetManager()->AppendOutputTabText(kOutputTab_Output, _("Program exited\n"));
     // return the focus back to the editor
     if(clMainFrame::Get()->GetMainBook()->GetActiveEditor()) {
         clMainFrame::Get()->GetMainBook()->GetActiveEditor()->SetActive();
@@ -1730,7 +1699,10 @@ void Manager::OnProcessEnd(wxProcessEvent& event)
 
 //--------------------------- Debugger Support -----------------------------
 
-static void DebugMessage(wxString msg) { clMainFrame::Get()->GetDebuggerPane()->GetDebugWindow()->AppendLine(msg); }
+static void DebugMessage(const wxString& msg)
+{
+    clMainFrame::Get()->GetDebuggerPane()->GetDebugWindow()->AppendLine(msg);
+}
 
 void Manager::UpdateDebuggerPane()
 {
@@ -1763,9 +1735,13 @@ void Manager::DoUpdateDebuggerTabControl(wxWindow* curpage)
         // updated
         //--------------------------------------------------------------------
 
-        if(curpage == pane->GetLocalsTable() || IsPaneVisible(wxGetTranslation(DebuggerPane::LOCALS))) {
+        if(curpage == (wxWindow*)pane->GetLocalsTable() || IsPaneVisible(wxGetTranslation(DebuggerPane::LOCALS))) {
             // update the locals tree
             dbgr->QueryLocals();
+        }
+
+        if(curpage == (wxWindow*)pane->GetDisassemblyTab() ||
+           IsPaneVisible(wxGetTranslation(DebuggerPane::DISASSEMBLY))) {
             dbgr->ListRegisters();
         }
 
@@ -1773,7 +1749,6 @@ void Manager::DoUpdateDebuggerTabControl(wxWindow* curpage)
             pane->GetWatchesTable()->RefreshValues();
         }
         if(curpage == (wxWindow*)pane->GetFrameListView() || IsPaneVisible(wxGetTranslation(DebuggerPane::FRAMES))) {
-
             // update the stack call
             dbgr->ListFrames();
         }
@@ -2029,7 +2004,7 @@ void Manager::DbgStart(long attachPid)
     if(bldConf && !bldConf->IsGUIProgram()) { // debugging a project and the project is not considered a "GUI" program
         m_debuggerTerminal.Clear();
 #ifndef __WXMSW__
-        m_debuggerTerminal.Launch(wxString() << _("Debugging: ") << exepath << wxT(" ") << args);
+        m_debuggerTerminal.Launch(clDebuggerTerminalPOSIX::MakeExeTitle(exepath, args));
         if(!m_debuggerTerminal.IsValid()) {
             ::wxMessageBox(_("Could not launch terminal for debugger"), "CodeLite", wxOK | wxCENTER | wxICON_ERROR,
                            clMainFrame::Get());
@@ -2106,7 +2081,7 @@ void Manager::DbgStart(long attachPid)
     clMainFrame::Get()->GetDebuggerPane()->GetLocalsTable()->Initialize();
 
     // let the active editor get the focus
-    LEditor* editor = clMainFrame::Get()->GetMainBook()->GetActiveEditor();
+    clEditor* editor = clMainFrame::Get()->GetMainBook()->GetActiveEditor();
     if(editor) { editor->SetActive(); }
 
     // mark that we are waiting for the first GotControl()
@@ -2223,7 +2198,7 @@ void Manager::DbgMarkDebuggerLine(const wxString& fileName, int lineno)
 
     // try to open the file
     wxFileName fn(fileName);
-    LEditor* editor = clMainFrame::Get()->GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = clMainFrame::Get()->GetMainBook()->GetActiveEditor(true);
     if(editor && editor->GetFileName().GetFullPath().CmpNoCase(fn.GetFullPath()) == 0 && lineno > 0) {
         editor->HighlightLine(lineno);
         editor->SetEnsureCaretIsVisible(editor->PositionFromLine(lineno - 1), false);
@@ -2591,10 +2566,18 @@ void Manager::UpdateRemoteTargetConnected(const wxString& line)
 
 //--------------------------- Build Management -----------------------------
 
-bool Manager::IsBuildInProgress() const { return m_shellProcess && m_shellProcess->IsBusy(); }
+bool Manager::IsBuildInProgress() const
+{
+    clBuildEvent buildEvent(wxEVT_GET_IS_BUILD_IN_PROGRESS);
+    EventNotifier::Get()->ProcessEvent(buildEvent);
+    return buildEvent.IsRunning() || (m_shellProcess && m_shellProcess->IsBusy());
+}
 
 void Manager::StopBuild()
 {
+    clBuildEvent stopEvent(wxEVT_STOP_BUILD);
+    if(EventNotifier::Get()->ProcessEvent(stopEvent)) { return; }
+
     // Mark this build as 'interrupted'
     clMainFrame::Get()->GetOutputPane()->GetBuildTab()->SetBuildInterrupted(true);
 
@@ -2768,7 +2751,7 @@ void Manager::DoCustomBuild(const QueueCommand& buildInfo)
         DbgStop();
     }
 
-    if(m_shellProcess) { delete m_shellProcess; }
+    wxDELETE(m_shellProcess);
     m_shellProcess = new CustomBuildRequest(buildInfo, wxEmptyString);
     m_shellProcess->Process(PluginManager::Get());
 }
@@ -2838,10 +2821,9 @@ void Manager::DebuggerUpdate(const DebuggerEventData& event)
     case DBG_UR_FILE_LINE:
         // in some cases we don't physically reposition the file+line position, such as during updates made by user
         // actions (like add watch)
-        // but since this app uses a debugger refresh to update newly added watch values, it automatically repositions
-        // the editor always.
-        // this isn't always desirable behavior, so we pass a parameter indicating for certain operations if an override
-        // was used
+        // but since this app uses a debugger refresh to update newly added watch values, it automatically
+        // repositions the editor always. this isn't always desirable behavior, so we pass a parameter indicating
+        // for certain operations if an override was used
         UpdateFileLine(event.m_file, event.m_line, true);
         // raise the flag for the next call, as this "override" is only used once per consumption
         ManagerST::Get()->SetRepositionEditor(true);
@@ -3027,7 +3009,7 @@ void Manager::DebuggerUpdate(const DebuggerEventData& event)
         } else if(event.m_userReason == DBG_USERR_LOCALS) {
             clMainFrame::Get()->GetDebuggerPane()->GetLocalsTable()->OnEvaluateVariableObj(event);
 
-        } else if(GetDebuggerTip() && GetDebuggerTip()->IsShown()) {
+        } else if(GetDebuggerTip()) {
             GetDebuggerTip()->UpdateValue(event.m_expression, event.m_evaluated);
         }
         break;
@@ -3082,17 +3064,17 @@ void Manager::DoRestartCodeLite()
 #else // OSX
 
     // on OSX, we use the open command
-    wxFileName bundlePath(clStandardPaths::Get().GetExecutablePath());
-    bundlePath.RemoveLastDir();
-    bundlePath.RemoveLastDir();
+    wxFileName bundlePath(clStandardPaths::Get().GetBinFolder(), "");
+    bundlePath.RemoveLastDir(); // MacOS
+    bundlePath.RemoveLastDir(); // Contents
     wxString bundlePathStr = bundlePath.GetPath();
     ::WrapWithQuotes(bundlePathStr);
-    restartCodeLiteCommand << "/usr/bin/open " << bundlePathStr;
-
+    restartCodeLiteCommand << "sleep 2 && /usr/bin/open " << bundlePathStr;
+    ::WrapInShell(restartCodeLiteCommand);
     wxCommandEvent event(wxEVT_COMMAND_MENU_SELECTED, wxID_EXIT);
     clMainFrame::Get()->GetEventHandler()->AddPendingEvent(event);
-
-    wxExecute(restartCodeLiteCommand, wxEXEC_ASYNC | wxEXEC_NOHIDE);
+    clSYSTEM() << "Restarting CodeLite:" << restartCodeLiteCommand;
+    wxExecute(restartCodeLiteCommand, wxEXEC_ASYNC | wxEXEC_NOHIDE | wxEXEC_MAKE_GROUP_LEADER);
 #endif
 }
 
@@ -3170,91 +3152,53 @@ void Manager::DoShowQuickWatchDialog(const DebuggerEventData& event)
 
 void Manager::UpdateParserPaths(bool notify)
 {
+    // Parser paths are now updated via the compile_commands.json which is auto generated when:
+    // 1. Build process is ended
+    // 2. Workspace is loaded
     wxBusyCursor bc;
-
-    wxArrayString localIncludePaths;
-    wxArrayString localExcludePaths;
-    wxArrayString projectIncludePaths;
-
-    wxStringSet_t compileIncludePaths;
 
     // If we have an opened workspace, get its search paths
     if(IsWorkspaceOpen()) {
-
         wxArrayString projects;
         clCxxWorkspaceST::Get()->GetProjectList(projects);
         for(size_t i = 0; i < projects.GetCount(); ++i) {
             ProjectPtr pProj = clCxxWorkspaceST::Get()->GetProject(projects.Item(i));
             if(pProj) {
                 wxArrayString compilerIncPaths = pProj->GetIncludePaths();
-                for(size_t index = 0; index < compilerIncPaths.GetCount(); ++index) {
-                    compileIncludePaths.insert(compilerIncPaths.Item(index));
-                }
+                ParseThreadST::Get()->AddPaths(compilerIncPaths, {});
             }
         }
-        LocalWorkspaceST::Get()->GetParserPaths(localIncludePaths, localExcludePaths);
 
+        // get the workspace search paths and append them to the current paths
+        wxArrayString localInc, localExc;
+        clCxxWorkspaceST::Get()->GetLocalWorkspace()->GetParserPaths(localInc, localExc);
+        ParseThreadST::Get()->AddPaths(localInc, localExc);
+
+        // get the build configuration specific paths and add them as well
         BuildConfigPtr buildConf = GetCurrentBuildConf();
         if(buildConf) {
             wxString projSearchPaths = buildConf->GetCcSearchPaths();
-            projectIncludePaths = wxStringTokenize(projSearchPaths, wxT("\r\n"), wxTOKEN_STRTOK);
+            wxArrayString projectInc = wxStringTokenize(projSearchPaths, wxT("\r\n"), wxTOKEN_STRTOK);
+
+            // Expand macros
+            for(wxString& projectPath : projectInc) {
+                projectPath =
+                    MacroManager::Instance()->Expand(projectPath, PluginManager::Get(), GetActiveProjectName());
+            }
+            ParseThreadST::Get()->AddPaths(projectInc, {});
         }
     }
 
-    for(size_t i = 0; i < projectIncludePaths.GetCount(); i++) {
-        projectIncludePaths.Item(i) =
-            MacroManager::Instance()->Expand(projectIncludePaths.Item(i), PluginManager::Get(), GetActiveProjectName());
-    }
+    // Get the global paths from the configuration (settings->code completion->ctags->search paths)
+    const TagsOptionsData& tod = clMainFrame::Get()->GetTagsOptions();
+    const wxArrayString& globalInc = tod.GetParserSearchPaths();
+    const wxArrayString& globalExc = tod.GetParserExcludePaths();
+    ParseThreadST::Get()->AddPaths(globalInc, globalExc);
 
-    // Update the parser thread with the new paths
-    wxArrayString globalIncludePath, uniExcludePath;
-    TagsOptionsData tod = clMainFrame::Get()->GetTagsOptions();
-    globalIncludePath = tod.GetParserSearchPaths();
-    uniExcludePath = tod.GetParserExcludePaths();
-
-    // Add the global search paths to the local workspace
-    // include paths (the order does matter)
-    for(size_t i = 0; i < globalIncludePath.GetCount(); i++) {
-        if(localIncludePaths.Index(globalIncludePath.Item(i)) == wxNOT_FOUND) {
-            localIncludePaths.Add(globalIncludePath.Item(i));
-        }
-    }
-
-    // Add the project paths as well
-    for(size_t i = 0; i < projectIncludePaths.GetCount(); i++) {
-        if(localIncludePaths.Index(projectIncludePaths.Item(i)) == wxNOT_FOUND) {
-            localIncludePaths.Add(projectIncludePaths.Item(i));
-        }
-    }
-
-    for(size_t i = 0; i < localExcludePaths.GetCount(); i++) {
-        if(uniExcludePath.Index(localExcludePaths.Item(i)) == wxNOT_FOUND) {
-            uniExcludePath.Add(localExcludePaths.Item(i));
-        }
-    }
-
-    wxStringSet_t::iterator iter = compileIncludePaths.begin();
-    for(; iter != compileIncludePaths.end(); ++iter) {
-        if(localIncludePaths.Index(*iter) == wxNOT_FOUND) { localIncludePaths.Add(*iter); }
-    }
-
-    wxArrayString existingPaths;
-    for(size_t i = 0; i < localIncludePaths.GetCount(); ++i) {
-        if(wxFileName::DirExists(localIncludePaths.Item(i))) {
-            existingPaths.Add(localIncludePaths.Item(i));
-            CL_DEBUG("Parser thread include path: %s", localIncludePaths.Item(i));
-        }
-    }
-    localIncludePaths.swap(existingPaths);
-
-    for(size_t i = 0; i < localExcludePaths.GetCount(); ++i) {
-        CL_DEBUG("Parser thread exclude path: %s", localExcludePaths.Item(i));
-    }
-
-    ParseThreadST::Get()->SetSearchPaths(localIncludePaths, uniExcludePath);
-    if(notify) {
-        wxCommandEvent event(wxEVT_COMMAND_MENU_SELECTED, XRCID("retag_workspace"));
-        clMainFrame::Get()->GetEventHandler()->AddPendingEvent(event);
+    {
+        wxArrayString inc, exc;
+        ParseThreadST::Get()->GetSearchPaths(inc, exc);
+        clDEBUG() << "Parser paths are now set to:" << inc;
     }
 }
 
@@ -3268,6 +3212,9 @@ void Manager::OnIncludeFilesScanDone(wxCommandEvent& event)
     wxArrayString projects;
     GetProjectList(projects);
 
+    clDEBUG() << "Scan for include files is done";
+
+    clDEBUG() << "Building project file list...";
     std::vector<wxFileName> projectFiles;
     for(size_t i = 0; i < projects.GetCount(); i++) {
         ProjectPtr proj = GetProject(projects.Item(i));
@@ -3280,8 +3227,9 @@ void Manager::OnIncludeFilesScanDone(wxCommandEvent& event)
         wxString fn(projectFiles.at(i).GetFullPath());
         fileSet->insert(fn);
     }
+    clDEBUG() << "Building project file list...done";
 
-    //	fprintf(stderr, "Parsing the following files\n");
+    clDEBUG() << "Converting set to vector...";
     // recreate the list in the form of vector (the API requirs vector)
     projectFiles.clear();
     std::set<wxString>::iterator iter = fileSet->begin();
@@ -3292,6 +3240,7 @@ void Manager::OnIncludeFilesScanDone(wxCommandEvent& event)
         if(fn.IsRelative()) { fn.MakeAbsolute(); }
         projectFiles.push_back(fn);
     }
+    clDEBUG() << "Converting set to vector...done";
 
 #if !USE_PARSER_TREAD_FOR_RETAGGING_WORKSPACE
     wxStopWatch sw;
@@ -3306,7 +3255,7 @@ void Manager::OnIncludeFilesScanDone(wxCommandEvent& event)
 #if !USE_PARSER_TREAD_FOR_RETAGGING_WORKSPACE
     long end = sw.Time();
     clMainFrame::Get()->SetStatusMessage(_("Done"), 0);
-    wxLogMessage(wxT("INFO: Retag workspace completed in %d seconds (%d files were scanned)"), (end) / 1000,
+    clLogMessage(wxT("INFO: Retag workspace completed in %d seconds (%d files were scanned)"), (end) / 1000,
                  projectFiles.size());
     SendCmdEvent(wxEVT_FILE_RETAGGED, (void*)&projectFiles);
 #endif
@@ -3327,7 +3276,7 @@ void Manager::DoSaveAllFilesBeforeBuild()
 
 DisplayVariableDlg* Manager::GetDebuggerTip()
 {
-    if(!m_watchDlg) { m_watchDlg = new DisplayVariableDlg(clMainFrame::Get()); }
+    if(!m_watchDlg) { m_watchDlg = new DisplayVariableDlg(clMainFrame::Get()->GetMainBook()); }
     return m_watchDlg;
 }
 
@@ -3338,7 +3287,7 @@ void Manager::OnProjectSettingsModified(clProjectSettingsEvent& event)
     clMainFrame::Get()->SelectBestEnvSet();
 }
 
-void Manager::OnDbContentCacherLoaded(wxCommandEvent& event) { wxLogMessage(event.GetString()); }
+void Manager::OnDbContentCacherLoaded(wxCommandEvent& event) { clLogMessage(event.GetString()); }
 
 void Manager::GetActiveProjectAndConf(wxString& project, wxString& conf)
 {
@@ -3356,7 +3305,7 @@ void Manager::GetActiveProjectAndConf(wxString& project, wxString& conf)
     matrix->GetProjectSelectedConf(workspaceConf, project);
 }
 
-void Manager::UpdatePreprocessorFile(LEditor* editor) { wxUnusedVar(editor); }
+void Manager::UpdatePreprocessorFile(clEditor* editor) { wxUnusedVar(editor); }
 
 BuildConfigPtr Manager::GetCurrentBuildConf()
 {
@@ -3413,14 +3362,7 @@ void Manager::OnAddWorkspaceToRecentlyUsedList(wxCommandEvent& e)
     if(fn.FileExists()) { AddToRecentlyOpenedWorkspaces(fn.GetFullPath()); }
 }
 
-void Manager::GenerateCompileCommands()
-{
-    if(clCxxWorkspaceST::Get()->IsOpen()) {
-        CompileCommandsCreateor* job = new CompileCommandsCreateor(clCxxWorkspaceST::Get()->GetWorkspaceFileName());
-        JobQueueSingleton::Instance()->PushJob(job);
-        clMainFrame::Get()->GetStatusBar()->SetMessage(_("Generating compile_commands.json file..."));
-    }
-}
+void Manager::GenerateCompileCommands() {}
 
 void Manager::OnBuildEnded(clBuildEvent& event) { event.Skip(); }
 
@@ -3517,7 +3459,7 @@ void Manager::OnParserThreadSuggestColourTokens(clCommandEvent& event)
 
     wxString originatingFile = event.GetFileName();
 
-    LEditor* editor = clMainFrame::Get()->GetMainBook()->FindEditor(originatingFile);
+    clEditor* editor = clMainFrame::Get()->GetMainBook()->FindEditor(originatingFile);
     if(editor) { editor->GetContext()->ColourContextTokens(classes, locals); }
 }
 
@@ -3527,12 +3469,12 @@ void Manager::OnProjectRenamed(clCommandEvent& event)
     if(clCxxWorkspaceST::Get()->IsOpen()) { ReloadWorkspace(); }
 }
 
-void Manager::OnFindInFilesDismissed(clCommandEvent& event)
+void Manager::OnFindInFilesDismissed(clFindInFilesEvent& event)
 {
     event.Skip();
     if(clCxxWorkspaceST::Get()->IsOpen()) {
-        LocalWorkspaceST::Get()->SetSearchInFilesMask(event.GetString());
-        LocalWorkspaceST::Get()->Flush();
+        clConfig::Get().Write("FindInFiles/CXX/Mask", event.GetFileMask());
+        clConfig::Get().Write("FindInFiles/CXX/LookIn", event.GetPaths());
     }
 }
 
@@ -3580,5 +3522,42 @@ void Manager::ShowNewProjectWizard(const wxString& workspaceFolder)
 
         // Carry on with the default behaviour
         CreateProject(data, workspaceFolder);
+    }
+}
+
+void Manager::OnUpdateDebuggerActiveView(clDebugEvent& event)
+{
+    if(DebuggerMgr::Get().IsNativeDebuggerRunning()) {
+        UpdateDebuggerPane();
+
+    } else {
+        event.Skip();
+    }
+}
+
+void Manager::OnDebuggerSetMemory(clDebugEvent& event)
+{
+    if(DebuggerMgr::Get().IsNativeDebuggerRunning()) {
+        SetMemory(event.GetMemoryAddress(), event.GetMemoryBlockSize(), event.GetMemoryBlockValue());
+    } else {
+        event.Skip();
+    }
+}
+
+void Manager::OnHideGdbTooltip(clCommandEvent& event)
+{
+    event.Skip();
+    if(GetDebuggerTip()) { GetDebuggerTip()->HideDialog(); }
+}
+
+void Manager::OnFindInFilesShowing(clFindInFilesEvent& event)
+{
+    event.Skip();
+    if(clCxxWorkspaceST::Get()->IsOpen()) {
+        // Load the C++ workspace values from the configuration
+        event.SetFileMask(clConfig::Get().Read("FindInFiles/CXX/Mask",
+                                               wxString("*.c;*.cpp;*.cxx;*.cc;*.h;*.hpp;*.inc;*.mm;*.m;*.xrc;"
+                                                        "*.xml;*.json;*.sql;*.txt;*.plist;CMakeLists.txt;*.rc;*.iss")));
+        event.SetPaths(clConfig::Get().Read("FindInFiles/CXX/LookIn", wxString("<Entire Workspace>")));
     }
 }

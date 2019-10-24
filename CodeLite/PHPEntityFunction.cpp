@@ -132,3 +132,26 @@ wxString PHPEntityFunction::GetFullPath() const
     fullpath << GetSignature();
     return fullpath;
 }
+
+void PHPEntityFunction::FromJSON(const JSONItem& json)
+{
+    BaseFromJSON(json);
+    m_strReturnValue = json.namedObject("returns").toString();
+    m_strSignature = json.namedObject("signature").toString();
+}
+
+JSONItem PHPEntityFunction::ToJSON() const
+{
+    JSONItem json = BaseToJSON("f");
+    json.addProperty("returns", m_strReturnValue);
+    json.addProperty("signature", m_strSignature);
+    return json;
+}
+
+wxString PHPEntityFunction::ToTooltip() const
+{
+    wxString tip;
+    tip << GetShortName() << GetSignature();
+    if(!GetReturnValue().IsEmpty()) { tip << " : " << GetReturnValue(); }
+    return tip;
+}

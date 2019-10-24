@@ -12,21 +12,26 @@
 #include "imanager.h"
 #include <wx/xrc/xmlres.h>
 #include "WebToolsConfig.h"
+#include "webtools.h"
 
-XMLCodeCompletion::XMLCodeCompletion()
-    : m_completeReason(kNone)
+XMLCodeCompletion::XMLCodeCompletion(WebTools* plugin)
+    : ServiceProvider("WebTools: XML", eServiceType::kCodeCompletion)
+    , m_completeReason(kNone)
+    , m_plugin(plugin)
 {
     PrepareHtmlCompletions();
     EventNotifier::Get()->Bind(wxEVT_CCBOX_SELECTION_MADE, &XMLCodeCompletion::OnCodeCompleted, this);
 
-    WebToolsConfig conf;
-    m_htmlCcEnabeld = conf.Load().HasHtmlFlag(WebToolsConfig::kHtmlEnableCC);
-    m_xmlCcEnabled = conf.Load().HasXmlFlag(WebToolsConfig::kXmlEnableCC);
+    WebToolsConfig& conf = WebToolsConfig::Get();
+    m_htmlCcEnabeld = conf.HasHtmlFlag(WebToolsConfig::kHtmlEnableCC);
+    m_xmlCcEnabled = conf.HasXmlFlag(WebToolsConfig::kXmlEnableCC);
+    Bind(wxEVT_CC_CODE_COMPLETE, &XMLCodeCompletion::OnCodeComplete, this);
 }
 
 XMLCodeCompletion::~XMLCodeCompletion()
 {
     EventNotifier::Get()->Unbind(wxEVT_CCBOX_SELECTION_MADE, &XMLCodeCompletion::OnCodeCompleted, this);
+    Unbind(wxEVT_CC_CODE_COMPLETE, &XMLCodeCompletion::OnCodeComplete, this);
 }
 
 void XMLCodeCompletion::SuggestClosingTag(IEditor* editor, bool html)
@@ -52,8 +57,8 @@ void XMLCodeCompletion::SuggestClosingTag(IEditor* editor, bool html)
     entries.push_back(entry);
 
     m_completeReason = kCloseSequence;
-    wxCodeCompletionBoxManager::Get().ShowCompletionBox(
-        editor->GetCtrl(), entries, bitmaps, 0, GetWordStartPos(editor), this);
+    wxCodeCompletionBoxManager::Get().ShowCompletionBox(editor->GetCtrl(), entries, bitmaps, 0, GetWordStartPos(editor),
+                                                        this);
 }
 
 void XMLCodeCompletion::XmlCodeComplete(IEditor* editor)
@@ -97,8 +102,8 @@ void XMLCodeCompletion::HtmlCodeComplete(IEditor* editor)
             entries.push_back(entry);
         }
         m_completeReason = kHtmlOpenSequence;
-        wxCodeCompletionBoxManager::Get().ShowCompletionBox(
-            editor->GetCtrl(), entries, bitmaps, 0, GetWordStartPos(editor), this);
+        wxCodeCompletionBoxManager::Get().ShowCompletionBox(editor->GetCtrl(), entries, bitmaps, 0,
+                                                            GetWordStartPos(editor), this);
     }
 }
 
@@ -130,8 +135,8 @@ void XMLCodeCompletion::PrepareHtmlCompletions()
     m_htmlCompletions.push_back(
         HtmlCompletion("<base", "Specifies the base URL/target for all relative URLs in a document"));
     m_htmlCompletions.push_back(HtmlCompletion("<basefont",
-        "Not supported in HTML5. Use CSS instead. Specifies a "
-        "default color, size, and font for all text in a document"));
+                                               "Not supported in HTML5. Use CSS instead. Specifies a "
+                                               "default color, size, and font for all text in a document"));
     m_htmlCompletions.push_back(HtmlCompletion(
         "bdi", "Isolates a part of text that might be formatted in a different direction from other text outside it"));
     m_htmlCompletions.push_back(HtmlCompletion("<bdo", "Overrides the current text direction"));
@@ -196,7 +201,8 @@ void XMLCodeCompletion::PrepareHtmlCompletions()
     m_htmlCompletions.push_back(HtmlCompletion("<label", "Defines a label for an <input> element"));
     m_htmlCompletions.push_back(HtmlCompletion("<legend", "Defines a caption for a <fieldset> element"));
     m_htmlCompletions.push_back(HtmlCompletion("<li", "Defines a list item"));
-    m_htmlCompletions.push_back(HtmlCompletion("link",
+    m_htmlCompletions.push_back(HtmlCompletion(
+        "link",
         "Defines the relationship between a document and an external resource (most used to link to style sheets)"));
     m_htmlCompletions.push_back(HtmlCompletion("<main", "Specifies the main content of a document"));
     m_htmlCompletions.push_back(HtmlCompletion("<map", "Defines a client-side image-map"));
@@ -268,9 +274,7 @@ void XMLCodeCompletion::PrepareHtmlCompletions()
 void XMLCodeCompletion::OnCodeCompleted(clCodeCompletionEvent& event)
 {
     event.Skip();
-    if(event.GetEventObject() != this) {
-        return;
-    }
+    if(event.GetEventObject() != this) { return; }
 
     // sanity
     IEditor* editor = clGetManager()->GetActiveEditor();
@@ -328,9 +332,7 @@ wxString XMLCodeCompletion::GetCompletePattern(const wxString& tag) const
         // The default:
         // <tag>|</tag>
         wxString t = tag;
-        if(t.StartsWith("<")) {
-            t.Remove(0, 1);
-        }
+        if(t.StartsWith("<")) { t.Remove(0, 1); }
         return wxString() << "<" << t << ">|</" << t << ">";
     } else {
         return m_completePattern.find(tag.Lower())->second;
@@ -344,9 +346,9 @@ bool XMLCodeCompletion::HasSpecialInsertPattern(const wxString& tag) const
 
 void XMLCodeCompletion::Reload()
 {
-    WebToolsConfig conf;
-    m_htmlCcEnabeld = conf.Load().HasHtmlFlag(WebToolsConfig::kHtmlEnableCC);
-    m_xmlCcEnabled = conf.Load().HasXmlFlag(WebToolsConfig::kXmlEnableCC);
+    WebToolsConfig& conf = WebToolsConfig::Get();
+    m_htmlCcEnabeld = conf.HasHtmlFlag(WebToolsConfig::kHtmlEnableCC);
+    m_xmlCcEnabled = conf.HasXmlFlag(WebToolsConfig::kXmlEnableCC);
 }
 
 int XMLCodeCompletion::GetWordStartPos(IEditor* editor)
@@ -356,9 +358,22 @@ int XMLCodeCompletion::GetWordStartPos(IEditor* editor)
     int minPos = editor->PosFromLine(editor->GetCurrentLine());
     int curpos = editor->GetCurrentPosition() - 1;
     for(int i = curpos; i >= minPos; --i) {
-        if(editor->GetCharAtPos(i) == '<') {
-            return i;
-        }
+        if(editor->GetCharAtPos(i) == '<') { return i; }
     }
     return editor->WordStartPos(editor->GetCurrentPosition(), true);
+}
+
+void XMLCodeCompletion::OnCodeComplete(clCodeCompletionEvent& event)
+{
+    event.Skip();
+    IEditor* editor = dynamic_cast<IEditor*>(event.GetEditor());
+    if(editor && editor->GetCtrl()->GetLexer() == wxSTC_LEX_XML) {
+        // an XML file
+        event.Skip(false);
+        XmlCodeComplete(editor);
+    } else if(editor && m_plugin->IsHTMLFile(editor)) {
+        // Html code completion
+        event.Skip(false);
+        HtmlCodeComplete(editor);
+    }
 }

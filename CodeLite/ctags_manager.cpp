@@ -55,16 +55,18 @@
 #include <wx/app.h>
 #include <wx/busyinfo.h>
 #include <wx/file.h>
+#if wxUSE_GUI
 #include <wx/frame.h>
-#include <wx/log.h>
 #include <wx/msgdlg.h>
 #include <wx/progdlg.h>
+#include <wx/xrc/xmlres.h>
 #include <wx/sizer.h>
+#endif
+#include <wx/log.h>
 #include <wx/stdpaths.h>
 #include <wx/string.h>
 #include <wx/txtstrm.h>
 #include <wx/wfstream.h>
-#include <wx/xrc/xmlres.h>
 
 //#define __PERFORMANCE
 #include "performance.h"
@@ -75,9 +77,8 @@
 #define PIPE_NAME "/tmp/codelite_indexer.%s.sock"
 #endif
 
-const wxEventType wxEVT_UPDATE_FILETREE_EVENT = XRCID("update_file_tree_event");
-const wxEventType wxEVT_TAGS_DB_UPGRADE = XRCID("tags_db_upgraded");
-const wxEventType wxEVT_TAGS_DB_UPGRADE_INTER = XRCID("tags_db_upgraded_now");
+wxDEFINE_EVENT(wxEVT_TAGS_DB_UPGRADE, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_TAGS_DB_UPGRADE_INTER, wxCommandEvent);
 
 //---------------------------------------------------------------------------
 // Misc
@@ -194,8 +195,10 @@ void TagsManager::OpenDatabase(const wxFileName& fileName)
     ITagsStoragePtr db;
     db = m_db;
 
+#if wxUSE_GUI
     bool retagIsRequired = false;
     if(fileName.FileExists() == false) { retagIsRequired = true; }
+#endif
 
     db->OpenDatabase(fileName);
     db->SetEnableCaseInsensitive(!(m_tagsOptions.GetFlags() & CC_IS_CASE_SENSITIVE));
@@ -211,11 +214,12 @@ void TagsManager::OpenDatabase(const wxFileName& fileName)
             m_evtHandler->ProcessEvent(event);
         }
     }
-
+#if wxUSE_GUI
     if(retagIsRequired && m_evtHandler) {
         wxCommandEvent e(wxEVT_COMMAND_MENU_SELECTED, XRCID("retag_workspace"));
         m_evtHandler->AddPendingEvent(e);
     }
+#endif
 }
 
 TagTreePtr TagsManager::ParseSourceFile(const wxFileName& fp, std::vector<CommentPtr>* comments)
@@ -430,6 +434,7 @@ TagTreePtr TagsManager::TreeFromTags(const wxString& tags, int& count)
 
 bool TagsManager::IsValidCtagsFile(const wxFileName& filename) const
 {
+    wxLogNull PreventMissingFileLogErrorMessages;
     return FileExtManager::IsCxxFile(filename) || FileUtils::WildMatch(m_tagsOptions.GetFileSpec(), filename);
 }
 
@@ -559,7 +564,7 @@ bool TagsManager::WordCompletionCandidates(const wxFileName& fileName, int linen
             GetKeywordsTagsForLanguage(word, kCxx, keywords);
         }
 
-        // Allways collect the local and the function argument tags
+        // Always collect the local and the function argument tags
         GetLocalTags(word, scope, locals, PartialMatch | IgnoreCaseSensitive | ReplaceTokens);
         GetLocalTags(word, funcSig, locals, PartialMatch | IgnoreCaseSensitive);
 
@@ -1250,33 +1255,39 @@ void TagsManager::RetagFiles(const std::vector<wxFileName>& files, RetagType typ
 {
     wxArrayString strFiles;
     strFiles.Alloc(files.size()); // At most files.size() entries
+    
     // step 1: remove all non-tags files
     for(size_t i = 0; i < files.size(); i++) {
         if(!IsValidCtagsFile(files.at(i).GetFullPath())) { continue; }
-
         strFiles.Add(files.at(i).GetFullPath());
     }
 
     // If there are no files to tag - send the 'end' event
     if(strFiles.IsEmpty()) {
+#if wxUSE_GUI
         wxFrame* frame = dynamic_cast<wxFrame*>(wxTheApp->GetTopWindow());
         if(frame) {
             wxCommandEvent retaggingCompletedEvent(wxEVT_PARSE_THREAD_RETAGGING_COMPLETED);
             frame->GetEventHandler()->AddPendingEvent(retaggingCompletedEvent);
         }
+#endif        
         return;
     }
 
     // step 2: remove all files which do not need retag
-    if(type == Retag_Quick || type == Retag_Quick_No_Scan) DoFilterNonNeededFilesForRetaging(strFiles, GetDatabase());
+    if(type == Retag_Quick || type == Retag_Quick_No_Scan) {
+        DoFilterNonNeededFilesForRetaging(strFiles, GetDatabase());
+    }
 
     // If there are no files to tag - send the 'end' event
     if(strFiles.IsEmpty()) {
+#if wxUSE_GUI
         wxFrame* frame = dynamic_cast<wxFrame*>(wxTheApp->GetTopWindow());
         if(frame) {
             wxCommandEvent retaggingCompletedEvent(wxEVT_PARSE_THREAD_RETAGGING_COMPLETED);
             frame->GetEventHandler()->AddPendingEvent(retaggingCompletedEvent);
         }
+#endif
         return;
     }
 
@@ -1529,7 +1540,7 @@ void TagsManager::TipsFromTags(const std::vector<TagEntryPtr>& tags, const wxStr
             if(!t->IsScopeGlobal() && !t->IsConstructor() && !t->IsDestructor()) { tip << t->GetScope() << wxT("::"); }
 
             // name
-            tip << "<b><color=\"white\">" << t->GetName() << "</color></b>";
+            tip << "<b>" << t->GetName() << "</b>";
 
             // method signature
             tip << NormalizeFunctionSig(t->GetSignature(), Normalize_Func_Name | Normalize_Func_Default_value);
@@ -1769,7 +1780,7 @@ TagEntryPtr TagsManager::FunctionFromFileLine(const wxFileName& fileName, int li
             }
         }
     }
-    return NULL;
+    return foo;
 }
 
 void TagsManager::GetScopesFromFile(const wxFileName& fileName, std::vector<wxString>& scopes)

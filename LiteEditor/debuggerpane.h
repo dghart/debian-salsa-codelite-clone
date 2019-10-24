@@ -61,8 +61,8 @@ public:
     };
 
 public:
-    virtual void FromJSON(const JSONElement& json);
-    virtual JSONElement ToJSON() const;
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON() const;
 
     void SetWindows(size_t windows) { this->m_windows = windows; }
     size_t GetWindows() const { return m_windows; }
@@ -134,6 +134,7 @@ public:
     ThreadListPanel* GetThreadsView() { return m_threads; }
     MemoryView* GetMemoryView() { return m_memory; }
     DebuggerAsciiViewer* GetAsciiViewer() { return m_asciiViewer; }
+    DebuggerDisassemblyTab* GetDisassemblyTab() { return m_disassemble; }
     DebugTab* GetDebugWindow() { return m_outputDebug; }
 
     Notebook* GetNotebook() { return m_book; }

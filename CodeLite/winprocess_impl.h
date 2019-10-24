@@ -28,41 +28,47 @@
 #ifdef __WXMSW__
 
 #include "asyncprocess.h"
-#include <wx/string.h>
-#include <Windows.h>
 #include "codelite_exports.h"
+#include <Windows.h>
+#include <wx/string.h>
+#include <thread>
+#include <unordered_set>
 
 class ProcessReaderThread;
+class WinWriterThread;
 
 class WXDLLIMPEXP_CL WinProcessImpl : public IProcess
 {
-    ProcessReaderThread *m_thr;
-    HANDLE               m_hRead;
-    char                 m_buffer[65537];
+    ProcessReaderThread* m_thr;
+    char m_buffer[65537];
+    WinWriterThread* m_writerThread = nullptr;
+    std::unordered_set<long> m_initialChildren;
 
 protected:
     void StartReaderThread();
-    bool DoReadFromPipe(HANDLE pipe, wxString &buff);
-    bool DoReadFromConsoleBuffer(HANDLE handle, wxString &buff);
+    bool DoReadFromPipe(HANDLE pipe, wxString& buff);
 
 public:
-    WinProcessImpl(wxEvtHandler *parent);
+    WinProcessImpl(wxEvtHandler* parent);
     virtual ~WinProcessImpl();
 
     // Create process asynchronously and return a process object
-    static IProcess* Execute(wxEvtHandler *parent, const wxString& cmd, wxString &errMsg, size_t flags = IProcessCreateDefault,const wxString &workingDir = wxEmptyString, IProcessCallback* cb = NULL);
+    static IProcess* Execute(wxEvtHandler* parent, const wxString& cmd, wxString& errMsg,
+                             size_t flags = IProcessCreateDefault, const wxString& workingDir = wxEmptyString,
+                             IProcessCallback* cb = NULL);
 
     /**
-     * @brief read data from stdout, if no data is available, return
-     * if timeout occurred, return with true.
+     * @brief read data from stdout and error
      * @param buff check the buffer when true is returned
      * @return return true on success or timeout, flase otherwise, incase of false the reader thread will terminate
      */
-    virtual bool Read(wxString& buff);
+    virtual bool Read(wxString& buff, wxString& buffErr);
 
     // Write to the process stdin
     virtual bool Write(const wxString& buff);
-
+    virtual bool Write(const std::string& buff);
+    virtual bool WriteRaw(const wxString& buff);
+    virtual bool WriteRaw(const std::string& buff);
     virtual bool WriteToConsole(const wxString& buff);
 
     // Return true if the process is still alive
@@ -73,15 +79,11 @@ public:
     virtual void Cleanup();
     virtual void Terminate();
     virtual void Detach();
-protected:
-    bool RedirectHandle(DWORD id, SECURITY_ATTRIBUTES &saAttr, HANDLE& hSavedHandle, HANDLE& hChildRd, HANDLE& hChildRdDup, HANDLE& hChildWrite, long flags);
 
 private:
     // Creating process related handles
-    HANDLE hChildStdinRd, hChildStdinWr, hChildStdinWrDup,
-           hChildStdoutRd, hChildStdoutWr, hChildStdoutRdDup,
-           hChildStderrRd, hChildStderrWr, hChildStderrRdDup,
-           hSaveStdin, hSaveStdout, hSaveStderr;
+    HANDLE hChildStdinRd, hChildStdinWr, hChildStdinWrDup, hChildStdoutRd, hChildStdoutWr, hChildStdoutRdDup,
+        hChildStderrRd, hChildStderrWr, hChildStderrRdDup, hSaveStdin, hSaveStdout, hSaveStderr;
 
     // Child process id & information
     DWORD dwProcessId;

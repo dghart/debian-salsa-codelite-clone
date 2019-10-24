@@ -25,13 +25,13 @@
 #ifndef CONTEXT_CPP_H
 #define CONTEXT_CPP_H
 
+#include "cl_command_event.h"
 #include "context_base.h"
 #include "cpptoken.h"
 #include "ctags_manager.h"
-#include <map>
 #include "entry.h"
-#include "cl_command_event.h"
 #include "macros.h"
+#include <map>
 
 class RefactorSource;
 
@@ -55,7 +55,7 @@ private:
     void DisplayFilesCompletionBox(const wxString& word);
     bool DoGetFunctionBody(long curPos, long& blockStartPos, long& blockEndPos, wxString& content);
     void Initialize();
-    void DoCodeComplete(long pos);
+    bool DoCodeComplete(long pos);
     void DoCreateFile(const wxFileName& fn);
     void DoUpdateCalltipHighlight();
 
@@ -71,15 +71,15 @@ public:
      * @return
      */
     virtual bool IsAtLineComment() const;
-    ContextCpp(LEditor* container);
+    ContextCpp(clEditor* container);
     virtual bool IsDefaultContext() const;
 
     virtual ~ContextCpp();
     ContextCpp();
-    virtual ContextBase* NewInstance(LEditor* container);
-    virtual void CompleteWord();
-    virtual void CodeComplete(long pos = wxNOT_FOUND);
-    virtual void GotoDefinition();
+    virtual ContextBase* NewInstance(clEditor* container);
+    virtual bool CompleteWord();
+    virtual bool CodeComplete(long pos = wxNOT_FOUND);
+    virtual bool GotoDefinition();
     virtual TagEntryPtr GetTagAtCaret(bool scoped, bool impl);
     virtual wxString GetCurrentScopeName();
     virtual void AutoIndent(const wxChar&);
@@ -102,7 +102,7 @@ public:
 
     // Event handlers
     virtual void OnDwellEnd(wxStyledTextEvent& event);
-    virtual void OnDwellStart(wxStyledTextEvent& event);
+    virtual bool GetHoverTip(int pos);
     virtual void OnDbgDwellEnd(wxStyledTextEvent& event);
     virtual void OnDbgDwellStart(wxStyledTextEvent& event);
     virtual void OnSciUpdateUI(wxStyledTextEvent& event);
@@ -131,7 +131,6 @@ public:
     virtual void OnAddMultiImpl(wxCommandEvent& e);
     virtual void OnOverrideParentVritualFunctions(wxCommandEvent& e);
     virtual void OnRenameGlobalSymbol(wxCommandEvent& e);
-    virtual void OnRenameLocalSymbol(wxCommandEvent& e);
     virtual void OnFindReferences(wxCommandEvent& e);
     virtual void OnSyncSignatures(wxCommandEvent& e);
     virtual void OnRetagFile(wxCommandEvent& e);
@@ -144,18 +143,24 @@ private:
     wxString GetWordUnderCaret();
     wxString GetFileImageString(const wxString& ext);
     wxString GetImageString(const TagEntry& entry);
-    wxString GetExpression(long pos, bool onlyWord, LEditor* editor = NULL, bool forCC = true);
-    void DoGotoSymbol(TagEntryPtr tag);
+    wxString GetExpression(long pos, bool onlyWord, clEditor* editor = NULL, bool forCC = true);
+    bool DoGotoSymbol(TagEntryPtr tag);
     bool IsIncludeStatement(const wxString& line, wxString* fileName = NULL, wxString* fileNameUpToCaret = NULL);
     void RemoveDuplicates(std::vector<TagEntryPtr>& src, std::vector<TagEntryPtr>& target);
     int FindLineToAddInclude();
     void MakeCppKeywordsTags(const wxString& word, std::vector<TagEntryPtr>& tags);
     void DoOpenWorkspaceFile();
     void DoSetProjectPaths();
-    bool DoGetSingatureRange(int line, int& start, int& end, LEditor* ctrl);
+    bool DoGetSingatureRange(int line, int& start, int& end, clEditor* ctrl);
 
 public:
-    void DoMakeDoxyCommentString(DoxygenComment& dc, const wxString& blockPrefix);
+    void DoMakeDoxyCommentString(DoxygenComment& dc, const wxString& blockPrefix, wxChar keywordPrefix);
+    /**
+     * \brief replace list of tokens representd by li with 'word'
+     * \param li
+     * \return
+     */
+    static void ReplaceInFiles(const wxString& word, const CppToken::Vec_t& li);
 
 private:
     /**
@@ -168,18 +173,12 @@ private:
     bool FindSwappedFile(const wxFileName& rhs, wxStringSet_t& others);
     bool FindSwappedFile(const wxFileName& rhs, wxString& lhs);
 
-    /**
-     * \brief replace list of tokens representd by li with 'word'
-     * \param li
-     * \return
-     */
-    void ReplaceInFiles(const wxString& word, const CppToken::Vec_t& li);
 
     /**
      * @brief format editor
      * @param editor
      */
-    void DoFormatEditor(LEditor* editor);
+    void DoFormatEditor(clEditor* editor);
 };
 
 #endif // CONTEXT_CPP_H

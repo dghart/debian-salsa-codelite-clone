@@ -34,7 +34,7 @@
 #include "event_notifier.h"
 #include "file_logger.h"
 #include "fileutils.h"
-#include "json_node.h"
+#include "JSON.h"
 #include "sftp.h"
 #include "sftp_settings.h"
 #include "sftp_worker_thread.h"
@@ -44,6 +44,7 @@
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
 #include <wx/xrc/xmlres.h>
+#include <algorithm>
 
 static SFTP* thePlugin = NULL;
 const wxEventType wxEVT_SFTP_OPEN_SSH_ACCOUNT_MANAGER = ::wxNewEventType();
@@ -151,12 +152,7 @@ SFTP::SFTP(IManager* manager)
 
 SFTP::~SFTP() {}
 
-clToolBar* SFTP::CreateToolBar(wxWindow* parent)
-{
-    // Create the toolbar to be used by the plugin
-    clToolBar* tb(NULL);
-    return tb;
-}
+void SFTP::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
 
 void SFTP::CreatePluginMenu(wxMenu* pluginsMenu)
 {
@@ -199,12 +195,6 @@ bool SFTP::IsPaneDetached(const wxString& name) const
     m_mgr->GetConfigTool()->ReadObject(wxT("DetachedPanesList"), &dpi);
     const wxArrayString& detachedPanes = dpi.GetPanes();
     return detachedPanes.Index(name) != wxNOT_FOUND;
-}
-
-void SFTP::UnHookPopupMenu(wxMenu* menu, MenuType type)
-{
-    wxUnusedVar(menu);
-    wxUnusedVar(type);
 }
 
 void SFTP::UnPlug()
@@ -306,9 +296,9 @@ void SFTP::OnFileSaved(clCommandEvent& e)
     DoFileSaved(local_file);
 }
 
-void SFTP::OnFileWriteOK(const wxString& message) { wxLogMessage(message); }
+void SFTP::OnFileWriteOK(const wxString& message) { clLogMessage(message); }
 
-void SFTP::OnFileWriteError(const wxString& errorMessage) { wxLogMessage(errorMessage); }
+void SFTP::OnFileWriteError(const wxString& errorMessage) { clLogMessage(errorMessage); }
 
 void SFTP::OnDisableWorkspaceMirroring(wxCommandEvent& e)
 {
@@ -360,6 +350,8 @@ void SFTP::FileDownloadedSuccessfully(const SFTPClientData& cd)
         // Tag this editor as a remote file
         SFTPClientData* pcd = new SFTPClientData(cd);
         editor->SetClientData("sftp", pcd);
+        // set the line number
+        if(cd.GetLineNumber() != wxNOT_FOUND) { editor->GetCtrl()->GotoLine(cd.GetLineNumber()); }
     }
 
     // Now that the file was downloaded, update the file permissions
@@ -580,4 +572,24 @@ wxString SFTP::GetRemotePath(const wxString& localpath) const
     file.MakeRelativeTo(m_workspaceFile.GetPath());
     file.MakeAbsolute(wxFileName(m_workspaceSettings.GetRemoteWorkspacePath(), wxPATH_UNIX).GetPath());
     return file.GetFullPath(wxPATH_UNIX);
+}
+
+void SFTP::OpenFile(const wxString& remotePath, int lineNumber)
+{
+    RemoteFileInfo::Map_t::iterator iter =
+        std::find_if(m_remoteFiles.begin(), m_remoteFiles.end(), [&](const RemoteFileInfo::Map_t::value_type& vt) {
+            return vt.second.GetRemoteFile() == remotePath;
+        });
+    if(iter != m_remoteFiles.end()) {
+        m_mgr->OpenFile(iter->second.GetLocalFile(), "", lineNumber);
+    } else {
+        RemoteFileInfo remoteFile;
+        remoteFile.SetAccount(GetTreeView()->GetAccount());
+        remoteFile.SetRemoteFile(remotePath);
+        remoteFile.SetLineNumber(lineNumber);
+
+        SFTPThreadRequet* req = new SFTPThreadRequet(remoteFile);
+        SFTPWorkerThread::Instance()->Add(req);
+        AddRemoteFile(remoteFile);
+    }
 }

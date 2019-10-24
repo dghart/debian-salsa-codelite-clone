@@ -27,7 +27,7 @@
 #include "editor_config.h"
 #include "cl_editor_tip_window.h"
 
-ContextJavaScript::ContextJavaScript(LEditor* editor)
+ContextJavaScript::ContextJavaScript(clEditor* editor)
     : ContextBase(editor)
 {
     editor->SetWordChars(wxT("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$"));
@@ -48,10 +48,8 @@ void ContextJavaScript::ApplySettings()
 {
     SetName(wxT("javascript"));
     LexerConf::Ptr_t lexPtr;
-    if(EditorConfigST::Get()->IsOk()) {
-        lexPtr = EditorConfigST::Get()->GetLexer(GetName());
-    }
-    LEditor& rCtrl = GetCtrl();
+    if(EditorConfigST::Get()->IsOk()) { lexPtr = EditorConfigST::Get()->GetLexer(GetName()); }
+    clEditor& rCtrl = GetCtrl();
     if(lexPtr) {
         rCtrl.SetLexer(lexPtr->GetLexerId());
         for(int i = 0; i <= 4; ++i) {
@@ -68,14 +66,10 @@ void ContextJavaScript::ApplySettings()
 
 void ContextJavaScript::AutoIndent(const wxChar& nChar)
 {
-    LEditor& rCtrl = GetCtrl();
+    clEditor& rCtrl = GetCtrl();
 
-    if(rCtrl.GetDisableSmartIndent()) {
-        return;
-    }
-    if(rCtrl.GetLineIndentation(rCtrl.GetCurrentLine()) && nChar == wxT('\n')) {
-        return;
-    }
+    if(rCtrl.GetDisableSmartIndent()) { return; }
+    if(rCtrl.GetLineIndentation(rCtrl.GetCurrentLine()) && nChar == wxT('\n')) { return; }
 
     int curpos = rCtrl.GetCurrentPos();
     if(IsCommentOrString(curpos) && nChar == wxT('\n')) {
@@ -168,10 +162,6 @@ void ContextJavaScript::AutoIndent(const wxChar& nChar)
 
 wxString ContextJavaScript::CallTipContent() { return wxEmptyString; }
 
-void ContextJavaScript::CodeComplete(long pos) {}
-
-void ContextJavaScript::CompleteWord() {}
-
 int ContextJavaScript::DoGetCalltipParamterIndex() { return ContextBase::DoGetCalltipParamterIndex(); }
 
 wxString ContextJavaScript::GetCurrentScopeName() { return wxT(""); }
@@ -181,8 +171,6 @@ wxMenu* ContextJavaScript::GetMenu() { return ContextBase::GetMenu(); }
 TagEntryPtr ContextJavaScript::GetTagAtCaret(bool scoped, bool impl) { return NULL; }
 
 void ContextJavaScript::GoHyperlink(int start, int end, int type, bool alt) {}
-
-void ContextJavaScript::GotoDefinition() {}
 
 void ContextJavaScript::GotoPreviousDefintion() {}
 
@@ -194,7 +182,7 @@ bool ContextJavaScript::IsCommentOrString(long pos)
 
 bool ContextJavaScript::IsDefaultContext() const { return false; }
 
-ContextBase* ContextJavaScript::NewInstance(LEditor* container) { return new ContextJavaScript(container); }
+ContextBase* ContextJavaScript::NewInstance(clEditor* container) { return new ContextJavaScript(container); }
 
 void ContextJavaScript::OnCallTipClick(wxStyledTextEvent& event) {}
 
@@ -216,10 +204,8 @@ void ContextJavaScript::OnKeyDown(wxKeyEvent& event) { event.Skip(); }
 
 void ContextJavaScript::OnSciUpdateUI(wxStyledTextEvent& event)
 {
-    LEditor& ctrl = GetCtrl();
-    if(ctrl.GetFunctionTip()->IsActive()) {
-        ctrl.GetFunctionTip()->Highlight(DoGetCalltipParamterIndex());
-    }
+    clEditor& ctrl = GetCtrl();
+    if(ctrl.GetFunctionTip()->IsActive()) { ctrl.GetFunctionTip()->Highlight(DoGetCalltipParamterIndex()); }
 }
 
 void ContextJavaScript::RemoveMenuDynamicContent(wxMenu* menu) {}
@@ -230,7 +216,7 @@ void ContextJavaScript::SemicolonShift()
 {
     int foundPos(wxNOT_FOUND);
     int semiColonPos(wxNOT_FOUND);
-    LEditor& ctrl = GetCtrl();
+    clEditor& ctrl = GetCtrl();
     if(ctrl.NextChar(ctrl.GetCurrentPos(), semiColonPos) == wxT(')')) {
 
         // test to see if we are inside a 'for' statement

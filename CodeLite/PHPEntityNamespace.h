@@ -36,6 +36,9 @@ protected:
     void DoEnsureNamespacePathExists(wxSQLite3Database& db, const wxString& path);
 
 public:
+    void FromJSON(const JSONItem& json);
+    JSONItem ToJSON() const;
+    
     wxString GetParentNamespace() const;
     virtual wxString FormatPhpDoc(const CommentConfigData& data) const;
     virtual wxString GetDisplayName() const;

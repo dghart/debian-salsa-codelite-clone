@@ -27,6 +27,8 @@
     </Plugin>
   </Plugins>
   <VirtualDirectory Name="src">
+    <File Name="SFTPGrepStyler.cpp"/>
+    <File Name="SFTPGrepStyler.h"/>
     <File Name="sftp.cpp"/>
     <File Name="sftp_workspace_settings.h"/>
     <File Name="sftp_workspace_settings.cpp"/>
@@ -45,6 +47,8 @@
   </VirtualDirectory>
   <Dependencies/>
   <VirtualDirectory Name="UI">
+    <File Name="SFTPGrep.cpp"/>
+    <File Name="SFTPGrep.h"/>
     <File Name="SFTPQuickConnectDlg.cpp"/>
     <File Name="SFTPQuickConnectDlg.h"/>
     <File Name="SFTPStatusPage.h"/>
@@ -85,8 +89,8 @@
       </Linker>
       <ResourceCompiler Options=""/>
     </GlobalSettings>
-    <Configuration Name="DebugUnicode" CompilerType="gnu g++" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;$(shell wx-config --cxxflags --debug=yes --unicode=yes)" C_Options="-g;$(shell wx-config --cxxflags --debug=yes --unicode=yes)" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+    <Configuration Name="DebugUnicode" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-g;$(shell wx-config --cxxflags  --unicode=yes)" C_Options="-g;$(shell wx-config --cxxflags  --unicode=yes)" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="..//Interfaces"/>
         <IncludePath Value="..//CodeLite"/>
@@ -99,7 +103,7 @@
         <Preprocessor Value="WXUSINGDLL_CL"/>
         <Preprocessor Value="YY_NEVER_INTERACTIVE=1"/>
       </Compiler>
-      <Linker Options="$(shell wx-config --debug=yes --libs std,stc --unicode=yes);" Required="yes">
+      <Linker Options="$(shell wx-config  --libs std,stc --unicode=yes);" Required="yes">
         <LibraryPath Value="../lib"/>
         <Library Value="libpluginud.dll"/>
         <Library Value="libcodeliteud.dll"/>
@@ -139,7 +143,7 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="ReleaseUnicode" CompilerType="gnu g++" DebuggerType="" Type="" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="ReleaseUnicode" CompilerType="g++-64" DebuggerType="" Type="" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="$(shell wx-config --cxxflags --debug=no --unicode=yes); -O2" C_Options="$(shell wx-config --cxxflags --debug=no --unicode=yes); -O2" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="..\/Interfaces"/>
@@ -153,7 +157,7 @@
         <Preprocessor Value="WXUSINGDLL_CL"/>
         <Preprocessor Value="YY_NEVER_INTERACTIVE=1"/>
       </Compiler>
-      <Linker Options="-O2;$(shell wx-config --debug=no --libs std,stc --unicode=yes);-s" Required="yes">
+      <Linker Options="-O2;$(shell wx-config --debug=no --libs std,stc --unicode=yes);" Required="yes">
         <LibraryPath Value="..\/lib"/>
         <Library Value="libpluginu.dll"/>
         <Library Value="libcodeliteu.dll"/>
@@ -194,7 +198,7 @@
       </Completion>
     </Configuration>
     <Configuration Name="Win_x64_Debug" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;$(shell wx-config --cxxflags --unicode=yes --debug=yes)" C_Options="-g;$(shell wx-config --cxxflags --unicode=yes --debug=yes)" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+      <Compiler Options="-g;$(shell wx-config --cxxflags --unicode=yes )" C_Options="-g;$(shell wx-config --cxxflags --unicode=yes )" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="../Interfaces"/>
         <IncludePath Value="../CodeLite"/>
@@ -210,7 +214,7 @@
         <Preprocessor Value="WXUSINGDLL_CL"/>
         <Preprocessor Value="USE_SFTP=1"/>
       </Compiler>
-      <Linker Options="$(shell wx-config --debug=yes --libs std,stc --unicode=yes);" Required="yes">
+      <Linker Options="$(shell wx-config  --libs std,stc --unicode=yes);" Required="yes">
         <LibraryPath Value="../lib/gcc_lib"/>
         <LibraryPath Value="../sdk/libssh/lib"/>
         <Library Value="libplugin_sdkud.dll"/>
@@ -264,7 +268,7 @@
         <IncludePath Value="../sdk/libssh/include"/>
         <Preprocessor Value="USE_SFTP=1"/>
       </Compiler>
-      <Linker Options="-O2;$(shell wx-config --debug=no --libs std,stc --unicode=yes);-s" Required="yes">
+      <Linker Options="-O2;$(shell wx-config --debug=no --libs std,stc --unicode=yes);" Required="yes">
         <LibraryPath Value="../lib/gcc_lib"/>
         <Library Value="libplugin_sdku.dll"/>
         <Library Value="libcodeliteu.dll"/>
@@ -306,7 +310,7 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="Win_x86_Release" CompilerType="gnu g++" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="Win_x86_Release" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="$(shell wx-config --cxxflags --unicode=yes --debug=no);-O2" C_Options="$(shell wx-config --cxxflags --unicode=yes --debug=no);-O2" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="..//Interfaces"/>
@@ -323,7 +327,7 @@
         <Preprocessor Value="ASTYLE_LIB"/>
         <Preprocessor Value="USE_SFTP=1"/>
       </Compiler>
-      <Linker Options="-O2;$(shell wx-config --debug=no --libs std,stc --unicode=yes);-s" Required="yes">
+      <Linker Options="-O2;$(shell wx-config --debug=no --libs std,stc --unicode=yes);" Required="yes">
         <LibraryPath Value="..//lib/gcc_lib"/>
         <Library Value="libplugin_sdku.dll"/>
         <Library Value="libcodeliteu.dll"/>

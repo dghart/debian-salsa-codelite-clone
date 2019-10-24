@@ -102,3 +102,20 @@ wxString PHPEntityClass::FormatPhpDoc(const CommentConfigData& data) const
         << " */";
     return doc;
 }
+
+void PHPEntityClass::FromJSON(const JSONItem& json)
+{
+    BaseFromJSON(json);
+    m_extends = json.namedObject("extends").toString();
+    m_implements = json.namedObject("implements").toArrayString();
+    m_traits = json.namedObject("traits").toArrayString();
+}
+
+JSONItem PHPEntityClass::ToJSON() const
+{
+    JSONItem json = BaseToJSON("c");
+    json.addProperty("extends", m_extends);
+    json.addProperty("implements", m_implements);
+    json.addProperty("traits", m_traits);
+    return json;
+}

@@ -25,8 +25,8 @@
 #ifndef FILE_VIEW_TREE_H
 #define FILE_VIEW_TREE_H
 
+#include "clThemedTreeCtrl.h"
 #include "clTreeCtrlColourHelper.h"
-#include "clTreeKeyboardInput.h"
 #include "imanager.h"
 #include "map"
 #include "pluginmanager.h"
@@ -43,14 +43,10 @@ struct FileViewItem {
     wxString displayName;
 };
 
-class FileViewTree : public wxTreeCtrl
+class FileViewTree : public clThemedTreeCtrl
 {
-    DECLARE_DYNAMIC_CLASS()
-
-    std::unordered_map<void*, bool> m_itemsToSort;
     wxArrayTreeItemIds m_draggedFiles;
     wxArrayTreeItemIds m_draggedProjects;
-    clTreeKeyboardInput::Ptr_t m_keyboardHelper;
     std::unordered_map<wxString, wxTreeItemId> m_workspaceFolders;
     std::unordered_map<wxString, wxTreeItemId> m_projectsMap;
     std::unordered_map<wxString, wxTreeItemId> m_excludeBuildFiles;
@@ -58,7 +54,6 @@ class FileViewTree : public wxTreeCtrl
     clTreeCtrlColourHelper::Ptr_t m_colourHelper;
 
 protected:
-    void DoCreateProjectContextMenu(wxMenu& menu, const wxString& projectName);
     void DoBindEvents();
     void DoUnbindEvents();
     void DoFilesEndDrag(wxTreeItemId& itemDst);
@@ -70,11 +65,6 @@ protected:
     bool IsItemExcludedFromBuild(const wxTreeItemId& item, const wxString& configName) const;
 
 public:
-    /**
-     * Default cosntructor.
-     */
-    FileViewTree();
-
     /**
      * Parameterized constructor.
      * @param parent Tree parent window
@@ -90,18 +80,12 @@ public:
      * Destructor .
      */
     virtual ~FileViewTree();
-
+    
     /**
-     * Create tree, usually called after constructing FileViewTree with default constructor.
-     * @param parent Tree parent window
-     * @param id Window id
-     * @param pos Window position
-     * @param size Window size
-     * @param style Window style
+     * @brief build project context menu
      */
-    virtual void Create(wxWindow* parent, const wxWindowID id, const wxPoint& pos = wxDefaultPosition,
-                        const wxSize& size = wxDefaultSize, long style = 0);
-
+    void CreateProjectContextMenu(wxMenu& menu, const wxString& projectName, bool usedByFileView = true);
+    
     // Build the actual tree from the workspace
     void BuildTree();
 
@@ -153,16 +137,11 @@ public:
      */
     void FolderDropped(const wxArrayString& folders);
 
-    /**
-     * @brief return the current tree selections
-     */
-    size_t GetSelections(wxArrayTreeItemIds& selections) const;
-
 protected:
     void OnItemExpanding(wxTreeEvent& e);
     virtual void OnPopupMenu(wxTreeEvent& event);
     virtual void OnItemActivated(wxTreeEvent& event);
-    virtual void OnMouseDblClick(wxMouseEvent& event);
+    virtual void OnTreeKeyDown(wxTreeEvent& event);
     virtual void OnSelectionChanged(wxTreeEvent& e);
     virtual void OnOpenInEditor(wxCommandEvent& event);
     virtual void OnRemoveProject(wxCommandEvent& event);
@@ -173,13 +152,13 @@ protected:
     virtual void OnNewVirtualFolder(wxCommandEvent& event);
     virtual void OnLocalPrefs(wxCommandEvent& event);
     virtual void OnProjectProperties(wxCommandEvent& event);
-    virtual void OnSortItem(wxCommandEvent& event);
     virtual void OnRemoveVirtualFolder(wxCommandEvent& event);
     virtual void OnRemoveItem(wxCommandEvent& event);
     virtual void OnSaveAsTemplate(wxCommandEvent& event);
     virtual void OnBuildOrder(wxCommandEvent& event);
     virtual void OnClean(wxCommandEvent& event);
     virtual void OnBuild(wxCommandEvent& event);
+    virtual void OnPinProject(wxCommandEvent& event);
     virtual void OnReBuild(wxCommandEvent& event);
     virtual void OnRunPremakeStep(wxCommandEvent& event);
     virtual void OnBuildProjectOnly(wxCommandEvent& event);
@@ -201,8 +180,6 @@ protected:
     virtual void OnOpenFileExplorerFromFilePath(wxCommandEvent& e);
     virtual void OnExcludeFromBuild(wxCommandEvent& e);
     virtual void OnPreprocessItem(wxCommandEvent& e);
-    virtual void SortTree();
-    virtual void SortItem(wxTreeItemId& item);
     virtual void OnRenameVirtualFolder(wxCommandEvent& e);
     virtual void OnSetBgColourVirtualFolder(wxCommandEvent& e);
     virtual void OnClearBgColourVirtualFolder(wxCommandEvent& e);
@@ -211,7 +188,8 @@ protected:
     virtual void OnOpenWithDefaultApplication(wxCommandEvent& event);
     virtual void OnBuildTree(wxCommandEvent& e);
     void OnFolderDropped(clCommandEvent& event);
-
+    void OnFindInFilesShowing(clFindInFilesEvent& event);
+    
     // Called from the context menu of a workspace folder
     void OnWorkspaceNewWorkspaceFolder(wxCommandEvent& evt);
     void OnNewProject(wxCommandEvent& evt);
@@ -235,7 +213,7 @@ protected:
     void OnBuildProjectOnlyInternal(wxCommandEvent& e);
     void OnCleanProjectOnlyInternal(wxCommandEvent& e);
     void OnBuildConfigChanged(wxCommandEvent& e);
-    
+
     /**
      * @brief clear the "active" marker from all the projects
      */
@@ -260,7 +238,7 @@ private:
     wxTreeItemId AddWorkspaceFolder(const wxString& folderPath);
 
     int GetIconIndex(const ProjectItem& item);
-    wxString GetItemPath(const wxTreeItemId& item) const;
+    wxString GetItemPath(const wxTreeItemId& item, const wxChar& sep = ':') const;
     bool IsFileExcludedFromBuild(const wxTreeItemId& item) const;
 
     void DoGetProjectIconIndex(const wxString& projectName, int& iconIndex, bool& fromPlugin);

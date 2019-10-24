@@ -26,7 +26,7 @@
 #define PROJECT_H
 
 #include "codelite_exports.h"
-#include "json_node.h"
+#include "JSON.h"
 #include "localworkspace.h"
 #include "macros.h"
 #include "optionsconfig.h"
@@ -102,9 +102,7 @@ public:
 
     ProjectItem& operator=(const ProjectItem& item)
     {
-        if(this == &item) {
-            return *this;
-        }
+        if(this == &item) { return *this; }
 
         m_key = item.m_key;
         m_displayName = item.m_displayName;
@@ -324,6 +322,7 @@ private:
     FilesMap_t m_filesTable;
     FoldersMap_t m_virtualFoldersTable;
     wxStringSet_t m_excludeFiles;
+    wxStringSet_t emptySet;
 
 private:
     void DoUpdateProjectSettings();
@@ -340,7 +339,7 @@ public:
      * @brief return list of files that are excluded from *any* build configuration
      */
     const wxStringSet_t& GetExcludeFiles() const { return m_excludeFiles; }
-    
+
     /**
      * @brief return the meta data about a file
      */
@@ -529,7 +528,7 @@ public:
      * \param vdFullPath virtual directory
      * \param files [output] list of files under this vdFullPath. The files format are in absolute path!
      */
-    void GetFilesByVirtualDir(const wxString& vdFullPath, wxArrayString& files);
+    void GetFilesByVirtualDir(const wxString& vdFullPath, wxArrayString& files, bool recurse = false);
 
     /**
      * Save project settings
@@ -624,6 +623,13 @@ public:
      * Return true if a file already exist under the project
      */
     bool IsFileExist(const wxString& fileName);
+    /**
+     * \brief See if filePath exists in the project as a symlink
+     * \param filePath the filepath to match
+     * \param fileNameInProject will be filled with any matching name
+     * \return true if a matching name was found
+     */
+    bool IsFileExist(const wxString& filePath, wxString& fileNameInProject);
 
     /**
      * \brief return true of the project was modified (in terms of files removed/added)
@@ -765,7 +771,8 @@ public:
      * file
      * name which can later be replaced by the caller with the actual file name
      */
-    wxString GetCompileLineForCXXFile(const wxString& filenamePlaceholder = "$FileName", bool cxxFile = true) const;
+    wxString GetCompileLineForCXXFile(const wxStringMap_t& compilersGlobalPaths, BuildConfigPtr buildConf,
+                                      const wxString& filenamePlaceholder = "$FileName", bool cxxFile = true);
 
     void ClearAllVirtDirs();
 
@@ -818,7 +825,13 @@ public:
     /**
      * @brief add this project files into the 'compile_commands' json object
      */
-    void CreateCompileCommandsJSON(JSONElement& compile_commands);
+    void CreateCompileCommandsJSON(JSONItem& compile_commands, const wxStringMap_t& compilersGlobalPaths);
+
+    /**
+     * @brief create compile_flags.txt file for this project
+     * @param compilersGlobalPaths
+     */
+    void CreateCompileFlags(const wxStringMap_t& compilersGlobalPaths);
 
     void SetWorkspaceFolder(const wxString& workspaceFolders) { this->m_workspaceFolder = workspaceFolders; }
     const wxString& GetWorkspaceFolder() const { return m_workspaceFolder; }
@@ -829,11 +842,6 @@ public:
      * that matches the current workspace configuration
      */
     BuildConfigPtr GetBuildConfiguration(const wxString& configName = "") const;
-
-    /**
-     * @brief clear the backtick expansion info
-     */
-    static void ClearBacktickCache();
 
 private:
     /**
@@ -846,7 +854,7 @@ private:
     void DoDeleteVDFromCache(const wxString& vd);
     wxArrayString DoBacktickToIncludePath(const wxString& backtick);
     wxArrayString DoBacktickToPreProcessors(const wxString& backtick);
-    wxString DoExpandBacktick(const wxString& backtick) const;
+    wxString DoExpandBacktick(const wxString& backtick);
     void DoGetVirtualDirectories(wxXmlNode* parent, TreeNode<wxString, VisualWorkspaceNode>* tree);
 
     // Recursive helper function

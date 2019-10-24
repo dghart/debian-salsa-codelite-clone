@@ -33,10 +33,10 @@
 #include "clEditorEditEventsHandler.h"
 
 ///////////////////////////////////////////////////////////////////////////////
-/// Class TagsOptionsDlg
+/// Class CodeCompletionSettingsDialog
 ///////////////////////////////////////////////////////////////////////////////
 class wxStyledTextCtrl;
-class TagsOptionsDlg : public TagsOptionsBaseDlg
+class CodeCompletionSettingsDialog : public TagsOptionsBaseDlg
 {
     TagsOptionsData m_data;
     std::vector<clEditEventsHandler::Ptr_t> m_handlers;
@@ -58,19 +58,15 @@ protected:
     virtual void OnAddExcludePath(wxCommandEvent& event);
     virtual void OnAddSearchPath(wxCommandEvent& event);
     virtual void OnAutoShowWordAssitUI(wxUpdateUIEvent& event);
-    virtual void OnClangCCEnabledUI(wxUpdateUIEvent& event);
-    virtual void OnClearClangCache(wxCommandEvent& event);
-    virtual void OnClearClangCacheUI(wxUpdateUIEvent& event);
     virtual void OnFileSelectedUI(wxUpdateUIEvent& event);
     virtual void OnParse(wxCommandEvent& event);
-    virtual void OnSuggestSearchPaths(wxCommandEvent& event);
 
 public:
     void Parse();
 
 public:
-    TagsOptionsDlg(wxWindow* parent, const TagsOptionsData& data);
-    virtual ~TagsOptionsDlg();
+    CodeCompletionSettingsDialog(wxWindow* parent, const TagsOptionsData& data);
+    virtual ~CodeCompletionSettingsDialog();
     TagsOptionsData& GetData() { return m_data; }
 };
 

@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CodeLite_Project Name="codelite_make" InternalType="Console" Version="10.0.0">
   <Plugins>
+    <Plugin Name="qmake">
+      <![CDATA[00010001N0015Win_x64_Release000000000000]]>
+    </Plugin>
     <Plugin Name="CMakePlugin">
       <![CDATA[[{
   "name": "Debug",
@@ -44,21 +47,21 @@
       <ResourceCompiler Options=""/>
     </GlobalSettings>
     <Configuration Name="Debug" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;-O0;-Wall;$(shell wx-config --cxxflags --unicode=yes --debug=yes)" C_Options="-g;-O0;-Wall;" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+      <Compiler Options="-g;-O0;-Wall;$(shell wx-config --cxxflags --unicode=yes )" C_Options="-g;-O0;-Wall;" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="../CodeLite"/>
         <IncludePath Value="../Interfaces"/>
         <IncludePath Value="../Plugin"/>
         <Preprocessor Value="WXUSINGDLL_SDK"/>
         <Preprocessor Value="WXUSINGDLL_CL"/>
       </Compiler>
-      <Linker Options="$(shell wx-config --debug=yes --libs --unicode=yes)" Required="yes">
+      <Linker Options="$(shell wx-config  --libs --unicode=yes)" Required="yes">
         <LibraryPath Value="../lib/gcc_lib"/>
         <Library Value="libcodeliteud.dll"/>
         <Library Value="libplugin_sdkud.dll"/>
         <Library Value="libwxsqlite3ud.dll"/>
       </Linker>
       <ResourceCompiler Options="$(shell wx-config --rcflags)" Required="no"/>
-      <General OutputFile="$(IntermediateDirectory)/codelite-make" IntermediateDirectory="./Debug" Command="C:/src/codelite/codelite_make/Debug/codelite-make.exe" CommandArguments="-w fplog.workspace -p spipc_test -c Release -d rebuild -e" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="C:/Users/PC/Downloads/reproducing_issue" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <General OutputFile="$(IntermediateDirectory)/codelite-make" IntermediateDirectory="./Debug" Command="C:/src/codelite/codelite_make/Debug/codelite-make.exe" CommandArguments="--workspace=C:\src\codelite\CodeLiteIDE.workspace --json --verbose --config=Win_x64_Release" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="C:/src/codelite/Runtime" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
       <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[PATH=$(WorkspacePath)\..\lib\gcc_lib;$PATH]]>
@@ -101,7 +104,7 @@
         <LibraryPath Value="Debug"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
-      <General OutputFile="" IntermediateDirectory="./Debug" Command="/home/eran/root/bin/codelite-make" CommandArguments="" UseSeparateDebugArgs="yes" DebugArguments="--workspace=HelloWorld.workspace  --config=Debug -e" WorkingDirectory="/home/eran/Documents/HelloWorld" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <General OutputFile="" IntermediateDirectory="./Debug" Command="/home/eran/devl/codelite/build-debug/bin/codelite-make" CommandArguments="" UseSeparateDebugArgs="yes" DebugArguments="--workspace=/home/eran/devl/codelite/CodeLiteIDE.workspace --verbose --json --config=CMake_Debug --settings=/home/eran/.codelite/config/build_settings.xml" WorkingDirectory="/home/eran/devl/codelite" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
       <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
@@ -143,7 +146,7 @@
         <Preprocessor Value="WXUSINGDLL_SDK"/>
         <Preprocessor Value="WXUSINGDLL_CL"/>
       </Compiler>
-      <Linker Options="-s;$(shell wx-config --debug=no --libs --unicode=yes)" Required="yes">
+      <Linker Options=";$(shell wx-config --debug=no --libs --unicode=yes)" Required="yes">
         <LibraryPath Value="../lib/gcc_lib"/>
         <Library Value="libcodeliteu.dll"/>
         <Library Value="libplugin_sdku.dll"/>
@@ -193,14 +196,14 @@
         <Preprocessor Value="WXUSINGDLL_SDK"/>
         <Preprocessor Value="WXUSINGDLL_CL"/>
       </Compiler>
-      <Linker Options="-s;$(shell wx-config --debug=no --libs --unicode=yes)" Required="yes">
+      <Linker Options=";$(shell wx-config --debug=no --libs --unicode=yes)" Required="yes">
         <LibraryPath Value="../lib/gcc_lib"/>
         <Library Value="libcodeliteu.dll"/>
         <Library Value="libplugin_sdku.dll"/>
         <Library Value="libwxsqlite3u.dll"/>
       </Linker>
       <ResourceCompiler Options="$(shell wx-config --rcflags)" Required="no"/>
-      <General OutputFile="$(IntermediateDirectory)/codelite-make" IntermediateDirectory="$(ConfigurationName)" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <General OutputFile="$(IntermediateDirectory)/codelite-make" IntermediateDirectory="$(ConfigurationName)" Command="/home/eran/root/bin/codelite-make" CommandArguments="" UseSeparateDebugArgs="yes" DebugArguments="--workspace=/home/eran/Documents/HelloWorld/HelloWorld.workspace --config=Debug --json --versbose" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
       <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>

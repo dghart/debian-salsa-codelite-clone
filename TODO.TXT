@@ -1,4 +1,7 @@
-* Git: add an option to open the commit in GitHub
-* Replace the CMake plugin with a custom build workspace type
-* Auto Save Plugin
+LSP:
+====
+Display diagnostic messages
 
+Project View:
+=============
+Support pinned projects

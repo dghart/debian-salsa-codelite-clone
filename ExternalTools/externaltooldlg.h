@@ -27,8 +27,8 @@
 #define __externaltooldlg__
 
 #include "external_tools.h"
-#include <vector>
 #include "externaltoolsdata.h"
+#include <vector>
 
 class ExternalToolData : public wxClientData
 {
@@ -37,7 +37,6 @@ public:
     wxString m_name;
     wxString m_path;
     wxString m_workingDirectory;
-    wxString m_args;
     wxString m_icon16;
     wxString m_icon24;
     bool m_captureOutput;
@@ -50,7 +49,6 @@ public:
         , m_name(ti.GetName())
         , m_path(ti.GetPath())
         , m_workingDirectory(ti.GetWd())
-        , m_args(ti.GetArguments())
         , m_icon16(ti.GetIcon16())
         , m_icon24(ti.GetIcon24())
         , m_captureOutput(ti.GetCaptureOutput())
@@ -59,21 +57,13 @@ public:
     {
     }
 
-    ExternalToolData(const wxString& id,
-                     const wxString& name,
-                     const wxString& path,
-                     const wxString& workingDirectory,
-                     const wxString& arguments,
-                     const wxString& icon16,
-                     const wxString& icon24,
-                     bool captureOutput,
-                     bool saveAllFiles,
+    ExternalToolData(const wxString& id, const wxString& name, const wxString& path, const wxString& workingDirectory,
+                     const wxString& icon16, const wxString& icon24, bool captureOutput, bool saveAllFiles,
                      bool callOnFileSave)
         : m_id(id)
         , m_name(name)
         , m_path(path)
         , m_workingDirectory(workingDirectory)
-        , m_args(arguments)
         , m_icon16(icon16)
         , m_icon24(icon24)
         , m_captureOutput(captureOutput)
@@ -90,35 +80,26 @@ class IManager;
 /** Implementing ExternalToolBaseDlg */
 class ExternalToolDlg : public ExternalToolBaseDlg
 {
-    long m_item;
     IManager* m_mgr;
 
 private:
-    void DoUpdateEntry(const wxString& id,
-                       const wxString& name,
-                       const wxString& path,
-                       const wxString& workingDirectory,
-                       const wxString& arguments,
-                       const wxString& icon16,
-                       const wxString& icon24,
-                       bool captureOutput,
-                       bool saveAllFiles,
-                       bool callOnFileSave);
-    void DoEditEntry(long item);
+    void DoUpdateEntry(const wxDataViewItem& item, const wxString& id, const wxString& name, const wxString& path,
+                       const wxString& workingDirectory, const wxString& icon16, const wxString& icon24,
+                       bool captureOutput, bool saveAllFiles, bool callOnFileSave);
+    void DoEditEntry(const wxDataViewItem& item);
+    ExternalToolData* GetToolData(const wxDataViewItem& item);
+    void DoClear();
+    void DoDeleteItem(const wxDataViewItem& item);
 
 protected:
     // Handlers for ExternalToolBaseDlg events.
-    void OnItemActivated(wxListEvent& event);
-    void OnItemDeSelected(wxListEvent& event);
-    void OnItemSelected(wxListEvent& event);
+    void OnItemActivated(wxDataViewEvent& event);
     void OnButtonNew(wxCommandEvent& event);
     void OnButtonNewUI(wxUpdateUIEvent& event);
     void OnButtonEdit(wxCommandEvent& event);
     void OnButtonEditUI(wxUpdateUIEvent& event);
     void OnButtonDelete(wxCommandEvent& event);
     void OnButtonDeleteUI(wxUpdateUIEvent& event);
-
-    void Initialize();
 
 public:
     /** Constructor */

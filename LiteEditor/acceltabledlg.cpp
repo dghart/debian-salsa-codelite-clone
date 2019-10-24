@@ -22,21 +22,18 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "acceltabledlg.h"
+#include "fileutils.h"
+#include "globals.h"
+#include "manager.h"
+#include "newkeyshortcutdlg.h"
 #include "pluginmanager.h"
+#include "windowattrmanager.h"
+#include <algorithm>
+#include <wx/ffile.h>
+#include <wx/imaglist.h>
 #include <wx/stdpaths.h>
 #include <wx/tokenzr.h>
-#include "globals.h"
-#include <wx/ffile.h>
-#include "newkeyshortcutdlg.h"
-#include "acceltabledlg.h"
-#include "manager.h"
-#include <wx/imaglist.h>
-#include <algorithm>
-#include <wx/imaglist.h>
-#include "windowattrmanager.h"
-#include <wx/tokenzr.h>
-#include <wx/tokenzr.h>
-#include "fileutils.h"
 
 //-------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------
@@ -75,27 +72,32 @@ void AccelTableDlg::PopulateTable(const wxString& filter)
         }
     }
 
-    if(filteredMap.empty()) return;
+    if(filteredMap.empty()) { return; }
 
     // Add core entries
+    std::vector<std::tuple<wxString, wxString, AccelItemData*> > V;
     for(MenuItemDataMap_t::const_iterator iter = filteredMap.begin(); iter != filteredMap.end(); ++iter) {
         const MenuItemData& mid = iter->second;
 
-        wxVector<wxVariant> cols;
-        wxString parentMenu = mid.parentMenu.BeforeFirst(':');
-        if(parentMenu.IsEmpty()) {
-            parentMenu = "<Global>";
-        }
-
-        cols.push_back(parentMenu);                // Parent menu
-        cols.push_back(mid.action.AfterLast(':')); // Action description
-        cols.push_back(mid.accel);                 // shortcut
-        m_dvListCtrl->AppendItem(cols, (wxUIntPtr) new AccelItemData(mid));
+        wxString desc = mid.parentMenu.BeforeFirst(':');
+        if(desc.IsEmpty()) { desc << "Global Accelerator"; }
+        desc << " | ";
+        desc << mid.action.AfterLast(':');
+        V.push_back(std::make_tuple(desc, mid.accel, new AccelItemData(mid)));
     }
 
-    m_dvListCtrl->GetColumn(0)->SetSortable(true);
-    m_dvListCtrl->GetColumn(1)->SetSortable(true);
-    m_dvListCtrl->GetColumn(2)->SetSortable(true);
+    // Sort the items in the list, based on the description
+    std::sort(V.begin(), V.end());
+    std::for_each(V.begin(), V.end(), [&](const std::tuple<wxString, wxString, AccelItemData*>& entry) {
+        const wxString& desc = std::get<0>(entry);
+        const wxString& shortcut = std::get<1>(entry);
+        AccelItemData* itemData = std::get<2>(entry);
+
+        wxVector<wxVariant> cols;
+        cols.push_back(shortcut);
+        cols.push_back(desc);
+        m_dvListCtrl->AppendItem(cols, (wxUIntPtr)itemData);
+    });
 }
 
 void AccelTableDlg::OnButtonOk(wxCommandEvent& e)
@@ -136,12 +138,10 @@ void AccelTableDlg::DoItemActivated()
         // search the list for similar accelerator
         MenuItemData who;
         if(HasAccelerator(mid.accel, who)) {
-            if(who.action == mid.action) {
-                return;
-            }
+            if(who.action == mid.action) { return; }
             if(wxMessageBox(wxString::Format(_("'%s' is already assigned to: '%s'\nWould you like to replace it?"),
-                                mid.accel, who.action),
-                   _("CodeLite"), wxYES_NO | wxCENTER | wxICON_QUESTION, this) != wxYES) {
+                                             mid.accel, who.action),
+                            _("CodeLite"), wxYES_NO | wxCENTER | wxICON_QUESTION, this) != wxYES) {
                 return;
             }
 
@@ -153,12 +153,12 @@ void AccelTableDlg::DoItemActivated()
                     cd->m_menuItemData.accel.Clear();
                     int row = m_dvListCtrl->ItemToRow(oldItem);
                     m_dvListCtrl->SetValue(wxString(), row, 2);
-
-                    MenuItemDataMap_t::iterator iter = m_accelMap.find(cd->m_menuItemData.resourceID);
-                    if(iter != m_accelMap.end()) {
-                        iter->second.accel.Clear(); // Clear the accelerator
-                    }
                 }
+            }
+
+            MenuItemDataMap_t::iterator iter = m_accelMap.find(who.resourceID);
+            if(iter != m_accelMap.end()) {
+                iter->second.accel.Clear(); // Clear the accelerator
             }
         }
 
@@ -168,13 +168,11 @@ void AccelTableDlg::DoItemActivated()
         // Update the UI
         int row = m_dvListCtrl->ItemToRow(sel);
         if(row == wxNOT_FOUND) return;
-        m_dvListCtrl->SetValue(mid.accel, row, 2);
+        m_dvListCtrl->SetValue(mid.accel, row, 0);
 
         // and update the map
         MenuItemDataMap_t::iterator iter = m_accelMap.find(itemData->m_menuItemData.resourceID);
-        if(iter != m_accelMap.end()) {
-            iter->second.accel = itemData->m_menuItemData.accel;
-        }
+        if(iter != m_accelMap.end()) { iter->second.accel = itemData->m_menuItemData.accel; }
     }
 }
 
@@ -226,7 +224,7 @@ AccelItemData* AccelTableDlg::DoGetItemData(const wxDataViewItem& item)
 
 wxDataViewItem AccelTableDlg::FindAccel(const MenuItemData& mid)
 {
-    for(int i = 0; i < m_dvListCtrl->GetItemCount(); ++i) {
+    for(size_t i = 0; i < m_dvListCtrl->GetItemCount(); ++i) {
         wxDataViewItem item = m_dvListCtrl->RowToItem(i);
         if(!item.IsOk()) continue;
 

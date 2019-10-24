@@ -36,7 +36,6 @@
 #include "add_option_dialog.h"
 #include "globals.h"
 #include "includepathlocator.h"
-#include "clang_code_completion.h"
 #include <build_settings_config.h>
 #include <compiler.h>
 #include <ICompilerLocator.h>
@@ -47,14 +46,13 @@
 
 //---------------------------------------------------------
 
-TagsOptionsDlg::TagsOptionsDlg(wxWindow* parent, const TagsOptionsData& data)
+CodeCompletionSettingsDialog::CodeCompletionSettingsDialog(wxWindow* parent, const TagsOptionsData& data)
     : TagsOptionsBaseDlg(parent)
     , m_data(data)
 {
     DoSetEditEventsHandler(this);
     LexerConf::Ptr_t lexer = ColoursAndFontsManager::Get().GetLexer("text");
     if(lexer) {
-        lexer->Apply(m_textCtrlClangSearchPaths);
         lexer->Apply(m_textCtrlCtagsExcludePaths);
         lexer->Apply(m_textCtrlCtagsSearchPaths);
         lexer->Apply(m_textPrep);
@@ -64,7 +62,7 @@ TagsOptionsDlg::TagsOptionsDlg(wxWindow* parent, const TagsOptionsData& data)
     ::wxPGPropertyBooleanUseCheckbox(m_pgMgrColouring->GetGrid());
     Centre();
     GetSizer()->Fit(this);
-    SetName("TagsOptionsDlg");
+    SetName("CodeCompletionSettingsDialog");
     WindowAttrManager::Load(this);
 
     // Set default values
@@ -109,42 +107,18 @@ TagsOptionsDlg::TagsOptionsDlg(wxWindow* parent, const TagsOptionsData& data)
     m_textPrep->SetValue(m_data.GetTokens());
     m_textTypes->SetValue(m_data.GetTypes());
     m_textCtrlFilesList->SetValue(m_data.GetMacrosFiles());
-
-//----------------------------------------------------
-// Clang page
-//----------------------------------------------------
-#if HAS_LIBCLANG
-    m_checkBoxEnableClangCC->SetValue(m_data.GetClangOptions() & CC_CLANG_ENABLED);
-#else
-    m_checkBoxEnableClangCC->SetValue(false);
-    m_checkBoxEnableClangCC->Enable(false);
-#endif
-
-    m_checkBoxClangFirst->SetValue(m_data.GetClangOptions() & CC_CLANG_FIRST);
-    m_textCtrlClangSearchPaths->SetValue(m_data.GetClangSearchPaths());
-    m_choiceCachePolicy->Clear();
-
-    // defaults
-    m_choiceCachePolicy->Append(TagsOptionsData::CLANG_CACHE_LAZY);
-    m_choiceCachePolicy->Append(TagsOptionsData::CLANG_CACHE_ON_FILE_LOAD);
-    m_choiceCachePolicy->Select(1);
-
-    int where = m_choiceCachePolicy->FindString(m_data.GetClangCachePolicy());
-    if(where != wxNOT_FOUND) {
-        m_choiceCachePolicy->Select(where);
-    }
 }
 
-TagsOptionsDlg::~TagsOptionsDlg() {}
+CodeCompletionSettingsDialog::~CodeCompletionSettingsDialog() {}
 
-void TagsOptionsDlg::OnButtonOk(wxCommandEvent& event)
+void CodeCompletionSettingsDialog::OnButtonOk(wxCommandEvent& event)
 {
     wxUnusedVar(event);
     CopyData();
     EndModal(wxID_OK);
 }
 
-void TagsOptionsDlg::CopyData()
+void CodeCompletionSettingsDialog::CopyData()
 {
     //----------------------------------------------------
     // Display and behavior
@@ -186,21 +160,9 @@ void TagsOptionsDlg::CopyData()
     m_data.SetTokens(m_textPrep->GetValue());
     m_data.SetTypes(m_textTypes->GetValue());
     m_data.SetMacrosFiles(m_textCtrlFilesList->GetValue());
-
-    //----------------------------------------------------
-    // Clang
-    //----------------------------------------------------
-    size_t options(0);
-    if(m_checkBoxEnableClangCC->IsChecked()) options |= CC_CLANG_ENABLED;
-
-    if(m_checkBoxClangFirst->IsChecked()) options |= CC_CLANG_FIRST;
-
-    m_data.SetClangOptions(options);
-    m_data.SetClangSearchPaths(m_textCtrlClangSearchPaths->GetValue());
-    m_data.SetClangCachePolicy(m_choiceCachePolicy->GetStringSelection());
 }
 
-void TagsOptionsDlg::SetFlag(CodeCompletionOpts flag, bool set)
+void CodeCompletionSettingsDialog::SetFlag(CodeCompletionOpts flag, bool set)
 {
     if(set) {
         m_data.SetFlags(m_data.GetFlags() | flag);
@@ -209,7 +171,7 @@ void TagsOptionsDlg::SetFlag(CodeCompletionOpts flag, bool set)
     }
 }
 
-void TagsOptionsDlg::SetColouringFlag(CodeCompletionColourOpts flag, bool set)
+void CodeCompletionSettingsDialog::SetColouringFlag(CodeCompletionColourOpts flag, bool set)
 {
     if(set) {
         m_data.SetCcColourFlags(m_data.GetCcColourFlags() | flag);
@@ -218,7 +180,7 @@ void TagsOptionsDlg::SetColouringFlag(CodeCompletionColourOpts flag, bool set)
     }
 }
 
-void TagsOptionsDlg::Parse()
+void CodeCompletionSettingsDialog::Parse()
 {
     // Prepate list of files to work on
     wxArrayString files = wxStringTokenize(m_textCtrlFilesList->GetValue(), wxT(" \t"), wxTOKEN_STRTOK);
@@ -254,7 +216,7 @@ void TagsOptionsDlg::Parse()
     }
 }
 
-void TagsOptionsDlg::OnAddExcludePath(wxCommandEvent& event)
+void CodeCompletionSettingsDialog::OnAddExcludePath(wxCommandEvent& event)
 {
     wxUnusedVar(event);
     wxString new_path =
@@ -264,16 +226,14 @@ void TagsOptionsDlg::OnAddExcludePath(wxCommandEvent& event)
         wxArrayString currPaths = wxStringTokenize(currPathsStr, wxT("\n\r"), wxTOKEN_STRTOK);
         if(currPaths.Index(new_path) == wxNOT_FOUND) {
             currPathsStr.Trim().Trim(false);
-            if(currPathsStr.IsEmpty() == false) {
-                currPathsStr << wxT("\n");
-            }
+            if(currPathsStr.IsEmpty() == false) { currPathsStr << wxT("\n"); }
             currPathsStr << new_path;
             m_textCtrlCtagsExcludePaths->ChangeValue(currPathsStr);
         }
     }
 }
 
-void TagsOptionsDlg::OnAddSearchPath(wxCommandEvent& event)
+void CodeCompletionSettingsDialog::OnAddSearchPath(wxCommandEvent& event)
 {
     wxUnusedVar(event);
     wxString new_path =
@@ -284,9 +244,7 @@ void TagsOptionsDlg::OnAddSearchPath(wxCommandEvent& event)
         if(currPaths.Index(new_path) == wxNOT_FOUND) {
 
             currPathsStr.Trim().Trim(false);
-            if(currPathsStr.IsEmpty() == false) {
-                currPathsStr << wxT("\n");
-            }
+            if(currPathsStr.IsEmpty() == false) { currPathsStr << wxT("\n"); }
             currPathsStr << new_path;
 
             m_textCtrlCtagsSearchPaths->ChangeValue(currPathsStr);
@@ -294,56 +252,34 @@ void TagsOptionsDlg::OnAddSearchPath(wxCommandEvent& event)
     }
 }
 
-void TagsOptionsDlg::OnAutoShowWordAssitUI(wxUpdateUIEvent& event) { event.Enable(m_checkWordAssist->IsChecked()); }
-
-void TagsOptionsDlg::OnClangCCEnabledUI(wxUpdateUIEvent& event) { event.Enable(m_checkBoxEnableClangCC->IsChecked()); }
-
-void TagsOptionsDlg::OnClearClangCache(wxCommandEvent& event)
+void CodeCompletionSettingsDialog::OnAutoShowWordAssitUI(wxUpdateUIEvent& event)
 {
-    wxBusyCursor cursor;
-#if HAS_LIBCLANG
-    ClangCodeCompletion::Instance()->ClearCache();
-#endif
+    event.Enable(m_checkWordAssist->IsChecked());
 }
 
-void TagsOptionsDlg::OnClearClangCacheUI(wxUpdateUIEvent& event)
-{
-#if HAS_LIBCLANG
-    event.Enable(m_checkBoxEnableClangCC->IsChecked() && !ClangCodeCompletion::Instance()->IsCacheEmpty());
-#else
-    event.Enable(false);
-#endif
-}
-
-void TagsOptionsDlg::OnFileSelectedUI(wxUpdateUIEvent& event)
+void CodeCompletionSettingsDialog::OnFileSelectedUI(wxUpdateUIEvent& event)
 {
     event.Enable(m_textCtrlFilesList->GetValue().IsEmpty() == false);
 }
 
-void TagsOptionsDlg::OnParse(wxCommandEvent& event)
+void CodeCompletionSettingsDialog::OnParse(wxCommandEvent& event)
 {
     wxUnusedVar(event);
     Parse();
 }
 
-void TagsOptionsDlg::OnSuggestSearchPaths(wxCommandEvent& event)
-{
-    wxUnusedVar(event);
-    DoSuggest(m_textCtrlClangSearchPaths);
-}
-
-wxArrayString TagsOptionsDlg::GetCTagsSearchPaths() const
+wxArrayString CodeCompletionSettingsDialog::GetCTagsSearchPaths() const
 {
     return wxStringTokenize(m_textCtrlCtagsSearchPaths->GetValue(), wxT("\r\n"), wxTOKEN_STRTOK);
 }
 
-void TagsOptionsDlg::OnSuggestCtags(wxCommandEvent& event)
+void CodeCompletionSettingsDialog::OnSuggestCtags(wxCommandEvent& event)
 {
     wxUnusedVar(event);
     DoSuggest(m_textCtrlCtagsSearchPaths);
 }
 
-void TagsOptionsDlg::DoSuggest(wxStyledTextCtrl* textCtrl)
+void CodeCompletionSettingsDialog::DoSuggest(wxStyledTextCtrl* textCtrl)
 {
     CompilerPtrVec_t allCompilers = BuildSettingsConfigST::Get()->GetAllCompilers();
 
@@ -393,7 +329,7 @@ void TagsOptionsDlg::DoSuggest(wxStyledTextCtrl* textCtrl)
         textCtrl->ChangeValue(suggestedPaths);
     }
 }
-void TagsOptionsDlg::OnColouringPropertyValueChanged(wxPropertyGridEvent& event)
+void CodeCompletionSettingsDialog::OnColouringPropertyValueChanged(wxPropertyGridEvent& event)
 {
     // Enable the local variables colouring feature
     SetFlag(CC_COLOUR_VARS, m_pgPropColourLocalVariables->GetValue().GetBool());
@@ -402,13 +338,13 @@ void TagsOptionsDlg::OnColouringPropertyValueChanged(wxPropertyGridEvent& event)
     SetColouringFlag(CC_COLOUR_MACRO_BLOCKS, m_pgPropTrackPreProcessors->GetValue().GetBool());
 }
 
-void TagsOptionsDlg::OnButtonCancel(wxCommandEvent& event)
+void CodeCompletionSettingsDialog::OnButtonCancel(wxCommandEvent& event)
 {
     event.Skip();
     EndModal(wxID_CANCEL);
 }
 
-void TagsOptionsDlg::DoSetEditEventsHandler(wxWindow* win)
+void CodeCompletionSettingsDialog::DoSetEditEventsHandler(wxWindow* win)
 {
     // wxTextCtrl needs some extra special handling
     if(dynamic_cast<wxStyledTextCtrl*>(win)) {

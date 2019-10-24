@@ -32,7 +32,7 @@ class ContextPhp : public ContextGeneric
 {
 public:
     ContextPhp();
-    ContextPhp(LEditor *Editor);
+    ContextPhp(clEditor *Editor);
     virtual ~ContextPhp();
     
 public:
@@ -44,17 +44,13 @@ public:
     virtual void ApplySettings();
     virtual void AutoIndent(const wxChar&);
     virtual wxString CallTipContent();
-    virtual void CodeComplete(long pos = wxNOT_FOUND);
-    virtual void CompleteWord();
     virtual wxString GetCurrentScopeName();
     virtual TagEntryPtr GetTagAtCaret(bool scoped, bool impl);
-    virtual void GoHyperlink(int start, int end, int type, bool alt);
-    virtual void GotoDefinition();
     virtual void GotoPreviousDefintion();
     virtual bool IsComment(long pos);
     virtual bool IsCommentOrString(long pos);
     virtual bool IsDefaultContext() const;
-    virtual ContextBase* NewInstance(LEditor* container);
+    virtual ContextBase* NewInstance(clEditor* container);
     virtual void OnCallTipClick(wxStyledTextEvent& event);
     virtual void OnCalltipCancel();
     virtual void OnDbgDwellEnd(wxStyledTextEvent& event);

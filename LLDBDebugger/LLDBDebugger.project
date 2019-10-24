@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<CodeLite_Project Name="LLDBDebugger">
+<CodeLite_Project Name="LLDBDebugger" Version="10.0.0">
   <Plugins>
     <Plugin Name="qmake">
       <![CDATA[00040001N0015WinDebugUnicode0000000000000001N0017WinReleaseUnicode0000000000000001N0013Win_x64_Debug0000000000000001N0015Win_x64_Release000000000000]]>
@@ -111,8 +111,8 @@
       </Linker>
       <ResourceCompiler Options=""/>
     </GlobalSettings>
-    <Configuration Name="DebugUnicode" CompilerType="gnu g++" DebuggerType="" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;$(shell wx-config --cxxflags --debug=yes --unicode=yes)" C_Options="-g;$(shell wx-config --cxxflags --debug=yes --unicode=yes)" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+    <Configuration Name="DebugUnicode" CompilerType="g++-64" DebuggerType="" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-g;$(shell wx-config --cxxflags  --unicode=yes)" C_Options="-g;$(shell wx-config --cxxflags  --unicode=yes)" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="../Interfaces"/>
         <IncludePath Value="../CodeLite"/>
@@ -125,7 +125,7 @@
         <Preprocessor Value="WXUSINGDLL_CL"/>
         <Preprocessor Value="YY_NEVER_INTERACTIVE=1"/>
       </Compiler>
-      <Linker Options="$(shell wx-config --debug=yes --libs std,stc --unicode=yes);" Required="yes">
+      <Linker Options="$(shell wx-config  --libs std,stc --unicode=yes);" Required="yes">
         <LibraryPath Value="../lib"/>
         <Library Value="libpluginud.dll"/>
         <Library Value="libcodeliteud.dll"/>
@@ -133,6 +133,7 @@
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(ConfigurationName)/LLDBDebugger.so" IntermediateDirectory="./DebugUnicode" Command="/home/eran/root/bin/codelite-lldb" CommandArguments="-t 127.0.0.1:13610" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -165,7 +166,7 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="ReleaseUnicode" CompilerType="gnu g++" DebuggerType="" Type="" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="ReleaseUnicode" CompilerType="g++-64" DebuggerType="" Type="" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="$(shell wx-config --cxxflags --debug=no --unicode=yes); -O2" C_Options="$(shell wx-config --cxxflags --debug=no --unicode=yes); -O2" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="../Interfaces"/>
@@ -179,7 +180,7 @@
         <Preprocessor Value="WXUSINGDLL_CL"/>
         <Preprocessor Value="YY_NEVER_INTERACTIVE=1"/>
       </Compiler>
-      <Linker Options="-O2;$(shell wx-config --debug=no --libs std,stc --unicode=yes);-s" Required="yes">
+      <Linker Options="-O2;$(shell wx-config --debug=no --libs std,stc --unicode=yes);" Required="yes">
         <LibraryPath Value="../lib"/>
         <Library Value="libpluginu.dll"/>
         <Library Value="libcodeliteu.dll"/>
@@ -187,6 +188,7 @@
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(ConfigurationName)/LLDBDebugger.so" IntermediateDirectory="./ReleaseUnicode" Command="" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="./ReleaseUnicode" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -219,7 +221,7 @@
       </Completion>
     </Configuration>
     <Configuration Name="Win_x64_Debug" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;-O0;-std=c++11;$(shell wx-config --cxxflags --debug --unicode=yes)" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+      <Compiler Options="-g;-O0;-std=c++11;$(shell wx-config --cxxflags --unicode=yes)" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="../Interfaces"/>
         <IncludePath Value="../CodeLite"/>
@@ -234,7 +236,7 @@
         <Preprocessor Value="WXUSINGDLL_SDK"/>
         <Preprocessor Value="WXUSINGDLL_CL"/>
       </Compiler>
-      <Linker Options="$(shell wx-config --debug=yes --libs std,stc,propgrid --unicode=yes)" Required="yes">
+      <Linker Options="$(shell wx-config  --libs std,stc,propgrid --unicode=yes)" Required="yes">
         <LibraryPath Value="$(WorkspacePath)/lib/gcc_lib"/>
         <LibraryPath Value="$(WorkspacePath)/sdk/lldb/win64/lib"/>
         <Library Value="libplugin_sdkud.dll"/>
@@ -244,6 +246,7 @@
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(ConfigurationName)/LLDBDebugger-dbg.dll" IntermediateDirectory="$(ConfigurationName)" Command="" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -293,7 +296,7 @@
         <Preprocessor Value="WXUSINGDLL_CL"/>
         <Preprocessor Value="ASTYLE_LIB"/>
       </Compiler>
-      <Linker Options="-s;-O2;$(shell wx-config --debug=no --libs std,stc,propgrid --unicode=yes)" Required="yes">
+      <Linker Options=";-O2;$(shell wx-config --debug=no --libs std,stc,propgrid --unicode=yes)" Required="yes">
         <LibraryPath Value="$(WorkspacePath)/lib/gcc_lib"/>
         <LibraryPath Value="$(WorkspacePath)/sdk/lldb/win64/lib"/>
         <Library Value="libplugin_sdku.dll"/>
@@ -303,6 +306,7 @@
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(ConfigurationName)/LLDBDebugger.dll" IntermediateDirectory="$(ConfigurationName)" Command="" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -336,7 +340,7 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="Win_x86_Release" CompilerType="gnu g++" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="Win_x86_Release" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="$(shell wx-config --cxxflags --unicode=yes --debug=no);-O2" C_Options="$(shell wx-config --cxxflags --unicode=yes --debug=no);-O2" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="../Interfaces"/>
@@ -351,7 +355,7 @@
         <Preprocessor Value="WXUSINGDLL_CL"/>
         <Preprocessor Value="ASTYLE_LIB"/>
       </Compiler>
-      <Linker Options="-s;-O2;$(shell wx-config --debug=no --libs std,stc,propgrid --unicode=yes)" Required="yes">
+      <Linker Options=";-O2;$(shell wx-config --debug=no --libs std,stc,propgrid --unicode=yes)" Required="yes">
         <LibraryPath Value="../lib/gcc_lib"/>
         <Library Value="libplugin_sdku.dll"/>
         <Library Value="libcodeliteu.dll"/>
@@ -359,6 +363,7 @@
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(ConfigurationName)/LLDBDebugger.dll" IntermediateDirectory="$(ConfigurationName)" Command="" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(ConfigurationName)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>

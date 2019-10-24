@@ -39,7 +39,8 @@ class WXDLLIMPEXP_CL FileExtManager
 {
 public:
     enum FileType {
-        TypeSourceC,
+        TypeOther = wxNOT_FOUND,
+        TypeSourceC, // 0
         TypeSourceCpp,
         TypeHeader,
         TypeResource,
@@ -62,6 +63,7 @@ public:
         TypeArchive,
         TypeDll,
         TypeBmp,
+        TypeSvg,
         TypeMakefile,
         TypeText,
         TypeScript,
@@ -71,7 +73,11 @@ public:
         TypeFolder,
         TypeFolderExpanded, // For UI purposes only
         TypeProjectActive,  // For UI purposes only
+        TypeProjectExpanded, // For UI purposes only
+        TypeWorkspaceFolder, // For UI purposes only
+        TypeWorkspaceFolderExpanded, // For UI purposes only
         TypeWorkspacePHP,
+        TypeWorkspaceDocker,
         TypeWorkspaceNodeJS,
         TypeWorkspacePHPTags,
         TypeWorkspaceDatabase,
@@ -79,38 +85,11 @@ public:
         TypeJava,
         TypeQMake,
         TypeCMake,
-        TypeOther = wxNOT_FOUND
+        TypeDockerfile,
+        TypeYAML,
+        TypeDatabase,
+        TypeLast,
     };
-
-    struct Matcher {
-        SmartPtr<wxRegEx> m_regex;
-        wxString m_exactMatch;
-        FileType m_fileType;
-
-        Matcher(const wxString& pattern, FileType fileType, bool regex = true)
-            : m_fileType(fileType)
-        {
-            if(regex) {
-                m_regex = new wxRegEx(pattern, wxRE_ADVANCED | wxRE_ICASE);
-            } else {
-                m_exactMatch = pattern;
-            }
-        }
-
-        bool Matches(const wxString& in) const
-        {
-            if(m_regex) {
-                return m_regex->Matches(in);
-            } else {
-                return in.Find(m_exactMatch) != wxNOT_FOUND;
-            }
-        }
-        typedef SmartPtr<Matcher> Ptr_t;
-    };
-
-private:
-    static std::unordered_map<wxString, FileType> m_map;
-    static std::vector<FileExtManager::Matcher::Ptr_t> m_matchers;
 
 public:
     static FileType GetType(const wxString& filename, FileExtManager::FileType defaultType = FileExtManager::TypeOther);

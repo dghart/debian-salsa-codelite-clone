@@ -15,7 +15,6 @@ cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 ##                                                                                                                                                              #
 ##      -DCMAKE_BUILD_TYPE=Release|Debug|DebugFull // Build release, debug + optimisation or debug without optimisation (for others see the Cmake docs)         #
 ##      -DCL_PREFIX="<some-prefix>"                // Installation prefix. The default on unix is /usr/                                                         #
-##      -DENABLE_CLANG=1|0                         // Build codelite with clang code completion support?, default is 1 (with clang)                             #
 ##      -DWITH_WXC=1|0                             // Build wxCrafter (sources are not part of codelite distribution) default is 0                              #
 ##      -DCOPY_WX_LIBS=1|0                         // Incorporate the wxWidgets libs into CodeLite so the binary doesn't depend on them. default is 0           #
 ##      -DPREVENT_WX_ASSERTS=1|0                   // Prevent those annoying wxASSERTS. In release builds the default is 1, in debug 0                          #
@@ -26,6 +25,7 @@ cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 ##      -DMAKE_DEB=1|0                             // When set to 1, you can use make package to create .deb file for codelite                                  #
 ##      -DENABLE_SFTP=1|0                          // When set to 1 codelite is built with SFTP support. Default is build _with_ SFTP support                   #
 ##      -DENABLE_LLDB=1|0                          // When set to 0 codelite won't try to build or link to the lldb debugger. Default is 1 on Unix platforms    #
+##      -DPHP_BUILD=1|0                            // When set to 1, build CodeLite for PHP / WEB languages without any C++ plugins                             #
 #################################################################################################################################################################
 
 if (NOT CMAKE_VERSION VERSION_LESS 3.1) # THIS MUST STAY AT THE TOP OF THE FILE
@@ -59,7 +59,6 @@ else()
     set( CL_SRC_ROOT ${CMAKE_CURRENT_SOURCE_DIR}) # which seems to be the same, at least in this situation
 endif()
 
-include(FindLibClang)
 include(FindSqlite3)
 
 if(NOT SQLITE3_FOUND)
@@ -67,7 +66,6 @@ if(NOT SQLITE3_FOUND)
     set(SQLITE3_LIBRARY "-lsqlite3lib")
 endif()
 
-set( USE_CLANG 1 )
 set( IS_FREEBSD 0 )
 set( BUILD_WXC 0 )
 set( CL_COPY_WX_LIBS 0 )
@@ -76,6 +74,8 @@ set( WITH_SFTP 1 )
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations") # Avoid very multiple warnings spam due to deprecated wx methods
 
 if( UNIX AND NOT APPLE)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--disable-new-dtags")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--disable-new-dtags")
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(CMAKE_LIBRARY_ARCHITECTURE "x86_64-linux-gnu")
     else()
@@ -189,6 +189,14 @@ if(ENABLE_LLDB MATCHES 0)
 endif ()
 unset(ENABLE_LLDB CACHE)
 
+set(DISABLE_CXX 0)
+if(PHP_BUILD MATCHES 1)
+    set(DISABLE_CXX 1)
+    add_definitions(-DPHP_BUILD=1)
+else()
+    set(DISABLE_CXX 0)
+endif()
+
 #######################################
 ## Locate libssh
 #######################################
@@ -223,7 +231,7 @@ if ( WITH_SFTP )
     else ( UNIX AND NOT APPLE OR MINGW )
         ## OSX
         set( LIBSSH_INCLUDE_DIR ${CL_SRC_ROOT}/sdk/libssh/include)
-        set( LIBSSH_LIB ${CL_SRC_ROOT}/sdk/libssh/lib/osx/libssh.a)
+        set( LIBSSH_LIB "${CL_SRC_ROOT}/sdk/libssh/lib/osx/libssh.a;${CL_SRC_ROOT}/sdk/libssh/lib/osx/libcrypto.a")
         include_directories(${LIBSSH_INCLUDE_DIR})
     endif ( UNIX AND NOT APPLE OR MINGW )
     message("-- LIBSSH_LIB is set to ${LIBSSH_LIB}")
@@ -252,12 +260,6 @@ if (UNIX AND NOT APPLE)
 
 endif (UNIX AND NOT APPLE)
 
-## enable clang support?
-if(ENABLE_CLANG MATCHES 0)
-  set( USE_CLANG 0 )
-endif (ENABLE_CLANG MATCHES 0)
-unset(ENABLE_CLANG CACHE)
-
 if (AUTOGEN_REVISION MATCHES 0)
     set ( MAKE_AUTOGEN_REVISION_STRING 0)
 else (AUTOGEN_REVISION MATCHES 1)
@@ -280,6 +282,28 @@ if (COPY_WX_LIBS MATCHES 1)
 endif()
 unset(COPY_WX_LIBS CACHE)
 
+## file encoding detect
+if (UNIX AND NOT APPLE OR MINGW)
+    ## Linux
+    if (MINGW)
+        find_library(LIBUCHARDET_LIB NAMES uchardet PATH_SUFFIXES lib)
+        find_path(LIBUCHARDET_INCLUDE_DIR NAMES uchardet.h PATH_SUFFIXES include/uchardet)
+    else()
+        find_library(LIBUCHARDET_LIB NAMES libuchardet.so HINTS /usr/local/lib /usr/lib ${CMAKE_INSTALL_LIBDIR})
+        find_path(LIBUCHARDET_INCLUDE_DIR NAMES uchardet.h HINTS /usr/local/include /usr/include PATH_SUFFIXES uchardet)
+    endif()
+else ( UNIX AND NOT APPLE OR MINGW )
+    ## OSX
+    #set( LIBUCHARDET_INCLUDE_DIR ${CL_SRC_ROOT}/sdk/uchardet/include)
+    #set( LIBUCHARDET_LIB ${CL_SRC_ROOT}/sdk/uchardet/lib/osx/uchardet.a)
+endif ( UNIX AND NOT APPLE OR MINGW )
+if (LIBUCHARDET_LIB AND LIBUCHARDET_INCLUDE_DIR)
+    add_definitions(-DUSE_UCHARDET=1)
+    include_directories(${LIBUCHARDET_INCLUDE_DIR})
+else ( UNIX AND NOT APPLE OR MINGW )
+    set (LIBUCHARDET_LIB "")
+endif (LIBUCHARDET_LIB AND LIBUCHARDET_INCLUDE_DIR)
+
 ## Will set PLUGINS_DIR to the proper location on Linux / OSX
 include(OSXInstall)
 
@@ -287,6 +311,7 @@ include(OSXInstall)
 OSX_MAKE_BUNDLE_DIRECTORY()
 
 add_definitions(-DYY_NEVER_INTERACTIVE=1)
+add_definitions(-DwxUSE_GUI=1)
 set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
 
 if (NOT MINGW)
@@ -305,7 +330,7 @@ if ( USE_AUI_NOTEBOOK )
     message("-- Using Custom Notebook class")
 else ( USE_AUI_NOTEBOOK )
     add_definitions( -DUSE_AUI_NOTEBOOK=0 )
-    message("-- Using wxAuiNotebook class")
+    message("-- Using wxAuiNotebook class is disabled")
 endif ( USE_AUI_NOTEBOOK )
 unset(USE_AUI_NOTEBOOK CACHE)
 
@@ -382,7 +407,7 @@ else ()
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")        ## Optimize
     if(CMAKE_COMPILER_IS_GNUCXX)
-        set(CMAKE_EXE_LINKER_FLAGS "-s")  ## Strip binary
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s")  ## Strip binary
     endif(CMAKE_COMPILER_IS_GNUCXX)
 
     ## In release, add NDEBUG unless explicitly told not to
@@ -450,81 +475,25 @@ if ( MAKE_DEB )
         set(LIBGTK "libgtk-3-dev")
         set(GTKNAME "gtk3")
     else()
-        set(LIBGTK "libgtk2.0-dev")
+        set(LIBGTK "libgtk2.0-0")
         set(GTKNAME "gtk2")
+    endif()
+    if(PHP_BUILD)
+        set(GTKNAME "${GTKNAME}-php")
     endif()
     set(CPACK_GENERATOR                   "DEB")
     set(CPACK_PACKAGE_NAME                "CodeLite")
-    set(CPACK_PACKAGE_VERSION             "12.0.0-${GTKNAME}")
+    set(CPACK_PACKAGE_VERSION             "13.0.0-${GTKNAME}")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER   "Eran Ifrah <eran.ifrah@gmail.com>")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "C/C++/PHP and Node.js IDE (Integrated Development Environment)")
     set(CPACK_DEBIAN_PACKAGE_SECTION      "devel")
     set(CPACK_DEBIAN_PACKAGE_PRIORITY     "optional")
     set(CPACK_DEBIAN_PACKAGE_RECOMMENDS   "build-essential, git, subversion, gdb, xterm, gcc, g++")
-    if(OS_CODENAME STREQUAL "xenial")
-        message("-- CPack deps for Ubuntu-Xenial")
-        set(CPACK_DEBIAN_PACKAGE_DEPENDS
-            "libc6, ${LIBGTK}, libsqlite3-dev, libssh-dev, libedit-dev, libhunspell-dev, libclang-4.0-dev, clang-format-4.0, python-lldb-4.0, liblldb-4.0-dev")
-    else()
-        message("-- CPack deps for Ubuntu-Trusty/Debian-Jessie")
-        set(CPACK_DEBIAN_PACKAGE_DEPENDS
-            "libc6, ${LIBGTK}, libsqlite3-dev, libssh-dev, libedit-dev, libhunspell-dev, libclang-3.5-dev, clang-format-3.5, liblldb-3.5-dev")
-    endif()
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
     set(CPACK_PACKAGE_DESCRIPTION_FILE    "${CL_SRC_ROOT}/DESC")
     set(CPACK_STRIP_FILES TRUE)
     INCLUDE(CPack)
 endif( MAKE_DEB )
-
-
-############################################
-## Clang support
-############################################
-
-if (USE_CLANG)
-
-if (APPLE)
-  set( CLANG_INCLUDE "${CL_SRC_ROOT}/sdk/clang/include" )
-  set( CLANG_LIBRARY "-L${CL_SRC_ROOT}/sdk/clang/lib -lclang.3.7" )
-  set( CLANG_BINARY "${CL_SRC_ROOT}/sdk/clang/lib/libclang.3.7.dylib")
-
-elseif (MINGW)
-  find_package(LLVM)
-  if (LLVM_FOUND)
-    find_package(Clang)
-    if (CLANG_FOUND)
-        set( CLANG_INCLUDE "${CLANG_INCLUDE_DIRS}" )
-        set( CLANG_LIBRARY "${CLANG_LDFLAGS}")
-        set( CLANG_BINARY "")
-    endif ()
-  endif ()
-elseif (UNIX)
-    FIND_LIBCLANG_OFFICIAL()
-    if ( LIBCLANG STREQUAL "LIBCLANG-NOTFOUND" )
-        set(USE_CLANG 0)
-    else()
-        set(CLANG_LIBRARY ${LIBCLANG})
-        set(CLANG_INCLUDE ${LIBCLANG_INCLUDE})
-        set( CLANG_BINARY ${CLANG_LIBRARY})
-    endif()
-endif()
-
-if (USE_CLANG)
-    message( "-- clang link line ${CLANG_LIBRARY} ")
-    message( "-- clang include path ${CLANG_INCLUDE} ")
-    message( "-- clang binary ${CLANG_BINARY}" )
-    message( "-- CL_SRC_ROOT is set to => " ${CL_SRC_ROOT} )
-    message( "-- CL_PREFIX      is set to => " ${CL_PREFIX} )
-    message( "-- CL_PREFIX/LIB_DIR is set to => " ${CL_PREFIX}/${CL_INSTALL_LIBDIR} )
-    message( "-- PLUGINS_DIR is set to => " ${PLUGINS_DIR} )
-    message( "-- wx-config   is set to => " ${WX_TOOL} )
-else()
-    message( "-- *** NOTICE ***: clang code completion support is disabled" )
-    message( "-- *** NOTICE ***: On Ubuntu / Debian you might want to install libclang-3.4-dev package")
-endif()
-
-else()
-    message( "-- *** NOTICE ***: clang code completion support is disabled" )
-endif(USE_CLANG)
 
 ############################################
 ## SFTP support
@@ -547,9 +516,10 @@ endif(WITH_SFTP)
 ###########################################
 
 if (UNIX AND NOT APPLE)
-    SET(CMAKE_INSTALL_RPATH ${PLUGINS_DIR})
     SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
-    #SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+    SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+    SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+    set(CMAKE_INSTALL_RPATH "${PLUGINS_DIR}")
 endif(UNIX AND NOT APPLE)
 
 if ( WITH_PCH )
@@ -580,18 +550,24 @@ add_subdirectory(CodeLite)
 add_subdirectory(Plugin)
 
 if(NOT NO_CORE_PLUGINS)
+    if(NOT DISABLE_CXX)
+        add_subdirectory(Gizmos)
+        add_subdirectory(CallGraph)
+        add_subdirectory(ContinuousBuild)
+        add_subdirectory(Debugger)
+        add_subdirectory(UnitTestCPP)
+        add_subdirectory(QmakePlugin)
+        add_subdirectory(cppchecker)
+        add_subdirectory(wxformbuilder)
+        add_subdirectory(CMakePlugin)
+        add_subdirectory(cscope)
+        add_subdirectory(EOSWiki)
+    endif()
+    add_subdirectory(CodeLiteDiff)
+    add_subdirectory(git)
+    #add_subdirectory(Tweaks)
     add_subdirectory(abbreviation)
-    add_subdirectory(CallGraph)
-    add_subdirectory(ContinuousBuild)
-    add_subdirectory(Debugger)
-    add_subdirectory(Gizmos)
     add_subdirectory(Outline)
-    add_subdirectory(QmakePlugin)
-    add_subdirectory(UnitTestCPP)
-    add_subdirectory(cppchecker)
-    add_subdirectory(cscope)
-    add_subdirectory(wxformbuilder)
-    add_subdirectory(Tweaks)
     add_subdirectory(CodeFormatter)
     add_subdirectory(Copyright)
     add_subdirectory(DatabaseExplorer)
@@ -599,9 +575,6 @@ if(NOT NO_CORE_PLUGINS)
     add_subdirectory(SnipWiz)
     add_subdirectory(Subversion2)
     add_subdirectory(ZoomNavigator)
-    add_subdirectory(git)
-    add_subdirectory(CMakePlugin)
-    add_subdirectory(CodeLiteDiff)
     add_subdirectory(SpellChecker)
     add_subdirectory(AutoSave)
     add_subdirectory(Tail)
@@ -609,12 +582,14 @@ if(NOT NO_CORE_PLUGINS)
     add_subdirectory(PHPLint)
     add_subdirectory(PHPRefactoring)
     add_subdirectory(codelite_vim)
-
+    add_subdirectory(Docker)
+    add_subdirectory(LanguageServer)
+    
     if (WITH_SFTP)
         add_subdirectory(SFTP)
     endif(WITH_SFTP)
 
-    if (WITH_LLDB)
+    if (WITH_LLDB AND NOT DISABLE_CXX)
         add_subdirectory(LLDBDebugger)
     endif()
 
@@ -624,19 +599,19 @@ if(NOT NO_CORE_PLUGINS)
     add_subdirectory(WebTools)
     add_subdirectory(SmartCompletion)
 
-    if(UNIX AND NOT APPLE)
+    if(UNIX AND NOT APPLE AND NOT DISABLE_CXX)
         ## Add valgrind plugin
         add_subdirectory(MemCheck)
-    endif(UNIX AND NOT APPLE)
+    endif()
 
-    if(APPLE)
+    if(APPLE AND NOT DISABLE_CXX)
         message("-- Adding MacBundler...")
         add_subdirectory(MacBundler)
-    endif(APPLE)
+    endif()
 endif(NOT NO_CORE_PLUGINS)
 
 # wxCrafter is not a core plugin so we include it we find the directory
-if(IS_DIRECTORY "${CL_SRC_ROOT}/wxcrafter")
+if(IS_DIRECTORY "${CL_SRC_ROOT}/wxcrafter" AND NOT DISABLE_CXX AND NOT NO_CORE_PLUGINS)
     add_subdirectory(wxcrafter)
 endif()
 

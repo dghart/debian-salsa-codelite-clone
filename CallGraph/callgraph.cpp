@@ -141,12 +141,7 @@ void CallGraph::LogFn(wxString s)
 
 //-----------------------------------------------------------------------------
 
-clToolBar* CallGraph::CreateToolBar(wxWindow* parent)
-{
-    // Create the toolbar to be used by the plugin
-    clToolBar* tb(NULL);
-    return tb;
-}
+void CallGraph::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
 
 //-----------------------------------------------------------------------------
 void CallGraph::CreatePluginMenu(wxMenu* pluginsMenu)
@@ -200,25 +195,6 @@ void CallGraph::HookPopupMenu(wxMenu* menu, MenuType type)
         // TODO::Append items for the file view/Virtual folder context menu
     } else if(type == MenuTypeFileView_File) {
         // TODO::Append items for the file view/file context menu
-    }
-}
-
-//-----------------------------------------------------------------------------
-
-void CallGraph::UnHookPopupMenu(wxMenu* menu, MenuType type)
-{
-    if(type == MenuTypeEditor) {
-        // TODO::Unhook items for the editor context menu
-    } else if(type == MenuTypeFileExplorer) {
-        // TODO::Unhook  items for the file explorer context menu
-    } else if(type == MenuTypeFileView_Workspace) {
-        // TODO::Unhook  items for the file view / workspace context menu
-    } else if(type == MenuTypeFileView_Project) {
-        // TODO::Unhook  items for the file view/Project context menu
-    } else if(type == MenuTypeFileView_Folder) {
-        // TODO::Unhook  items for the file view/Virtual folder context menu
-    } else if(type == MenuTypeFileView_File) {
-        // TODO::Unhook  items for the file view/file context menu
     }
 }
 

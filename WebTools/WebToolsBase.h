@@ -4,8 +4,8 @@
 // Do not modify this file by hand!
 //////////////////////////////////////////////////////////////////////
 
-#ifndef CODELITE_WEBTOOLS_WEBTOOLSBASE_BASE_CLASSES_H
-#define CODELITE_WEBTOOLS_WEBTOOLSBASE_BASE_CLASSES_H
+#ifndef _CODELITE_WEBTOOLS_WEBTOOLSBASE_BASE_CLASSES_H
+#define _CODELITE_WEBTOOLS_WEBTOOLSBASE_BASE_CLASSES_H
 
 #include <wx/settings.h>
 #include <wx/xrc/xmlres.h>
@@ -26,18 +26,31 @@
 #include <wx/button.h>
 #include <wx/textctrl.h>
 #include <wx/stc/stc.h>
-#include <wx/splitter.h>
-#include <wx/dataview.h>
-#include "m_dataview126model.h"
-#include "Notebook.h"
 #include <wx/bitmap.h>
 #include <map>
 #include <wx/icon.h>
+#include <wx/splitter.h>
+#include <wx/treectrl.h>
+#include "clThemedTreeCtrl.h"
+#include "Notebook.h"
+#include <wx/dataview.h>
+#include "clThemedListCtrl.h"
+#include <wx/toolbar.h>
+#include "clToolBar.h"
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
 #include <wx/persist/bookctrl.h>
 #include <wx/persist/treebook.h>
+#endif
+
+#ifdef WXC_FROM_DIP
+#undef WXC_FROM_DIP
+#endif
+#if wxVERSION_NUMBER >= 3100
+#define WXC_FROM_DIP(x) wxWindow::FromDIP(x, NULL)
+#else
+#define WXC_FROM_DIP(x) x
 #endif
 
 class WebToolsSettingsBase : public wxDialog
@@ -52,6 +65,7 @@ protected:
     wxPropertyGridManager* m_pgMgr;
     wxPGProperty* m_pgProp26;
     wxPGProperty* m_pgPropLogging;
+    wxPGProperty* m_pgPropPortNumber;
     wxPGProperty* m_pgProp32;
     wxPGProperty* m_pgPropEcma5;
     wxPGProperty* m_pgPropEcma6;
@@ -70,9 +84,11 @@ protected:
     wxPanel* m_panel237;
     wxStaticText* m_staticText243;
     wxFilePickerCtrl* m_filePickerNodeJS;
+    wxButton* m_button361;
     wxStaticText* m_staticText247;
     wxFilePickerCtrl* m_filePickerNpm;
-    wxButton* m_buttonSuugest;
+    wxButton* m_button363;
+    wxCheckBox* m_checkBoxJSLint;
     wxStdDialogButtonSizer* m_stdBtnSizer4;
     wxButton* m_buttonCancel;
     wxButton* m_buttonOK;
@@ -82,8 +98,9 @@ protected:
     virtual void OnModified(wxCommandEvent& event) { event.Skip(); }
     virtual void OnJSValueChanged(wxPropertyGridEvent& event) { event.Skip(); }
     virtual void OnNodejsPath(wxFileDirPickerEvent& event) { event.Skip(); }
-    virtual void OnNpmPath(wxFileDirPickerEvent& event) { event.Skip(); }
     virtual void OnSuggestNodeJSPaths(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnNpmPath(wxFileDirPickerEvent& event) { event.Skip(); }
+    virtual void OnLintOnSave(wxCommandEvent& event) { event.Skip(); }
     virtual void OnOKUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnOK(wxCommandEvent& event) { event.Skip(); }
     virtual void OnApply(wxCommandEvent& event) { event.Skip(); }
@@ -97,15 +114,18 @@ public:
     wxPanel* GetPanel12() { return m_panel12; }
     wxStaticText* GetStaticText243() { return m_staticText243; }
     wxFilePickerCtrl* GetFilePickerNodeJS() { return m_filePickerNodeJS; }
+    wxButton* GetButton361() { return m_button361; }
     wxStaticText* GetStaticText247() { return m_staticText247; }
     wxFilePickerCtrl* GetFilePickerNpm() { return m_filePickerNpm; }
-    wxButton* GetButtonSuugest() { return m_buttonSuugest; }
+    wxButton* GetButton363() { return m_button363; }
+    wxCheckBox* GetCheckBoxJSLint() { return m_checkBoxJSLint; }
     wxPanel* GetPanel237() { return m_panel237; }
     wxNotebook* GetNotebook10() { return m_notebook10; }
-    WebToolsSettingsBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("WebTools Settings"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    WebToolsSettingsBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("WebTools Settings"),
+                         const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                         long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~WebToolsSettingsBase();
 };
-
 
 class NodeJSDebuggerDlgBase : public wxDialog
 {
@@ -138,56 +158,11 @@ public:
     wxTextCtrl* GetTextCtrlPort() { return m_textCtrlPort; }
     wxStaticText* GetStaticText132() { return m_staticText132; }
     wxStyledTextCtrl* GetStcCommandLineArguments() { return m_stcCommandLineArguments; }
-    NodeJSDebuggerDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Node.js Debugger"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    NodeJSDebuggerDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Node.js Debugger"),
+                          const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                          long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~NodeJSDebuggerDlgBase();
 };
-
-
-class NodeJSDebuggerPaneBase : public wxPanel
-{
-protected:
-    wxSplitterWindow* m_splitter104;
-    wxPanel* m_splitterPage112;
-    wxDataViewCtrl* m_dataviewLocals;
-    wxObjectDataPtr<m_dataview126Model> m_dataviewLocalsModel;
-
-    wxPanel* m_splitterPage108;
-    wxSplitterWindow* m_splitter168;
-    wxPanel* m_splitterPage172;
-    wxDataViewListCtrl* m_dvListCtrlCallstack;
-    wxPanel* m_splitterPage176;
-    Notebook* m_notebook;
-    wxPanel* m_panelConsoleLog;
-    wxStyledTextCtrl* m_consoleLog;
-    wxTextCtrl* m_textCtrlExpression;
-    wxPanel* m_panelBreakpoints;
-    wxDataViewListCtrl* m_dvListCtrlBreakpoints;
-
-protected:
-    virtual void OnLocalExpanding(wxDataViewEvent& event) { event.Skip(); }
-    virtual void OnItemActivated(wxDataViewEvent& event) { event.Skip(); }
-    virtual void OnEvaluateExpression(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnBreakpointSelected(wxDataViewEvent& event) { event.Skip(); }
-
-public:
-    wxDataViewCtrl* GetDataviewLocals() { return m_dataviewLocals; }
-    wxPanel* GetSplitterPage112() { return m_splitterPage112; }
-    wxDataViewListCtrl* GetDvListCtrlCallstack() { return m_dvListCtrlCallstack; }
-    wxPanel* GetSplitterPage172() { return m_splitterPage172; }
-    wxStyledTextCtrl* GetConsoleLog() { return m_consoleLog; }
-    wxTextCtrl* GetTextCtrlExpression() { return m_textCtrlExpression; }
-    wxPanel* GetPanelConsoleLog() { return m_panelConsoleLog; }
-    wxDataViewListCtrl* GetDvListCtrlBreakpoints() { return m_dvListCtrlBreakpoints; }
-    wxPanel* GetPanelBreakpoints() { return m_panelBreakpoints; }
-    Notebook* GetNotebook() { return m_notebook; }
-    wxPanel* GetSplitterPage176() { return m_splitterPage176; }
-    wxSplitterWindow* GetSplitter168() { return m_splitter168; }
-    wxPanel* GetSplitterPage108() { return m_splitterPage108; }
-    wxSplitterWindow* GetSplitter104() { return m_splitter104; }
-    NodeJSDebuggerPaneBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500,250), long style = wxTAB_TRAVERSAL);
-    virtual ~NodeJSDebuggerPaneBase();
-};
-
 
 class NodeJSNewWorkspaceDlgBase : public wxDialog
 {
@@ -215,28 +190,79 @@ public:
     wxDirPickerCtrl* GetDirPickerFolder() { return m_dirPickerFolder; }
     wxCheckBox* GetCheckBoxNewFolder() { return m_checkBoxNewFolder; }
     wxStaticText* GetStaticTextPreview() { return m_staticTextPreview; }
-    NodeJSNewWorkspaceDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("New Workspace"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    NodeJSNewWorkspaceDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("New Workspace"),
+                              const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                              long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~NodeJSNewWorkspaceDlgBase();
 };
-
 
 class WebToolsImages : public wxImageList
 {
 protected:
     // Maintain a map of all bitmaps representd by their name
     std::map<wxString, wxBitmap> m_bitmaps;
-
+    // The requested image resolution (can be one of @2x, @1.5x, @1.25x or an empty string (the default)
+    wxString m_resolution;
+    int m_imagesWidth;
+    int m_imagesHeight;
 
 protected:
-
 public:
     WebToolsImages();
-    const wxBitmap& Bitmap(const wxString &name) const {
-        if ( !m_bitmaps.count(name) )
-            return wxNullBitmap;
-        return m_bitmaps.find(name)->second;
+    const wxBitmap& Bitmap(const wxString& name) const
+    {
+        if(!m_bitmaps.count(name + m_resolution)) return wxNullBitmap;
+        return m_bitmaps.find(name + m_resolution)->second;
     }
+
+    void SetBitmapResolution(const wxString& res = wxEmptyString) { m_resolution = res; }
+
     virtual ~WebToolsImages();
+};
+
+class NodeJSCliDebuggerPaneBase : public wxPanel
+{
+protected:
+    wxSplitterWindow* m_splitter271;
+    wxPanel* m_splitterPageWatches;
+    clThemedTreeCtrl* m_treeCtrlLocals;
+    wxPanel* m_splitterPageCallstack;
+    wxSplitterWindow* m_splitter365;
+    wxPanel* m_splitterPage369;
+    Notebook* m_notebook;
+    wxPanel* m_panelCallstack;
+    clThemedListCtrl* m_dvListCtrlCallstack;
+    wxPanel* m_panelBreakpoints;
+    clToolBar* m_tbBreakpoints;
+    clThemedListCtrl* m_dvListCtrlBreakpoints;
+    wxPanel* m_panelConsole;
+    wxPanel* m_splitterPage373;
+    wxPanel* m_panelOutput;
+
+protected:
+    virtual void OnLocalExpanding(wxTreeEvent& event) { event.Skip(); }
+    virtual void OnStackEntryActivated(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnStackContextMenu(wxDataViewEvent& event) { event.Skip(); }
+
+public:
+    clThemedTreeCtrl* GetTreeCtrlLocals() { return m_treeCtrlLocals; }
+    wxPanel* GetSplitterPageWatches() { return m_splitterPageWatches; }
+    clThemedListCtrl* GetDvListCtrlCallstack() { return m_dvListCtrlCallstack; }
+    wxPanel* GetPanelCallstack() { return m_panelCallstack; }
+    clToolBar* GetTbBreakpoints() { return m_tbBreakpoints; }
+    clThemedListCtrl* GetDvListCtrlBreakpoints() { return m_dvListCtrlBreakpoints; }
+    wxPanel* GetPanelBreakpoints() { return m_panelBreakpoints; }
+    wxPanel* GetPanelConsole() { return m_panelConsole; }
+    Notebook* GetNotebook() { return m_notebook; }
+    wxPanel* GetSplitterPage369() { return m_splitterPage369; }
+    wxPanel* GetPanelOutput() { return m_panelOutput; }
+    wxPanel* GetSplitterPage373() { return m_splitterPage373; }
+    wxSplitterWindow* GetSplitter365() { return m_splitter365; }
+    wxPanel* GetSplitterPageCallstack() { return m_splitterPageCallstack; }
+    wxSplitterWindow* GetSplitter271() { return m_splitter271; }
+    NodeJSCliDebuggerPaneBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
+                              const wxSize& size = wxSize(500, 300), long style = wxTAB_TRAVERSAL);
+    virtual ~NodeJSCliDebuggerPaneBase();
 };
 
 #endif

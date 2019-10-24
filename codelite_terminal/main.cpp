@@ -2,119 +2,140 @@
 #include <wx/event.h>
 #include "MainFrame.h"
 #include <wx/image.h>
+#include <iostream>
+#include <thread>
 #include <wx/cmdline.h>
-#include "terminal_options.h"
-#include <wx/dir.h>
-#include <wx/log.h>
-#include <wx/stdpaths.h>
-#include <wx/crt.h>
-#include "commandlineparser.h"
+#include "wxTerminalOptions.h"
+#include <wx/persist.h>
+#include "clPersistenceManager.h"
 
-#ifdef __WXMAC__
-#include <ApplicationServices/ApplicationServices.h>
-#endif
+//#ifdef __WXMSW__
+// void RedirectIOToConsole()
+//{
+//    AllocConsole();
+//    freopen("CON", "wb", stdout);
+//    freopen("CON", "wb", stderr);
+//    freopen("CON", "r", stdin); // Note: "r", not "w"
+//}
+//#endif
 
-#ifdef __WXMSW__
-typedef BOOL WINAPI (*SetProcessDPIAwareFunc)();
-#endif
+static const wxCmdLineEntryDesc cmdLineDesc[] = {
+    // Switches
+    { wxCMD_LINE_SWITCH, "v", "version", "Print current version", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL },
+    { wxCMD_LINE_SWITCH, "h", "help", "Print usage", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL },
+    { wxCMD_LINE_SWITCH, "w", "wait", "Wait for any key to be pressed before exiting", wxCMD_LINE_VAL_STRING,
+      wxCMD_LINE_PARAM_OPTIONAL },
+    // Options
+    { wxCMD_LINE_OPTION, "p", "print-tty", "Print the terminals tty (*nix only) into file", wxCMD_LINE_VAL_STRING,
+      wxCMD_LINE_PARAM_OPTIONAL },
+    { wxCMD_LINE_OPTION, "t", "title", "Set the console title", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL },
+    { wxCMD_LINE_OPTION, "d", "working-directory", "Set the working directory", wxCMD_LINE_VAL_STRING,
+      wxCMD_LINE_PARAM_OPTIONAL },
+    { wxCMD_LINE_OPTION, "c", "command", "Command to execute", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL },
+    { wxCMD_LINE_OPTION, "f", "file", "File contains command to execute", wxCMD_LINE_VAL_STRING,
+      wxCMD_LINE_PARAM_OPTIONAL },
+    { wxCMD_LINE_NONE }
+};
+
+class MyPersistenceManager : public wxPersistenceManager
+{
+    wxFileConfig* m_config = nullptr;
+
+public:
+    MyPersistenceManager()
+    {
+        wxFileName localFile(wxStandardPaths::Get().GetUserDataDir(), "persistency.ini");
+        m_config = new wxFileConfig("codelite-terminal", "CodeLite", localFile.GetFullPath());
+    }
+
+    ~MyPersistenceManager() { wxDELETE(m_config); }
+    wxConfigBase* GetConfig() const { return m_config; }
+};
 
 // Define the MainApp
 class MainApp : public wxApp
 {
+    MyPersistenceManager* m_persistency = nullptr;
+
 public:
     MainApp() {}
-    virtual ~MainApp() {}
-
-    void PrintUsage()
-    {
-        wxPrintf("%s [-t <title>] [-e] [-w] [-d <working directory>] [--cmd <command to execute>]\n", wxApp::argv[0]);
-        wxPrintf("-t | --title             Set the console title\n");
-        wxPrintf("-e | --exit              Exit when execution of command terminates\n");
-        wxPrintf("-w | --wait              Wait for any key to be pressed before exiting\n");
-        wxPrintf("-d | --working-directory Set the working directory\n");
-        wxPrintf("-p | --print-info        Print terminal info to stdout\n");
-        wxPrintf("-z | --always-on-top     The terminal is always on top of all windows\n");
-        wxPrintf("-g | --dbg-terminal      The terminal is for debugging redirection purposes\n");
-        wxPrintf("\n");
-        exit(1);
-    }
+    virtual ~MainApp() { wxDELETE(m_persistency); }
 
     virtual bool OnInit()
     {
+        SetAppName("codelite-terminal");
+        wxFileName configDir(wxStandardPaths::Get().GetUserDataDir(), "");
+        configDir.Mkdir(wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
 
+        m_persistency = new MyPersistenceManager();
+        wxPersistenceManager::Set(*m_persistency);
+        wxTerminalOptions& m_options = wxTerminalOptions::Get();
+
+        // m_persistencManager = new clPersistenceManager();
+        // wxPersistenceManager::Set(*m_persistencManager);
 #ifdef __WXMSW__
-        HINSTANCE m_user32Dll = LoadLibrary(L"User32.dll");
-        if(m_user32Dll) {
-            SetProcessDPIAwareFunc pFunc = (SetProcessDPIAwareFunc)GetProcAddress(m_user32Dll, "SetProcessDPIAware");
-            if(pFunc) {
-                pFunc();
-            }
-            FreeLibrary(m_user32Dll);
-            m_user32Dll = NULL;
+        typedef BOOL WINAPI (*SetProcessDPIAwareFunc)();
+        HINSTANCE user32Dll = LoadLibrary(L"User32.dll");
+        if(user32Dll) {
+            SetProcessDPIAwareFunc pFunc = (SetProcessDPIAwareFunc)GetProcAddress(user32Dll, "SetProcessDPIAware");
+            if(pFunc) { pFunc(); }
+            FreeLibrary(user32Dll);
         }
 #endif
+        wxCmdLineParser parser(wxApp::argc, wxApp::argv);
+        parser.SetDesc(cmdLineDesc);
+        const wxArrayString& argv = wxApp::argv.GetArguments();
 
-        SetAppName("codelite-terminal");
-
-        CommandLineParser parser(wxApp::argc, wxApp::argv);
-        parser.AddOption("t", "title", CommandLineParser::kOptionWithValue | CommandLineParser::kOptional);
-        parser.AddOption("d", "working-directory", CommandLineParser::kOptionWithValue | CommandLineParser::kOptional);
-        parser.AddOption("e", "exit");          // optional, no value
-        parser.AddOption("w", "wait");          // optional, no value
-        parser.AddOption("p", "print-info");    // optional
-        parser.AddOption("z", "always-on-top"); // optional
-        parser.AddOption("g", "dbg-terminal");  // optional
-        parser.Parse();
-
-        {
-            wxLogNull noLog;
-            wxFileName::Mkdir(wxStandardPaths::Get().GetUserDataDir(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
-            ::wxMkdir(wxStandardPaths::Get().GetUserDataDir());
+        for(const wxString& arg : argv) {
+            if(arg.StartsWith("--wait")) {
+                m_options.SetWaitOnExit(true);
+            } else if(arg.StartsWith("--help")) {
+                // Print usage and exit
+                std::cout << parser.GetUsageString() << std::endl;
+                wxExit();
+            } else if(arg.StartsWith("--title")) {
+                wxString title = arg.AfterFirst('=');
+                m_options.SetTitle(title);
+            } else if(arg.StartsWith("--print-tty")) {
+                m_options.SetPrintTTY(true);
+                wxString ttyfile = arg.AfterFirst('=');
+                m_options.SetTtyfile(ttyfile);
+            } else if(arg.StartsWith("--working-directory")) {
+                wxString wd = arg.AfterFirst('=');
+                m_options.SetWorkingDirectory(wd);
+            } else if(arg.StartsWith("--command")) {
+                wxString cmd = arg.AfterFirst('=');
+                m_options.SetCommand(cmd);
+            } else if(arg.StartsWith("--file")) {
+                wxString cmdfile = arg.AfterFirst('=');
+                m_options.SetCommandFromFile(cmdfile);
+            } else if(arg.StartsWith("--log")) {
+                wxString logfile = arg.AfterFirst('=');
+                m_options.SetLogfile(logfile);
+            }
         }
 
         // Add the common image handlers
         wxImage::AddHandler(new wxPNGHandler);
         wxImage::AddHandler(new wxJPEGHandler);
 
-        TerminalOptions options;
-        wxString commandToRun, title, workingDirectory;
-        commandToRun = parser.GetCommand();
-        workingDirectory = parser.GetArg("d", "working-directory");
-
-        if(parser.HasOption("t", "title")) {
-            options.SetTitle(parser.GetArg("t", "title"));
-
-        } else if(!parser.GetCommand().IsEmpty()) {
-            options.SetTitle(parser.GetCommand());
-        }
-
-        if(!workingDirectory.IsEmpty()) {
-            ::wxSetWorkingDirectory(workingDirectory);
-        }
-
-        options.EnableFlag(TerminalOptions::kExitWhenInfiriorTerminates, parser.HasOption("e", "exit"));
-        options.EnableFlag(TerminalOptions::kPauseBeforeExit, parser.HasOption("w", "wait"));
-        options.EnableFlag(TerminalOptions::kPrintInfo, parser.HasOption("p", "print-info"));
-        options.EnableFlag(TerminalOptions::kAlwaysOnTop, parser.HasOption("z", "always-on-top"));
-        options.EnableFlag(TerminalOptions::kDebuggerTerminal, parser.HasOption("g", "dbg-terminal"));
-        options.SetCommand(commandToRun);
-
-        long style = wxDEFAULT_FRAME_STYLE;
-        if(options.HasFlag(TerminalOptions::kAlwaysOnTop)) {
-            style = wxSTAY_ON_TOP;
-        }
-
-        MainFrame* mainFrame = new MainFrame(NULL, options, style);
+        MainFrame* mainFrame = new MainFrame(NULL);
         SetTopWindow(mainFrame);
-
-#ifdef __WXMAC__
-        ProcessSerialNumber PSN;
-        GetCurrentProcess(&PSN);
-        TransformProcessType(&PSN, kProcessTransformToForegroundApplication);
-#endif
         return GetTopWindow()->Show();
     }
 };
 
 DECLARE_APP(MainApp)
 IMPLEMENT_APP(MainApp)
+
+// int main(int argc, char** argv)
+//{
+//    // MyWxApp derives from wxApp
+//    wxApp::SetInstance(new MainApp());
+//    wxEntryStart(argc, argv);
+//    wxTheApp->OnInit();
+//    wxTheApp->OnRun();
+//    wxTheApp->OnExit();
+//    wxEntryCleanup();
+//    return 0;
+//}

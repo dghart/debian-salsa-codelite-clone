@@ -36,7 +36,7 @@
 #include "CSSCodeCompletion.h"
 #include "clJSCTags.h"
 
-class NodeJSDebuggerPane;
+class NodeDebuggerPane;
 class NodeJSWorkspaceView;
 class JavaScriptSyntaxColourThread;
 class WebTools : public IPlugin
@@ -53,9 +53,8 @@ class WebTools : public IPlugin
 
     /// Node.js
     bool m_clangOldFlag;
-    NodeJSDebuggerPane* m_nodejsDebuggerPane;
+    NodeDebuggerPane* m_nodejsCliDebuggerPane = nullptr;
     wxString m_savePerspective;
-    bool m_hideToolBarOnDebugStop;
 
 protected:
     void OnWorkspaceClosed(wxCommandEvent& event);
@@ -67,18 +66,17 @@ protected:
     void OnFileSaved(clCommandEvent& event);
     void OnThemeChanged(wxCommandEvent& event);
     void OnCodeComplete(clCodeCompletionEvent& event);
-    void OnCodeCompleteFunctionCalltip(clCodeCompletionEvent& event);
-    void OnFindSymbol(clCodeCompletionEvent& event);
     void ColourJavaScript(const JavaScriptSyntaxColourThread::Reply& reply);
     void OnSettings(wxCommandEvent& event);
     void OnTimer(wxTimerEvent& event);
     void OnCommentLine(wxCommandEvent& e);
     void OnCommentSelection(wxCommandEvent& e);
-    void OnNodeJSDebuggerStarted(clDebugEvent& event);
+    void OnNodeJSCliDebuggerStarted(clDebugEvent& event);
     void OnNodeJSDebuggerStopped(clDebugEvent& event);
     void OnIsDebugger(clDebugEvent& event);
+    void OnNodeCommandCompleted(clProcessEvent& event);
 
-private:
+public:
     bool IsJavaScriptFile(const wxString& filename);
     bool IsJavaScriptFile(const wxFileName& filename);
     bool IsJavaScriptFile(IEditor* editor);
@@ -95,7 +93,7 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual clToolBar* CreateToolBar(wxWindow* parent);
+    virtual void CreateToolBar(clToolBar* toolbar);
     virtual void CreatePluginMenu(wxMenu* pluginsMenu);
     virtual void UnPlug();
 };

@@ -24,7 +24,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "LLDBVariable.h"
-#include "json_node.h"
+#include "JSON.h"
 #include "LLDBEnums.h"
 
 #if BUILD_CODELITE_LLDB
@@ -46,6 +46,11 @@ void LLDBVariable::DoInitFromLLDBValue(lldb::SBValue value)
     SetValueChanged(value.GetValueDidChange());
     SetLldbId(value.GetID());
 
+    lldb::SBStream stream;
+    if(value.GetExpressionPath(stream)) {
+        m_expression.assign(stream.GetData(), stream.GetSize());
+    }
+
     if(value.MightHaveChildren()) {
         m_hasChildren = true;
     }
@@ -54,25 +59,27 @@ void LLDBVariable::DoInitFromLLDBValue(lldb::SBValue value)
 
 LLDBVariable::~LLDBVariable() {}
 
-void LLDBVariable::FromJSON(const JSONElement& json)
+void LLDBVariable::FromJSON(const JSONItem& json)
 {
     m_name = json.namedObject("m_name").toString();
     m_value = json.namedObject("m_value").toString();
     m_summary = json.namedObject("m_summary").toString();
     m_type = json.namedObject("m_type").toString();
+    m_expression = json.namedObject("m_expression").toString();
     m_valueChanged = json.namedObject("m_valueChanged").toBool(false);
     m_lldbId = json.namedObject("m_lldbId").toInt();
     m_hasChildren = json.namedObject("m_hasChildren").toBool(false);
     m_isWatch = json.namedObject("m_isWatch").toBool(m_isWatch);
 }
 
-JSONElement LLDBVariable::ToJSON() const
+JSONItem LLDBVariable::ToJSON() const
 {
-    JSONElement json = JSONElement::createObject();
+    JSONItem json = JSONItem::createObject();
     json.addProperty("m_name", m_name);
     json.addProperty("m_value", m_value);
     json.addProperty("m_summary", m_summary);
     json.addProperty("m_type", m_type);
+    json.addProperty("m_expression", m_expression);
     json.addProperty("m_valueChanged", m_valueChanged);
     json.addProperty("m_lldbId", m_lldbId);
     json.addProperty("m_hasChildren", m_hasChildren);

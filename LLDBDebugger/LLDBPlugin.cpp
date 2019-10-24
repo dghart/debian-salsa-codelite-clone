@@ -29,6 +29,7 @@
 #include "LLDBOutputView.h"
 #include "LLDBPlugin.h"
 #include "LLDBProtocol/LLDBEvent.h"
+#include "LLDBProtocol/LLDBFormat.h"
 #include "LLDBProtocol/LLDBSettings.h"
 #include "LLDBSettingDialog.h"
 #include "LLDBThreadsView.h"
@@ -41,7 +42,7 @@
 #include "event_notifier.h"
 #include "file_logger.h"
 #include "globals.h"
-#include "json_node.h"
+#include "JSON.h"
 #include <wx/aui/framemanager.h>
 #include <wx/filename.h>
 #include <wx/msgdlg.h>
@@ -56,6 +57,29 @@ static LLDBPlugin* thePlugin = NULL;
 #define LLDB_BREAKPOINTS_PANE_NAME "LLDB Breakpoints"
 #define LLDB_LOCALS_PANE_NAME "LLDB Locals"
 #define LLDB_THREADS_PANE_NAME "LLDB Threads"
+
+namespace
+{
+
+// Reusing gdb ids so global debugger menu and accelerators work.
+const int lldbRunToCursorContextMenuId = XRCID("dbg_run_to_cursor");
+const int lldbJumpToCursorContextMenuId = XRCID("dbg_jump_cursor");
+
+const int lldbAddWatchContextMenuId = XRCID("lldb_add_watch");
+
+wxString GetWatchWord(IEditor& editor)
+{
+    auto word = editor.GetSelection();
+    if(word.IsEmpty()) { word = editor.GetWordAtCaret(); }
+
+    // Remove leading and trailing whitespace.
+    word.Trim(true);
+    word.Trim(false);
+
+    return word;
+}
+
+} // namespace
 
 #define CHECK_IS_LLDB_SESSION()    \
     if(!m_connector.IsRunning()) { \
@@ -88,10 +112,10 @@ LLDBPlugin::LLDBPlugin(IManager* manager)
     , m_breakpointsView(NULL)
     , m_localsView(NULL)
     , m_threadsView(NULL)
-    , m_terminalPID(wxNOT_FOUND)
     , m_stopReasonPrompted(false)
     , m_raisOnBpHit(false)
     , m_tooltip(NULL)
+    , m_isPerspectiveLoaded(false)
 {
     m_longName = _("LLDB Debugger for CodeLite");
     m_shortName = wxT("LLDBDebuggerPlugin");
@@ -121,7 +145,7 @@ LLDBPlugin::LLDBPlugin(IManager* manager)
                                   this);
     EventNotifier::Get()->Connect(wxEVT_DBG_UI_TOGGLE_BREAKPOINT, clDebugEventHandler(LLDBPlugin::OnToggleBreakpoint),
                                   NULL, this);
-    EventNotifier::Get()->Connect(wxEVT_DBG_UI_INTERRUPT, clDebugEventHandler(LLDBPlugin::OnToggleInerrupt), NULL,
+    EventNotifier::Get()->Connect(wxEVT_DBG_UI_INTERRUPT, clDebugEventHandler(LLDBPlugin::OnToggleInterrupt), NULL,
                                   this);
     EventNotifier::Get()->Connect(wxEVT_BUILD_STARTING, clBuildEventHandler(LLDBPlugin::OnBuildStarting), NULL, this);
     EventNotifier::Get()->Connect(wxEVT_INIT_DONE, wxCommandEventHandler(LLDBPlugin::OnInitDone), NULL, this);
@@ -129,7 +153,7 @@ LLDBPlugin::LLDBPlugin(IManager* manager)
     EventNotifier::Get()->Connect(wxEVT_DBG_UI_QUICK_DEBUG, clDebugEventHandler(LLDBPlugin::OnDebugQuickDebug), NULL,
                                   this);
     EventNotifier::Get()->Connect(wxEVT_DBG_UI_CORE_FILE, clDebugEventHandler(LLDBPlugin::OnDebugCoreFile), NULL, this);
-    EventNotifier::Get()->Connect(wxEVT_DBG_UI_DELTE_ALL_BREAKPOINTS,
+    EventNotifier::Get()->Connect(wxEVT_DBG_UI_DELETE_ALL_BREAKPOINTS,
                                   clDebugEventHandler(LLDBPlugin::OnDebugDeleteAllBreakpoints), NULL, this);
     EventNotifier::Get()->Connect(wxEVT_DBG_UI_ATTACH_TO_PROCESS,
                                   clDebugEventHandler(LLDBPlugin::OnDebugAttachToProcess), NULL, this);
@@ -142,13 +166,21 @@ LLDBPlugin::LLDBPlugin(IManager* manager)
 
     EventNotifier::Get()->Connect(wxEVT_DBG_UI_SHOW_CURSOR, clDebugEventHandler(LLDBPlugin::OnDebugShowCursor), NULL,
                                   this);
-    Bind(wxEVT_TOOLTIP_DESTROY, &LLDBPlugin::OnDestroyTip, this);
+    EventNotifier::Get()->Bind(wxEVT_TOOLTIP_DESTROY, &LLDBPlugin::OnDestroyTip, this);
     wxTheApp->Bind(wxEVT_MENU, &LLDBPlugin::OnSettings, this, XRCID("lldb_settings"));
+
+    EventNotifier::Get()->Bind(wxEVT_COMMAND_MENU_SELECTED, &LLDBPlugin::OnRunToCursor, this,
+                               lldbRunToCursorContextMenuId);
+    EventNotifier::Get()->Bind(wxEVT_COMMAND_MENU_SELECTED, &LLDBPlugin::OnJumpToCursor, this,
+                               lldbJumpToCursorContextMenuId);
+
+    wxTheApp->Bind(wxEVT_COMMAND_MENU_SELECTED, &LLDBPlugin::OnAddWatch, this, lldbAddWatchContextMenuId);
+    LLDBFormat::Initialise();
 }
 
 void LLDBPlugin::UnPlug()
 {
-    Unbind(wxEVT_TOOLTIP_DESTROY, &LLDBPlugin::OnDestroyTip, this);
+    EventNotifier::Get()->Unbind(wxEVT_TOOLTIP_DESTROY, &LLDBPlugin::OnDestroyTip, this);
     m_connector.StopDebugServer();
     DestroyUI();
 
@@ -180,7 +212,7 @@ void LLDBPlugin::UnPlug()
                                      this);
     EventNotifier::Get()->Disconnect(wxEVT_DBG_UI_TOGGLE_BREAKPOINT,
                                      clDebugEventHandler(LLDBPlugin::OnToggleBreakpoint), NULL, this);
-    EventNotifier::Get()->Disconnect(wxEVT_DBG_UI_INTERRUPT, clDebugEventHandler(LLDBPlugin::OnToggleInerrupt), NULL,
+    EventNotifier::Get()->Disconnect(wxEVT_DBG_UI_INTERRUPT, clDebugEventHandler(LLDBPlugin::OnToggleInterrupt), NULL,
                                      this);
     EventNotifier::Get()->Disconnect(wxEVT_BUILD_STARTING, clBuildEventHandler(LLDBPlugin::OnBuildStarting), NULL,
                                      this);
@@ -191,7 +223,7 @@ void LLDBPlugin::UnPlug()
                                      this);
     EventNotifier::Get()->Disconnect(wxEVT_DBG_UI_CORE_FILE, clDebugEventHandler(LLDBPlugin::OnDebugCoreFile), NULL,
                                      this);
-    EventNotifier::Get()->Disconnect(wxEVT_DBG_UI_DELTE_ALL_BREAKPOINTS,
+    EventNotifier::Get()->Disconnect(wxEVT_DBG_UI_DELETE_ALL_BREAKPOINTS,
                                      clDebugEventHandler(LLDBPlugin::OnDebugDeleteAllBreakpoints), NULL, this);
     EventNotifier::Get()->Disconnect(wxEVT_DBG_UI_ATTACH_TO_PROCESS,
                                      clDebugEventHandler(LLDBPlugin::OnDebugAttachToProcess), NULL, this);
@@ -205,23 +237,36 @@ void LLDBPlugin::UnPlug()
     EventNotifier::Get()->Disconnect(wxEVT_DBG_UI_SHOW_CURSOR, clDebugEventHandler(LLDBPlugin::OnDebugShowCursor), NULL,
                                      this);
     wxTheApp->Unbind(wxEVT_MENU, &LLDBPlugin::OnSettings, this, XRCID("lldb_settings"));
+
+    EventNotifier::Get()->Unbind(wxEVT_COMMAND_MENU_SELECTED, &LLDBPlugin::OnRunToCursor, this,
+                                 lldbRunToCursorContextMenuId);
+    EventNotifier::Get()->Unbind(wxEVT_COMMAND_MENU_SELECTED, &LLDBPlugin::OnJumpToCursor, this,
+                                 lldbJumpToCursorContextMenuId);
+
+    wxTheApp->Unbind(wxEVT_COMMAND_MENU_SELECTED, &LLDBPlugin::OnAddWatch, this, lldbAddWatchContextMenuId);
 }
 
 LLDBPlugin::~LLDBPlugin() {}
 
-clToolBar* LLDBPlugin::CreateToolBar(wxWindow* parent)
+bool LLDBPlugin::ShowThreadNames() const { return m_showThreadNames; }
+
+wxString LLDBPlugin::GetFilenameForDisplay(const wxString& fileName) const
 {
-    // Create the toolbar to be used by the plugin
-    clToolBar* tb(NULL);
-    return tb;
+    if(m_showFileNamesOnly) {
+        return wxFileName(fileName).GetFullName();
+    } else {
+        return fileName;
+    }
 }
+
+void LLDBPlugin::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
 
 void LLDBPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
 {
-    // We want to add an entry in the global settings mene
+    // We want to add an entry in the global settings menu
     // Menu Bar > Settings > LLDB Settings
 
-    // Get the main fram's menubar
+    // Get the main frame's menubar
     wxMenuBar* mb = pluginsMenu->GetMenuBar();
     if(mb) {
         wxMenu* settingsMenu(NULL);
@@ -235,14 +280,42 @@ void LLDBPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
 
 void LLDBPlugin::HookPopupMenu(wxMenu* menu, MenuType type)
 {
-    wxUnusedVar(menu);
     wxUnusedVar(type);
-}
 
-void LLDBPlugin::UnHookPopupMenu(wxMenu* menu, MenuType type)
-{
-    wxUnusedVar(menu);
-    wxUnusedVar(type);
+    if(!m_connector.IsRunning()) { return; }
+
+    const auto editor = m_mgr->GetActiveEditor();
+    if(!editor) { return; }
+
+    size_t numberOfMenuItems = 0;
+
+    if(m_connector.IsCanInteract()) {
+        menu->Prepend(lldbJumpToCursorContextMenuId, wxT("Jump to Caret Line"));
+        ++numberOfMenuItems;
+
+        menu->Prepend(lldbRunToCursorContextMenuId, wxT("Run to Caret Line"));
+        ++numberOfMenuItems;
+    }
+
+    auto word = GetWatchWord(*editor);
+    if(word.Contains("\n")) {
+        // Don't create massive context menu
+        word.Clear();
+    }
+
+    // Truncate the word
+    if(word.length() > 20) {
+        word.Truncate(20);
+        word << "...";
+    }
+
+    if(!word.IsEmpty()) {
+        const auto menuItemText = wxString(wxT("Add Watch")) << wxT(" '") << word << wxT("'");
+        menu->Prepend(lldbAddWatchContextMenuId, menuItemText);
+        ++numberOfMenuItems;
+    }
+
+    if(numberOfMenuItems > 0) { menu->InsertSeparator(numberOfMenuItems); }
 }
 
 void LLDBPlugin::ClearDebuggerMarker()
@@ -267,18 +340,13 @@ void LLDBPlugin::SetDebuggerMarker(wxStyledTextCtrl* stc, int lineno)
 
 void LLDBPlugin::TerminateTerminal()
 {
-    if(m_terminalPID != wxNOT_FOUND) {
-        CL_DEBUG("Killing Terminal Process PID: %d", (int)m_terminalPID);
-        ::wxKill(m_terminalPID, wxSIGKILL);
-        m_terminalPID = wxNOT_FOUND;
-    }
 #ifdef __WXGTK__
-    if(m_terminalTTY.StartsWith("/tmp/pts")) {
+    if(m_debuggerTerminal.GetTty().StartsWith("/tmp/pts")) {
         // this is a fake symlink - remove it
-        ::unlink(m_terminalTTY.mb_str(wxConvUTF8).data());
+        ::unlink(m_debuggerTerminal.GetTty().mb_str(wxConvUTF8).data());
     }
 #endif
-    m_terminalTTY.Clear();
+    m_debuggerTerminal.Clear();
 }
 
 void LLDBPlugin::OnDebugContinue(clDebugEvent& event)
@@ -338,7 +406,7 @@ void LLDBPlugin::OnDebugStart(clDebugEvent& event)
 
         if(!settings.IsUsingRemoteProxy()) {
             // Not using a remote proxy, launch the debug server
-            if(!m_connector.LaunchLocalDebugServer()) { return; }
+            if(!m_connector.LaunchLocalDebugServer(settings.GetDebugserver())) { return; }
         }
 
         // Determine the executable to debug, working directory and arguments
@@ -369,13 +437,10 @@ void LLDBPlugin::OnDebugStart(clDebugEvent& event)
 
             bool isWindows = wxPlatformInfo::Get().GetOperatingSystemId() & wxOS_WINDOWS;
             if(!bldConf->IsGUIProgram() && !isWindows) {
-                wxString realPts;
-                m_terminalPID = wxNOT_FOUND;
-                ::LaunchTerminalForDebugger(execToDebug.GetFullPath(), m_terminalTTY, realPts, m_terminalPID);
-                wxUnusedVar(realPts);
+                m_debuggerTerminal.Launch(clDebuggerTerminalPOSIX::MakeExeTitle(execToDebug.GetFullPath(), args));
 
-                if(!m_terminalTTY.IsEmpty()) {
-                    CL_DEBUG("Successfully launched terminal %s", m_terminalTTY);
+                if(m_debuggerTerminal.IsValid()) {
+                    CL_DEBUG("Successfully launched terminal %s", m_debuggerTerminal.GetTty());
 
                 } else {
                     // Failed to launch it...
@@ -421,8 +486,11 @@ void LLDBPlugin::OnDebugStart(clDebugEvent& event)
                 // Since we called 'wxSetWorkingDirectory' earlier, wxGetCwd() should give use the
                 // correct working directory for the debugger
                 startCommand.SetWorkingDirectory(workingDirectory);
-                startCommand.SetRedirectTTY(m_terminalTTY);
+                startCommand.SetRedirectTTY(m_debuggerTerminal.GetTty());
                 m_connector.Start(startCommand);
+
+                clDebugEvent cl_event(wxEVT_DEBUG_STARTED);
+                EventNotifier::Get()->AddPendingEvent(cl_event);
 
             } else {
                 // Failed to connect, notify and perform cleanup
@@ -449,10 +517,13 @@ void LLDBPlugin::OnLLDBExited(LLDBEvent& event)
     m_connector.Cleanup();
 
     // Save current perspective before destroying the session
-    m_mgr->SavePerspective("LLDB-debugger");
+    if(m_isPerspectiveLoaded) {
+        m_mgr->SavePerspective("LLDB-debugger");
 
-    // Restore the old perspective
-    m_mgr->LoadPerspective("Default");
+        // Restore the old perspective
+        m_mgr->LoadPerspective("Default");
+        m_isPerspectiveLoaded = false;
+    }
 
     DestroyUI();
 
@@ -464,11 +535,21 @@ void LLDBPlugin::OnLLDBExited(LLDBEvent& event)
     // Also notify codelite's event
     clDebugEvent e2(wxEVT_DEBUG_ENDED);
     EventNotifier::Get()->AddPendingEvent(e2);
+
+    {
+        clDebugEvent e(wxEVT_DEBUG_ENDED);
+        EventNotifier::Get()->AddPendingEvent(e);
+    }
 }
 
 void LLDBPlugin::OnLLDBStarted(LLDBEvent& event)
 {
     event.Skip();
+
+    const auto settings = LLDBSettings().Load();
+    m_showThreadNames = settings.HasFlag(kLLDBOptionShowThreadNames);
+    m_showFileNamesOnly = settings.HasFlag(kLLDBOptionShowFileNamesOnly);
+
     InitializeUI();
     LoadLLDBPerspective();
 
@@ -480,16 +561,14 @@ void LLDBPlugin::OnLLDBStarted(LLDBEvent& event)
         break;
 
     case kDebugSessionTypeAttach: {
-        LLDBSettings settings;
-        m_raisOnBpHit = settings.Load().IsRaiseWhenBreakpointHit();
+        m_raisOnBpHit = settings.IsRaiseWhenBreakpointHit();
         CL_DEBUG("CODELITE>> LLDB started (attached)");
         m_connector.SetAttachedToProcess(event.GetSessionType() == kDebugSessionTypeAttach);
         // m_connector.Continue();
         break;
     }
     case kDebugSessionTypeNormal: {
-        LLDBSettings settings;
-        m_raisOnBpHit = settings.Load().IsRaiseWhenBreakpointHit();
+        m_raisOnBpHit = settings.IsRaiseWhenBreakpointHit();
         CL_DEBUG("CODELITE>> LLDB started (normal)");
         m_connector.Run();
         break;
@@ -518,9 +597,7 @@ void LLDBPlugin::OnLLDBStopped(LLDBEvent& event)
         IEditor* editor = m_mgr->FindEditor(event.GetFileName());
         if(!editor && wxFileName::Exists(event.GetFileName())) {
             // Try to open the editor
-            if(m_mgr->OpenFile(event.GetFileName(), "", event.GetLinenumber() - 1)) {
-                editor = m_mgr->GetActiveEditor();
-            }
+            editor = m_mgr->OpenFile(event.GetFileName(), "", event.GetLinenumber() - 1);
         }
 
         if(editor) {
@@ -637,6 +714,7 @@ void LLDBPlugin::LoadLLDBPerspective()
 
     // Load the LLDB perspective
     m_mgr->LoadPerspective("LLDB-Debugger");
+    m_isPerspectiveLoaded = true;
 
     // Make sure that all the panes are visible
     ShowLLDBPane(LLDB_CALLSTACK_PANE_NAME);
@@ -713,7 +791,7 @@ void LLDBPlugin::InitializeUI()
                                                                    .Name(LLDB_BREAKPOINTS_PANE_NAME));
     }
     if(!m_callstack) {
-        m_callstack = new LLDBCallStackPane(parent, &m_connector);
+        m_callstack = new LLDBCallStackPane(parent, *this);
         m_mgr->GetDockingManager()->AddPane(m_callstack, wxAuiPaneInfo()
                                                              .MinSize(200, 200)
                                                              .Right()
@@ -757,8 +835,8 @@ void LLDBPlugin::OnLLDBRunning(LLDBEvent& event)
 
 void LLDBPlugin::OnToggleBreakpoint(clDebugEvent& event)
 {
-    // Call Skip() here since we want codelite to manage the breakpoint as well ( in term of serilization in the session
-    // file )
+    // Call Skip() here since we want codelite to manage the breakpoint as well ( in term of serialization in the
+    // session file )
     CHECK_IS_LLDB_SESSION();
 
     // check to see if we are removing a breakpoint or adding one
@@ -794,7 +872,6 @@ void LLDBPlugin::DoCleanup()
     ClearDebuggerMarker();
     TerminateTerminal();
     m_connector.StopDebugServer();
-    m_terminalTTY.Clear();
     m_stopReasonPrompted = false;
     m_raisOnBpHit = false;
 }
@@ -827,12 +904,14 @@ void LLDBPlugin::OnLLDBCrashed(LLDBEvent& event)
     event.Skip();
     // Report it as crash only if not going down (i.e. we got an LLDBExit event)
     if(!m_connector.IsGoingDown()) {
+        // SetGoingDown() before displaying message box to cope with reentering this function whilst waiting for OK.
+        m_connector.SetGoingDown(true);
         ::wxMessageBox(_("LLDB crashed! Terminating debug session"), "CodeLite", wxOK | wxICON_ERROR | wxCENTER);
+        OnLLDBExited(event);
     }
-    OnLLDBExited(event);
 }
 
-void LLDBPlugin::OnToggleInerrupt(clDebugEvent& event)
+void LLDBPlugin::OnToggleInterrupt(clDebugEvent& event)
 {
     CHECK_IS_LLDB_SESSION();
     event.Skip();
@@ -856,6 +935,42 @@ void LLDBPlugin::OnBuildStarting(clBuildEvent& event)
     } else {
         event.Skip();
     }
+}
+
+void LLDBPlugin::OnAddWatch(wxCommandEvent& event)
+{
+    CHECK_IS_LLDB_SESSION();
+
+    const auto editor = m_mgr->GetActiveEditor();
+    if(!editor) { return; }
+
+    const auto watchWord = GetWatchWord(*editor);
+    if(watchWord.IsEmpty()) { return; }
+
+    GetLLDB()->AddWatch(watchWord);
+
+    // Refresh the locals view
+    GetLLDB()->RequestLocals();
+}
+
+void LLDBPlugin::OnRunToCursor(wxCommandEvent& event)
+{
+    CHECK_IS_LLDB_SESSION();
+
+    const auto editor = m_mgr->GetActiveEditor();
+    if(!editor) { return; }
+
+    m_connector.RunTo(editor->GetFileName(), editor->GetCurrentLine() + 1);
+}
+
+void LLDBPlugin::OnJumpToCursor(wxCommandEvent& event)
+{
+    CHECK_IS_LLDB_SESSION();
+
+    const auto editor = m_mgr->GetActiveEditor();
+    if(!editor) { return; }
+
+    m_connector.JumpTo(editor->GetFileName(), editor->GetCurrentLine() + 1);
 }
 
 void LLDBPlugin::OnSettings(wxCommandEvent& event)
@@ -891,7 +1006,10 @@ void LLDBPlugin::OnLLDBExpressionEvaluated(LLDBEvent& event)
 
 void LLDBPlugin::OnDebugQuickDebug(clDebugEvent& event)
 {
-    if(!DoInitializeDebugger(event, true)) { return; }
+    if(!DoInitializeDebugger(event, true,
+                             clDebuggerTerminalPOSIX::MakeExeTitle(event.GetExecutableName(), event.GetArguments()))) {
+        return;
+    }
 
     LLDBConnectReturnObject retObj;
     LLDBSettings settings;
@@ -922,7 +1040,7 @@ void LLDBPlugin::OnDebugQuickDebug(clDebugEvent& event)
         startCommand.SetCommandArguments(event.GetArguments());
         startCommand.SetWorkingDirectory(event.GetWorkingDirectory());
         startCommand.SetStartupCommands(event.GetStartupCommands());
-        startCommand.SetRedirectTTY(m_terminalTTY);
+        startCommand.SetRedirectTTY(m_debuggerTerminal.GetTty());
         m_connector.Start(startCommand);
 
     } else {
@@ -948,7 +1066,7 @@ void LLDBPlugin::OnDebugCoreFile(clDebugEvent& event)
     return;
 #endif
 
-    if(!DoInitializeDebugger(event, false)) { return; }
+    if(!DoInitializeDebugger(event, false, clDebuggerTerminalPOSIX::MakeCoreTitle(event.GetCoreFile()))) { return; }
 
     LLDBConnectReturnObject retObj;
     LLDBSettings settings;
@@ -968,7 +1086,7 @@ void LLDBPlugin::OnDebugCoreFile(clDebugEvent& event)
         startCommand.SetExecutable(event.GetExecutableName());
         startCommand.SetCorefile(event.GetCoreFile());
         startCommand.SetWorkingDirectory(event.GetWorkingDirectory());
-        startCommand.SetRedirectTTY(m_terminalTTY);
+        startCommand.SetRedirectTTY(m_debuggerTerminal.GetTty());
         m_connector.OpenCoreFile(startCommand);
     } else {
         // Failed to connect, notify and perform cleanup
@@ -999,11 +1117,9 @@ bool LLDBPlugin::DoInitializeDebugger(clDebugEvent& event, bool redirectOutput, 
     // If terminal is required, launch it now
     bool isWindows = wxPlatformInfo::Get().GetOperatingSystemId() & wxOS_WINDOWS;
     if(redirectOutput && !isWindows) {
-        wxString realPts;
-        ::LaunchTerminalForDebugger(terminalTitle.IsEmpty() ? event.GetExecutableName() : terminalTitle, m_terminalTTY,
-                                    realPts, m_terminalPID);
+        m_debuggerTerminal.Launch(terminalTitle);
 
-        if(m_terminalPID != wxNOT_FOUND) {
+        if(m_debuggerTerminal.IsValid()) {
             CL_DEBUG("Successfully launched terminal");
 
         } else {
@@ -1017,7 +1133,7 @@ bool LLDBPlugin::DoInitializeDebugger(clDebugEvent& event, bool redirectOutput, 
     // Launch local server if needed
     LLDBSettings settings;
     settings.Load();
-    if(!settings.IsUsingRemoteProxy() && !m_connector.LaunchLocalDebugServer()) {
+    if(!settings.IsUsingRemoteProxy() && !m_connector.LaunchLocalDebugServer(settings.GetDebugserver())) {
         DoCleanup();
         return false;
     }
@@ -1038,9 +1154,7 @@ void LLDBPlugin::OnDebugAttachToProcess(clDebugEvent& event)
     return;
 #endif
 
-    wxString terminalTitle;
-    terminalTitle << "Console PID " << event.GetInt();
-    if(!DoInitializeDebugger(event, true, terminalTitle)) return;
+    if(!DoInitializeDebugger(event, true, clDebuggerTerminalPOSIX::MakePidTitle(event.GetInt()))) return;
 
     LLDBConnectReturnObject retObj;
     LLDBSettings settings;
@@ -1127,6 +1241,7 @@ void LLDBPlugin::SetupPivotFolder(const LLDBConnectReturnObject& ret)
 
 void LLDBPlugin::OnDestroyTip(clCommandEvent& e)
 {
+    e.Skip();
     if(m_tooltip) {
         m_tooltip->Destroy();
         m_tooltip = NULL;

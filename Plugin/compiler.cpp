@@ -236,8 +236,8 @@ Compiler::Compiler(wxXmlNode* node, Compiler::eRegexType regexType)
             AddPattern(eErrorPattern, "\\*\\*\\* \\[[a-zA-Z\\-_0-9 ]+\\] (Error)", -1, -1, -1);
 
             AddPattern(eWarningPattern,
-                       "([a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ *)(:)([0-9]+ *)(:)([0-9:]*)?[ ]*(warning|required)", 1,
-                       3, 4);
+                       "([a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ *)(:)([0-9]+ *)(:)([0-9:]*)?[ \\t]*(warning|required)",
+                       1, 3, 4);
             AddPattern(eWarningPattern, "([a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ *)(:)([0-9]+ *)(:)([0-9:]*)?( note)",
                        1, 3, -1);
             AddPattern(eWarningPattern,
@@ -581,7 +581,7 @@ void Compiler::AddDefaultGnuComplierOptions()
     AddCompilerOption("-std=c99", "Enable ANSI C99 features");
     AddCompilerOption("-std=c++11", "Enable C++11 features");
     AddCompilerOption("-std=c++14", "Enable C++14 features");
-	AddCompilerOption("-std=c++17", "Enable C++17 features");
+    AddCompilerOption("-std=c++17", "Enable C++17 features");
 }
 
 void Compiler::AddDefaultGnuLinkerOptions()
@@ -710,7 +710,7 @@ const wxArrayString& Compiler::GetBuiltinMacros()
         ProcUtils::SafeExecuteCommand(command);
         wxFileName cmpMacrosFile(tmpFile);
         if(cmpMacrosFile.Exists()) {
-            CL_DEBUG("Compiler builtin macros are written into: %s\n", cmpMacrosFile.GetFullPath());
+            clDEBUG1() << "Compiler builtin macros are written into:" << cmpMacrosFile.GetFullPath();
             // we got our macro files
             {
                 CxxPreProcessor pp;
@@ -718,9 +718,9 @@ const wxArrayString& Compiler::GetBuiltinMacros()
                 definitions = pp.GetDefinitions();
             }
 
-            for(size_t i = 0; i < definitions.GetCount(); ++i) {
-                CL_DEBUG("BUILTIN: %s\n", definitions.Item(i));
-            }
+            //            for(size_t i = 0; i < definitions.GetCount(); ++i) {
+            //                clDEBUG1() << "BUILTIN:" << definitions.Item(i);
+            //            }
 
             {
                 // Delete the file
