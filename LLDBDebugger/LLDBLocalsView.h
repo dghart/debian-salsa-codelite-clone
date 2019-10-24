@@ -32,23 +32,33 @@
 #include "cl_treelistctrl.h"
 #include <map>
 
+class clThemedTreeCtrl;
 class LLDBPlugin;
 class LLDBLocalsView : public LLDBLocalsViewBase
 {
     typedef std::map<int, wxTreeItemId> IntItemMap_t;
 
     LLDBPlugin* m_plugin;
-    clTreeListCtrl* m_treeList;
+    clThemedTreeCtrl* m_treeList;
+    wxTreeItemId m_dragItem;
     LLDBLocalsView::IntItemMap_t m_pendingExpandItems;
     wxStringSet_t m_expandedItems;
     std::map<wxString, wxTreeItemId> m_pathToItem;
 
 private:
     void DoAddVariableToView(const LLDBVariable::Vect_t& variables, wxTreeItemId parent);
-    LLDBVariableClientData* GetItemData(const wxTreeItemId& id);
+    void ExpandPreviouslyExpandedItems();
+    LLDBVariableClientData* GetItemData(const wxTreeItemId& id) const;
     void Cleanup();
-    void GetWatchesFromSelections(wxArrayTreeItemIds& items);
+    void GetWatchesFromSelections(wxArrayTreeItemIds& items) const;
+    void GetWatchesFromSelections(const wxArrayTreeItemIds& selections, wxArrayTreeItemIds& items) const;
     wxString GetItemPath(const wxTreeItemId& item);
+    bool DoDelete();
+    void AddWatch();
+    bool AddWatch(const wxTreeItemId& item);
+    bool EditVariable();
+    void SetVariableDisplayFormat(const eLLDBFormat format);
+    LLDBVariable::Ptr_t GetVariableFromItem(const wxTreeItemId& item) const;
 
 protected:
     virtual void OnDelete(wxCommandEvent& event);
@@ -63,7 +73,11 @@ protected:
 
     // UI events
     void OnItemExpanding(wxTreeEvent& event);
-    void OnLocalsContextMenu(wxContextMenuEvent& event);
+    void OnItemCollapsed(wxTreeEvent& event);
+    void OnLocalsContextMenu(wxTreeEvent& event);
+    void OnBeginDrag(wxTreeEvent& event);
+    void OnEndDrag(wxTreeEvent& event);
+    void OnKeyDown(wxTreeEvent& event);
 
 public:
     LLDBLocalsView(wxWindow* parent, LLDBPlugin* plugin);

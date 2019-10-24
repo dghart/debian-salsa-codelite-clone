@@ -25,22 +25,25 @@
 
 #ifndef GITCONSOLE_H
 #define GITCONSOLE_H
-#include "gitui.h"
 #include "bitmap_loader.h"
+#include "clGenericSTCStyler.h"
+#include "gitui.h"
 #include <wx/dataview.h>
 
+class clToolBar;
 class GitPlugin;
 class GitConsole : public GitConsoleBase
 {
     GitPlugin* m_git;
     bool m_isVerbose;
     BitmapLoader* m_bitmapLoader;
-    BitmapLoader::BitmapMap_t m_bitmaps;
     wxBitmap m_modifiedBmp;
     wxBitmap m_untrackedBmp;
     wxBitmap m_folderBmp;
     wxBitmap m_newBmp;
     wxBitmap m_deleteBmp;
+    clGenericSTCStyler::Ptr_t m_styler;
+    size_t m_indent = 0;
 
 public:
     GitConsole(wxWindow* parent, GitPlugin* git);
@@ -64,8 +67,13 @@ public:
     void UpdateProgress(unsigned long current, const wxString& message);
     bool IsProgressShown() const;
     void PulseProgress();
+    void ShowLog();
+    void SetIndent(size_t depth = 1) { m_indent = depth; }
 
 protected:
+    wxString GetIndent() const { return wxString(' ', (m_indent * 4)); }
+    virtual void OnUnversionedFileActivated(wxDataViewEvent& event);
+    virtual void OnUnversionedFileContextMenu(wxDataViewEvent& event);
     virtual void OnUpdateUI(wxUpdateUIEvent& event);
     virtual void OnStclogStcChange(wxStyledTextEvent& event);
     virtual void OnApplyPatch(wxCommandEvent& event);
@@ -77,17 +85,20 @@ protected:
     virtual void OnClearGitLogUI(wxUpdateUIEvent& event);
     virtual void OnClearGitLog(wxCommandEvent& event);
     virtual void OnStopGitProcess(wxCommandEvent& event);
-    
+    virtual void OnOpenUnversionedFiles(wxCommandEvent& event);
+    virtual void OnAddUnversionedFiles(wxCommandEvent& event);
+
     void OnOpenFile(wxCommandEvent& e);
     void OnCloseView(wxCommandEvent& e);
     void OnWorkspaceClosed(wxCommandEvent& e);
     void OnConfigurationChanged(wxCommandEvent& e);
 
-    void OnGitPullDropdown(wxAuiToolBarEvent& event) { DoOnDropdown(event, "git_pull", XRCID("git_pull")); }
-    void OnGitRebaseDropdown(wxAuiToolBarEvent& event) { DoOnDropdown(event, "git_rebase", XRCID("git_rebase")); }
+    void OnGitPullDropdown(wxCommandEvent& event) { DoOnDropdown("git_pull", XRCID("git_pull")); }
+    void OnGitRebaseDropdown(wxCommandEvent& event) { DoOnDropdown("git_rebase", XRCID("git_rebase")); }
 
-    void DoOnDropdown(wxAuiToolBarEvent& e, const wxString& commandName, int id);
+    void DoOnDropdown(const wxString& commandName, int id);
     void OnDropDownMenuEvent(wxCommandEvent& e);
     void Clear();
+    wxArrayString GetSelectedUnversionedFiles() const;
 };
 #endif // GITCONSOLE_H

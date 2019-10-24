@@ -206,7 +206,7 @@ bool CMakeGenerator::Generate(ProjectPtr p)
             for(wxArrayString::const_iterator it = list.begin(), ite = list.end(); it != ite; ++it) {
                 // Split into name, value pair
                 const wxArrayString pair = wxSplit(*it, '=');
-
+                if(pair.IsEmpty()) { continue; }
                 const wxString& name = pair[0];
                 const wxString value = (pair.GetCount() >= 2) ? pair[1] : "";
 
@@ -335,6 +335,7 @@ wxString CMakeGenerator::GenerateProject(ProjectPtr project, bool topProject, co
             includePath.Trim(false).Trim();
             // Replace standard macros with CMake variables
             includePath.Replace("$(WorkspacePath)", "${WORKSPACE_PATH}");
+            includePath.Replace("$(WorkspaceConfiguration)", "${CONFIGURATION_NAME}");
             includePath.Replace("$(ProjectPath)", projectPathVariableValue);
             if(includePath.IsEmpty()) { continue; }
             content << "    " << includes.Item(i) << "\n";
@@ -424,12 +425,8 @@ wxString CMakeGenerator::GenerateProject(ProjectPtr project, bool topProject, co
     // Add libraries paths
     {
         wxString lib_paths = buildConf->GetLibPath();
-        wxString lib_switch = "-L";
-
         // Get switch from compiler
         if(compiler) {
-            lib_switch = compiler->GetSwitch("LibraryPath");
-
             // Append global library paths
             lib_paths << ";" << compiler->GetGlobalLibPath();
         }
@@ -448,13 +445,14 @@ wxString CMakeGenerator::GenerateProject(ProjectPtr project, bool topProject, co
             wxString libPath = lib_paths_list.Item(i);
             // Replace standard macros with CMake variables
             libPath.Replace("$(WorkspacePath)", "${WORKSPACE_PATH}");
+            libPath.Replace("$(WorkspaceConfiguration)", "${CONFIGURATION_NAME}");
             libPath.Replace("$(ProjectPath)", projectPathVariableValue);
             ::WrapWithQuotes(libPath);
-            lib_paths << lib_switch << libPath << " ";
+            lib_paths << "    " << libPath << "\n";
         }
 
         content << "# Library path\n";
-        content << "set(CMAKE_LDFLAGS \"${CMAKE_LDFLAGS} " << lib_paths << "\")\n\n";
+        content << "link_directories(\n" << lib_paths << ")\n\n";
     }
 
     // Write sources

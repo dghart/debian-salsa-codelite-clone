@@ -47,6 +47,7 @@
 #include <wx/bitmap.h>
 #include <wx/cmndata.h>
 #include <wx/stc/stc.h>
+#include "LSP/CompletionItem.h"
 
 #define DEBUGGER_INDICATOR 11
 #define MATCH_INDICATOR 10
@@ -55,8 +56,9 @@
 #define HYPERLINK_INDICATOR 4
 #define MARKER_FIND_BAR_WORD_HIGHLIGHT 5
 #define MARKER_CONTEXT_WORD_HIGHLIGHT 6
+#define CUR_LINE_NUMBER_STYLE (wxSTC_STYLE_MAX - 1)
 
-#if(wxVERSION_NUMBER < 3101) || defined(__WXOSX__)
+#if(wxVERSION_NUMBER < 3101)
 // Some wxSTC keycodes names were altered in 311, & the old versions deprecated
 // So, to avoid deprecation-warning spam, #define for older versions
 #define wxSTC_KEYMOD_NORM wxSTC_SCMOD_NORM
@@ -92,13 +94,13 @@ typedef struct _BPtoMarker {
     marker_mask_type mask_disabled;
 } BPtoMarker;
 
-extern const wxEventType wxCMD_EVENT_REMOVE_MATCH_INDICATOR;
-extern const wxEventType wxCMD_EVENT_ENABLE_WORD_HIGHLIGHT;
+wxDECLARE_EVENT(wxCMD_EVENT_REMOVE_MATCH_INDICATOR, wxCommandEvent);
+wxDECLARE_EVENT(wxCMD_EVENT_ENABLE_WORD_HIGHLIGHT, wxCommandEvent);
 
 /**
  * \ingroup LiteEditor
- * LEditor CodeLite editing component based on Scintilla
- * LEditor provides most of the C++/C editing capablities including:
+ * clEditor CodeLite editing component based on Scintilla
+ * clEditor provides most of the C++/C editing capablities including:
  * -# Auto Completion
  * -# Find and replace
  * -# Bookmarks
@@ -114,7 +116,7 @@ extern const wxEventType wxCMD_EVENT_ENABLE_WORD_HIGHLIGHT;
  * \author Eran
  *
  */
-class LEditor : public wxStyledTextCtrl, public IEditor
+class clEditor : public wxStyledTextCtrl, public IEditor
 {
 private:
     struct SelectionInfo {
@@ -201,6 +203,7 @@ private:
         kShowColumn = (1 << 1),
         kShowPosition = (1 << 2),
         kShowLen = (1 << 3),
+        kShowSelectedChars = (1 << 4),
     };
 
 protected:
@@ -218,6 +221,7 @@ protected:
     bool m_popupIsOn;
     bool m_isDragging;
     time_t m_modifyTime;
+    wxUint64 m_modificationCount;
     std::map<int, wxString> m_customCmds;
     bool m_isVisible;
     int m_hyperLinkIndicatroStart;
@@ -258,13 +262,19 @@ protected:
     wxString m_keywordLocals;
     wxBitmap m_editorBitmap;
     size_t m_statusBarFields;
+    int m_lastBeginLine = wxNOT_FOUND;
+    int m_lastLine = wxNOT_FOUND;
+    int m_lastEndLine;
+    int m_lastLineCount;
+    wxColour m_selTextColour;
+    wxColour m_selTextBgColour;
 
 public:
     static bool m_ccShowPrivateMembers;
     static bool m_ccShowItemsComments;
     static bool m_ccInitialized;
 
-    typedef std::vector<LEditor*> Vec_t;
+    typedef std::vector<clEditor*> Vec_t;
 
     IManager* GetManager() { return m_mgr; }
 
@@ -299,11 +309,11 @@ public:
     CLCommandProcessor& GetCommandsProcessor() { return m_commandsProcessor; }
 
 public:
-    /// Construct a LEditor object
-    LEditor(wxWindow* parent);
+    /// Construct a clEditor object
+    clEditor(wxWindow* parent);
 
     /// Default destructor
-    virtual ~LEditor();
+    virtual ~clEditor();
 
     // Save the editor data into file
     virtual bool SaveFile();
@@ -344,7 +354,7 @@ public:
      */
     void SetEOL();
 
-    void CompleteWord(bool onlyRefresh = false);
+    void CompleteWord(LSP::CompletionItem::eTriggerKind triggerKind, bool onlyRefresh = false);
 
     /**
      * \brief chage the case of the current selection. If selection is empty,
@@ -594,6 +604,7 @@ public:
     void QuickFindAll();
 
     bool FindAndSelect();
+    bool SelectRange(const LSP::Range& range);
     bool FindAndSelect(const FindReplaceData& data);
     bool FindAndSelect(const wxString& pattern, const wxString& name);
     void FindAndSelectV(const wxString& pattern, const wxString& name, int pos = 0,
@@ -728,7 +739,7 @@ public:
     virtual void SetErrorMarker(int lineno, const wxString& annotationText);
     virtual void DelAllCompilerMarkers();
 
-    void DoShowCalltip(int pos, const wxString& title, const wxString& tip);
+    void DoShowCalltip(int pos, const wxString& title, const wxString& tip, bool manipulateText);
     void DoCancelCalltip();
     void DoCancelCodeCompletionBox();
     int DoGetOpenBracePos();
@@ -747,6 +758,11 @@ public:
      */
     time_t GetEditorLastModifiedTime() const { return m_modifyTime; }
     void SetEditorLastModifiedTime(time_t modificationTime) { m_modifyTime = modificationTime; }
+
+    /**
+     * @brief Get the editor's modification count
+     */
+    virtual wxUint64 GetModificationCount() const { return m_modificationCount; }
 
     /**
      * \brief run through the file content and update colours for the
@@ -806,12 +822,18 @@ public:
      * @brief
      * @return
      */
-    virtual wxString GetWordAtCaret();
+    virtual wxString GetWordAtCaret(bool wordCharsOnly = true);
     /**
      * @brief
      * @return
      */
     virtual void GetWordAtMousePointer(wxString& word, wxRect& wordRect);
+    /**
+     * @brief get word at a given position
+     * @param pos word's position
+     * @param wordCharsOnly when set to false, return the string between the nearest whitespaces
+     */
+    virtual wxString GetWordAtPosition(int pos, bool wordCharsOnly = true);
     /**
      * @brief
      * @param text
@@ -981,10 +1003,17 @@ private:
     bool DoFindAndSelect(const wxString& pattern, const wxString& what, int start_pos, NavMgr* navmgr);
     void DoSaveMarkers();
     void DoRestoreMarkers();
-
+    int GetFirstNonWhitespacePos(bool backward = false);
     wxMenu* DoCreateDebuggerWatchMenu(const wxString& word);
 
-    DECLARE_EVENT_TABLE()
+    wxFontEncoding DetectEncoding(const wxString& filename);
+
+    // Line numbers drawings
+    void DoUpdateRelativeLineNumbers();
+    void DoUpdateLineNumbers();
+    void UpdateLineNumbers();
+
+    // Event handlers
     void OpenURL(wxCommandEvent& event);
     void OnHighlightWordChecked(wxCommandEvent& e);
     void OnRemoveMatchInidicator(wxCommandEvent& e);

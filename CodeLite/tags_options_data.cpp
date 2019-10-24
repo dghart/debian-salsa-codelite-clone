@@ -196,6 +196,7 @@ TagsOptionsData::TagsOptionsData()
     m_tokens.Add("LLDB_API");
     m_tokens.Add("PYTHON_API");
     m_tokens.Add("__cpp_deduction_guides=0");
+    m_tokens.Add("wxMSVC_FWD_MULTIPLE_BASES");
     
     // libcpp macros
     m_tokens.Add("_LIBCPP_TYPE_VIS_ONLY");
@@ -231,13 +232,12 @@ TagsOptionsData::TagsOptionsData()
     m_types.Add(wxT("boost::shared_ptr::type=T"));
     m_types.Add(wxT("std::unique_ptr::pointer=_Tp"));
 
-    DoUpdateTokensWxMap();
-    DoUpdateTokensWxMapReversed();
+    SyncData();
 }
 
 TagsOptionsData::~TagsOptionsData() {}
 
-wxString TagsOptionsData::ToString()
+wxString TagsOptionsData::ToString() const
 {
     wxString options(wxEmptyString);
 
@@ -251,7 +251,6 @@ wxString TagsOptionsData::ToString()
         }
     }
 
-    DoUpdateTokensWxMap();
     const wxStringTable_t& tokensMap = GetTokensWxMap();
     wxStringTable_t::const_iterator iter = tokensMap.begin();
 
@@ -370,7 +369,7 @@ void TagsOptionsData::DoUpdateTokensWxMapReversed()
 
 const wxStringTable_t& TagsOptionsData::GetTokensReversedWxMap() const { return m_tokensWxMapReversed; }
 
-void TagsOptionsData::FromJSON(const JSONElement& json)
+void TagsOptionsData::FromJSON(const JSONItem& json)
 {
     m_version = json.namedObject("version").toSize_t();
     m_ccFlags = json.namedObject(wxT("m_ccFlags")).toSize_t(m_ccFlags);
@@ -402,9 +401,9 @@ void TagsOptionsData::FromJSON(const JSONElement& json)
     m_ccFlags |= CC_ACCURATE_SCOPE_RESOLVING;
 }
 
-JSONElement TagsOptionsData::ToJSON() const
+JSONItem TagsOptionsData::ToJSON() const
 {
-    JSONElement json = JSONElement::createObject(GetName());
+    JSONItem json = JSONItem::createObject(GetName());
     json.addProperty("version", m_version);
     json.addProperty("m_ccFlags", m_ccFlags);
     json.addProperty("m_ccColourFlags", m_ccColourFlags);
@@ -451,4 +450,10 @@ void TagsOptionsData::Merge(const TagsOptionsData& tod)
         m_ccNumberOfDisplayItems = tod.m_ccNumberOfDisplayItems;
     }
     m_version = TagsOptionsData::CURRENT_VERSION;
+}
+
+void TagsOptionsData::SyncData()
+{
+    DoUpdateTokensWxMap();
+    DoUpdateTokensWxMapReversed();
 }

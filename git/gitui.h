@@ -23,17 +23,15 @@
 #include <wx/checkbox.h>
 #include <wx/button.h>
 #include <wx/splitter.h>
-#include <wx/checklst.h>
+#include "clThemedSplitterWindow.h"
+#include <wx/dataview.h>
+#include "clThemedListCtrl.h"
 #include <wx/stc/stc.h>
-#include <wx/pen.h>
-#include <wx/aui/auibar.h>
-#include <map>
-#include <wx/menu.h>
 #include <wx/toolbar.h>
+#include "clToolBar.h"
 #include <wx/srchctrl.h>
 #include <wx/combobox.h>
 #include <wx/arrstr.h>
-#include <wx/dataview.h>
 #include <wx/listbox.h>
 #include "gitCommitEditor.h"
 #include <wx/radiobox.h>
@@ -41,9 +39,14 @@
 #include <wx/radiobut.h>
 #include <wx/choice.h>
 #include <wx/spinctrl.h>
-#include <wx/bitmap.h>
-#include <wx/icon.h>
+#include <wx/notebook.h>
+#include "Notebook.h"
 #include <wx/gauge.h>
+#include <wx/pen.h>
+#include <wx/aui/auibar.h>
+#include <map>
+#include <wx/menu.h>
+#include <wx/checklst.h>
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -59,7 +62,6 @@
 #else
 #define WXC_FROM_DIP(x) x
 #endif
-
 
 class GitSettingsDlgBase : public wxDialog
 {
@@ -115,59 +117,53 @@ public:
     wxCheckBox* GetCheckBoxTrackTree() { return m_checkBoxTrackTree; }
     wxPanel* GetPanel236() { return m_panel236; }
     wxTreebook* GetTreebook230() { return m_treebook230; }
-    GitSettingsDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git settings..."), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    GitSettingsDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git settings..."),
+                       const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500, 300),
+                       long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~GitSettingsDlgBase();
 };
 
-
 class GitCommitDlgBase : public wxDialog
 {
-public:
-    enum {
-        ID_GIT_COMMIT_HISTORY = 6001,
-        ID_TOGGLE_CHECKALL = 6002,
-    };
 protected:
-    wxSplitterWindow* m_splitterMain;
+    clThemedSplitterWindow* m_splitterMain;
     wxPanel* m_panel3;
-    wxSplitterWindow* m_splitterInner;
+    clThemedSplitterWindow* m_splitterInner;
     wxPanel* m_panel1;
-    wxCheckListBox* m_listBox;
+    clThemedListCtrl* m_dvListCtrlFiles;
     wxPanel* m_panel2;
     wxStyledTextCtrl* m_stcDiff;
     wxPanel* m_panel4;
-    wxAuiToolBar* m_auibar;
+    clToolBar* m_toolbar;
     wxStyledTextCtrl* m_stcCommitMessage;
     wxCheckBox* m_checkBoxAmend;
     wxButton* m_buttonOK;
     wxButton* m_buttonCancel;
 
 protected:
-    virtual void OnChangeFile(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnToggleCheckAll(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnCommitHistory(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnCommitHistoryUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnChangeFile(wxDataViewEvent& event) { event.Skip(); }
     virtual void OnAmendClicked(wxCommandEvent& event) { event.Skip(); }
     virtual void OnCommitOK(wxCommandEvent& event) { event.Skip(); }
 
 public:
-    wxCheckListBox* GetListBox() { return m_listBox; }
+    clThemedListCtrl* GetDvListCtrlFiles() { return m_dvListCtrlFiles; }
     wxPanel* GetPanel1() { return m_panel1; }
     wxStyledTextCtrl* GetStcDiff() { return m_stcDiff; }
     wxPanel* GetPanel2() { return m_panel2; }
-    wxSplitterWindow* GetSplitterInner() { return m_splitterInner; }
+    clThemedSplitterWindow* GetSplitterInner() { return m_splitterInner; }
     wxPanel* GetPanel3() { return m_panel3; }
-    wxAuiToolBar* GetAuibar() { return m_auibar; }
+    clToolBar* GetToolbar() { return m_toolbar; }
     wxStyledTextCtrl* GetStcCommitMessage() { return m_stcCommitMessage; }
     wxCheckBox* GetCheckBoxAmend() { return m_checkBoxAmend; }
     wxPanel* GetPanel4() { return m_panel4; }
-    wxSplitterWindow* GetSplitterMain() { return m_splitterMain; }
+    clThemedSplitterWindow* GetSplitterMain() { return m_splitterMain; }
     wxButton* GetButtonOK() { return m_buttonOK; }
     wxButton* GetButtonCancel() { return m_buttonCancel; }
-    GitCommitDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git commit"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    GitCommitDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git commit"),
+                     const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                     long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~GitCommitDlgBase();
 };
-
 
 class GitCommitListDlgBase : public wxDialog
 {
@@ -180,7 +176,7 @@ protected:
     wxCheckBox* m_checkBoxIgnoreCase;
     wxStaticText* m_staticText414;
     wxComboBox* m_comboExtraArgs;
-    wxDataViewListCtrl* m_dvListCtrlCommitList;
+    clThemedListCtrl* m_dvListCtrlCommitList;
     wxPanel* m_splitterPage182;
     wxSplitterWindow* m_splitter186;
     wxPanel* m_splitterPage190;
@@ -214,7 +210,7 @@ public:
     wxCheckBox* GetCheckBoxIgnoreCase() { return m_checkBoxIgnoreCase; }
     wxStaticText* GetStaticText414() { return m_staticText414; }
     wxComboBox* GetComboExtraArgs() { return m_comboExtraArgs; }
-    wxDataViewListCtrl* GetDvListCtrlCommitList() { return m_dvListCtrlCommitList; }
+    clThemedListCtrl* GetDvListCtrlCommitList() { return m_dvListCtrlCommitList; }
     wxPanel* GetSplitterPage178() { return m_splitterPage178; }
     wxStaticText* GetStaticText210() { return m_staticText210; }
     wxListBox* GetFileListBox() { return m_fileListBox; }
@@ -230,10 +226,11 @@ public:
     wxSplitterWindow* GetSplitter186() { return m_splitter186; }
     wxPanel* GetSplitterPage182() { return m_splitterPage182; }
     wxSplitterWindow* GetSplitter174() { return m_splitter174; }
-    GitCommitListDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Commit List"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER|wxMAXIMIZE_BOX);
+    GitCommitListDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Commit List"),
+                         const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                         long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX);
     virtual ~GitCommitListDlgBase();
 };
-
 
 class GitDiffDlgBase : public wxDialog
 {
@@ -268,10 +265,11 @@ public:
     wxRadioBox* GetRadioBoxStaged() { return m_radioBoxStaged; }
     wxCheckBox* GetCheckIgnoreSpace() { return m_checkIgnoreSpace; }
     wxButton* GetButtonDiffDlg() { return m_buttonDiffDlg; }
-    GitDiffDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Current Diffs"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxCAPTION|wxRESIZE_BORDER|wxMAXIMIZE_BOX|wxMINIMIZE_BOX|wxCLOSE_BOX);
+    GitDiffDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Current Diffs"),
+                   const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                   long style = wxCAPTION | wxRESIZE_BORDER | wxMAXIMIZE_BOX | wxMINIMIZE_BOX | wxCLOSE_BOX);
     virtual ~GitDiffDlgBase();
 };
-
 
 class GitDiffChooseCommitishDlgBase : public wxDialog
 {
@@ -352,10 +350,12 @@ public:
     wxTextCtrl* GetTextSecond() { return m_textSecond; }
     wxStaticText* GetStaticText59821124() { return m_staticText59821124; }
     wxSpinCtrl* GetSpinCtrl2() { return m_spinCtrl2; }
-    GitDiffChooseCommitishDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Select Commits to Diff"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    GitDiffChooseCommitishDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY,
+                                  const wxString& title = _("Select Commits to Diff"),
+                                  const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                                  long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~GitDiffChooseCommitishDlgBase();
 };
-
 
 class gitCloneDlgBaseClass : public wxDialog
 {
@@ -376,10 +376,11 @@ public:
     wxTextCtrl* GetTextCtrlURL() { return m_textCtrlURL; }
     wxStaticText* GetStaticText24() { return m_staticText24; }
     wxDirPickerCtrl* GetDirPickerTargetDir() { return m_dirPickerTargetDir; }
-    gitCloneDlgBaseClass(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("git clone.."), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    gitCloneDlgBaseClass(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("git clone.."),
+                         const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500, -1),
+                         long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~gitCloneDlgBaseClass();
 };
-
 
 class GitFileDiffDlgBase : public wxDialog
 {
@@ -395,39 +396,11 @@ protected:
 
 public:
     GitCommitEditor* GetEditor() { return m_editor; }
-    GitFileDiffDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("File diff"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500,300), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    GitFileDiffDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("File diff"),
+                       const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500, 300),
+                       long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~GitFileDiffDlgBase();
 };
-
-
-class GitImages : public wxImageList
-{
-protected:
-    // Maintain a map of all bitmaps representd by their name
-    std::map<wxString, wxBitmap> m_bitmaps;
-    // The requested image resolution (can be one of @2x, @1.5x, @1.25x or an empty string (the default)
-    wxString m_resolution;
-    int m_imagesWidth;
-    int m_imagesHeight;
-
-
-protected:
-
-public:
-    GitImages();
-    const wxBitmap& Bitmap(const wxString &name) const {
-        if ( !m_bitmaps.count(name + m_resolution) )
-            return wxNullBitmap;
-        return m_bitmaps.find(name + m_resolution)->second;
-    }
-
-    void SetBitmapResolution(const wxString &res = wxEmptyString) {
-        m_resolution = res;
-    }
-
-    virtual ~GitImages();
-};
-
 
 class GitApplyPatchDlgBase : public wxDialog
 {
@@ -441,46 +414,59 @@ protected:
     wxButton* m_buttonOK;
 
 protected:
-
 public:
     wxStaticText* GetStaticText164() { return m_staticText164; }
     wxFilePickerCtrl* GetFilePickerPatchFile() { return m_filePickerPatchFile; }
     wxStaticText* GetStaticText168() { return m_staticText168; }
     wxTextCtrl* GetTextCtrlExtraFlags() { return m_textCtrlExtraFlags; }
-    GitApplyPatchDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git Apply Patch"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    GitApplyPatchDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git Apply Patch"),
+                         const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                         long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~GitApplyPatchDlgBase();
 };
-
 
 class GitConsoleBase : public wxPanel
 {
 protected:
-    wxGauge* m_gauge;
-    wxAuiToolBar* m_auibar;
-    wxSplitterWindow* m_splitter;
-    wxPanel* m_splitterPageTreeView;
-    wxDataViewListCtrl* m_dvListCtrl;
-    wxPanel* m_splitterPage96;
+    clToolBar* m_toolbar;
+    clThemedSplitterWindow* m_splitter733;
+    wxPanel* m_splitterPage737;
+    Notebook* m_notebookChanges;
+    wxPanel* m_panel674;
+    clThemedListCtrl* m_dvListCtrl;
+    wxPanel* m_panelUnversioned;
+    clThemedListCtrl* m_dvListCtrlUnversioned;
+    wxPanel* m_splitterPage741;
+    Notebook* m_notebookLog;
+    wxPanel* m_panel_log;
     wxStyledTextCtrl* m_stcLog;
+    wxGauge* m_gauge;
 
 protected:
     virtual void OnContextMenu(wxDataViewEvent& event) { event.Skip(); }
     virtual void OnFileActivated(wxDataViewEvent& event) { event.Skip(); }
     virtual void OnUpdateUI(wxUpdateUIEvent& event) { event.Skip(); }
-    virtual void OnStclogStcChange(wxStyledTextEvent& event) { event.Skip(); }
+    virtual void OnUnversionedFileActivated(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnUnversionedFileContextMenu(wxDataViewEvent& event) { event.Skip(); }
 
 public:
-    wxGauge* GetGauge() { return m_gauge; }
-    wxAuiToolBar* GetAuibar() { return m_auibar; }
-    wxDataViewListCtrl* GetDvListCtrl() { return m_dvListCtrl; }
-    wxPanel* GetSplitterPageTreeView() { return m_splitterPageTreeView; }
+    clToolBar* GetToolbar() { return m_toolbar; }
+    clThemedListCtrl* GetDvListCtrl() { return m_dvListCtrl; }
+    wxPanel* GetPanel674() { return m_panel674; }
+    clThemedListCtrl* GetDvListCtrlUnversioned() { return m_dvListCtrlUnversioned; }
+    wxPanel* GetPanelUnversioned() { return m_panelUnversioned; }
+    Notebook* GetNotebookChanges() { return m_notebookChanges; }
+    wxPanel* GetSplitterPage737() { return m_splitterPage737; }
     wxStyledTextCtrl* GetStcLog() { return m_stcLog; }
-    wxPanel* GetSplitterPage96() { return m_splitterPage96; }
-    wxSplitterWindow* GetSplitter() { return m_splitter; }
-    GitConsoleBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500,300), long style = wxTAB_TRAVERSAL);
+    wxPanel* GetPanel_log() { return m_panel_log; }
+    Notebook* GetNotebookLog() { return m_notebookLog; }
+    wxPanel* GetSplitterPage741() { return m_splitterPage741; }
+    clThemedSplitterWindow* GetSplitter733() { return m_splitter733; }
+    wxGauge* GetGauge() { return m_gauge; }
+    GitConsoleBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
+                   const wxSize& size = wxSize(-1, -1), long style = wxTAB_TRAVERSAL);
     virtual ~GitConsoleBase();
 };
-
 
 class GitBlameDlgBase : public wxDialog
 {
@@ -543,10 +529,11 @@ public:
     wxSplitterWindow* GetSplitterH() { return m_splitterH; }
     wxPanel* GetSplitterPageBottom() { return m_splitterPageBottom; }
     wxSplitterWindow* GetSplitterMain() { return m_splitterMain; }
-    GitBlameDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git Blame"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    GitBlameDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git Blame"),
+                    const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                    long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~GitBlameDlgBase();
 };
-
 
 class GitBlameSettingsDlgBase : public wxDialog
 {
@@ -558,51 +545,69 @@ protected:
     wxButton* m_button433;
 
 protected:
-
 public:
     wxCheckBox* GetCheckParentCommit() { return m_checkParentCommit; }
     wxCheckBox* GetCheckShowLogControls() { return m_checkShowLogControls; }
-    GitBlameSettingsDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git Blame Settings"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
+    GitBlameSettingsDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git Blame Settings"),
+                            const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                            long style = wxDEFAULT_DIALOG_STYLE);
     virtual ~GitBlameSettingsDlgBase();
 };
 
-
 class GitResetDlgBase : public wxDialog
 {
-public:
-    enum {
-        ID_TOGGLE_CHECKALL_REMOVE = 6001,
-        ID_TOGGLE_CHECKALL_REVERT = 6002,
-    };
 protected:
     wxStaticText* m_staticText585;
     wxStaticText* m_staticText581;
+    clToolBar* m_clToolbarAltered;
     wxCheckListBox* m_checkListBoxChanged;
-    wxAuiToolBar* m_auibar569;
     wxStaticText* m_staticText5815;
+    clToolBar* m_clToolbarAdded;
     wxCheckListBox* m_checkListBoxNew;
-    wxAuiToolBar* m_auibar5693;
-    wxButton* m_buttonOK;
-    wxButton* m_buttonCancel;
+    wxStdDialogButtonSizer* m_stdBtnSizer751;
+    wxButton* m_button753;
+    wxButton* m_button755;
 
 protected:
-    virtual void OnToggleAllRevert(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnToggleAllRevertUI(wxUpdateUIEvent& event) { event.Skip(); }
-    virtual void OnToggleAllRemove(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnToggleAllRemoveUI(wxUpdateUIEvent& event) { event.Skip(); }
-
 public:
     wxStaticText* GetStaticText585() { return m_staticText585; }
     wxStaticText* GetStaticText581() { return m_staticText581; }
+    clToolBar* GetClToolbarAltered() { return m_clToolbarAltered; }
     wxCheckListBox* GetCheckListBoxChanged() { return m_checkListBoxChanged; }
-    wxAuiToolBar* GetAuibar569() { return m_auibar569; }
     wxStaticText* GetStaticText5815() { return m_staticText5815; }
+    clToolBar* GetClToolbarAdded() { return m_clToolbarAdded; }
     wxCheckListBox* GetCheckListBoxNew() { return m_checkListBoxNew; }
-    wxAuiToolBar* GetAuibar5693() { return m_auibar5693; }
-    wxButton* GetButtonOK() { return m_buttonOK; }
-    wxButton* GetButtonCancel() { return m_buttonCancel; }
-    GitResetDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git Reset Files"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER|wxMAXIMIZE_BOX);
+    GitResetDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git Reset Files"),
+                    const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                    long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX);
     virtual ~GitResetDlgBase();
+};
+
+class GitUserEmailDialogBase : public wxDialog
+{
+protected:
+    wxStaticText* m_staticText704;
+    wxStaticText* m_staticText696;
+    wxTextCtrl* m_textCtrlName;
+    wxStaticText* m_staticText700;
+    wxTextCtrl* m_textCtrlEmail;
+    wxStdDialogButtonSizer* m_stdBtnSizer688;
+    wxButton* m_button690;
+    wxButton* m_button692;
+
+protected:
+    virtual void OnOKUI(wxUpdateUIEvent& event) { event.Skip(); }
+
+public:
+    wxStaticText* GetStaticText704() { return m_staticText704; }
+    wxStaticText* GetStaticText696() { return m_staticText696; }
+    wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
+    wxStaticText* GetStaticText700() { return m_staticText700; }
+    wxTextCtrl* GetTextCtrlEmail() { return m_textCtrlEmail; }
+    GitUserEmailDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Git User"),
+                           const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                           long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+    virtual ~GitUserEmailDialogBase();
 };
 
 #endif

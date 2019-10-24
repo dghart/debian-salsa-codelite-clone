@@ -28,7 +28,7 @@
 #include "editor_config.h"
 #include "cl_editor_tip_window.h"
 
-ContextPhp::ContextPhp(LEditor* editor)
+ContextPhp::ContextPhp(clEditor* editor)
     : ContextGeneric(editor, "php")
 {
     editor->SetWordChars(wxT("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$"));
@@ -54,7 +54,7 @@ void ContextPhp::ApplySettings()
     if(EditorConfigST::Get()->IsOk()) {
         lexPtr = EditorConfigST::Get()->GetLexer(GetName());
     }
-    LEditor& rCtrl = GetCtrl();
+    clEditor& rCtrl = GetCtrl();
     if(lexPtr) {
         rCtrl.SetLexer(lexPtr->GetLexerId());
         for(int i = 0; i <= 4; ++i) {
@@ -71,7 +71,7 @@ void ContextPhp::ApplySettings()
 
 void ContextPhp::AutoIndent(const wxChar& nChar)
 {
-    LEditor& rCtrl = GetCtrl();
+    clEditor& rCtrl = GetCtrl();
     int curpos = rCtrl.GetCurrentPos();
 
     if(rCtrl.GetDisableSmartIndent()) {
@@ -211,10 +211,6 @@ void ContextPhp::AutoIndent(const wxChar& nChar)
 
 wxString ContextPhp::CallTipContent() { return wxEmptyString; }
 
-void ContextPhp::CodeComplete(long pos) {}
-
-void ContextPhp::CompleteWord() {}
-
 int ContextPhp::DoGetCalltipParamterIndex() { return ContextBase::DoGetCalltipParamterIndex(); }
 
 wxString ContextPhp::GetCurrentScopeName() { return wxT(""); }
@@ -222,10 +218,6 @@ wxString ContextPhp::GetCurrentScopeName() { return wxT(""); }
 wxMenu* ContextPhp::GetMenu() { return ContextBase::GetMenu(); }
 
 TagEntryPtr ContextPhp::GetTagAtCaret(bool scoped, bool impl) { return NULL; }
-
-void ContextPhp::GoHyperlink(int start, int end, int type, bool alt) {}
-
-void ContextPhp::GotoDefinition() {}
 
 void ContextPhp::GotoPreviousDefintion() {}
 
@@ -243,7 +235,7 @@ bool ContextPhp::IsCommentOrString(long pos)
 
 bool ContextPhp::IsDefaultContext() const { return false; }
 
-ContextBase* ContextPhp::NewInstance(LEditor* container) { return new ContextPhp(container); }
+ContextBase* ContextPhp::NewInstance(clEditor* container) { return new ContextPhp(container); }
 
 void ContextPhp::OnCallTipClick(wxStyledTextEvent& event) {}
 
@@ -265,7 +257,7 @@ void ContextPhp::OnKeyDown(wxKeyEvent& event) { event.Skip(); }
 
 void ContextPhp::OnSciUpdateUI(wxStyledTextEvent& event)
 {
-    LEditor& ctrl = GetCtrl();
+    clEditor& ctrl = GetCtrl();
     if(ctrl.GetFunctionTip()->IsActive()) {
         ctrl.GetFunctionTip()->Highlight(DoGetCalltipParamterIndex());
     }
@@ -279,7 +271,7 @@ void ContextPhp::SemicolonShift()
 {
     int foundPos(wxNOT_FOUND);
     int semiColonPos(wxNOT_FOUND);
-    LEditor& ctrl = GetCtrl();
+    clEditor& ctrl = GetCtrl();
     if(ctrl.NextChar(ctrl.GetCurrentPos(), semiColonPos) == wxT(')')) {
 
         // test to see if we are inside a 'for' statement
@@ -353,19 +345,7 @@ bool ContextPhp::IsAtLineComment() const
 
 bool ContextPhp::IsStringTriggerCodeComplete(const wxString& str) const
 {
-    int curpos = GetCtrl().GetCurrentPos();
-    // curpos = GetCtrl().PositionBefore(curpos);
-    int style = GetCtrl().GetStyleAt(curpos);
-    if(IS_BETWEEN(style, wxSTC_HJ_START, wxSTC_HJA_REGEX)) {
-        // When in JS section, trigger CC if str is a dot
-        return str == ".";
-
-    } else if(IS_BETWEEN(style, wxSTC_H_DEFAULT, wxSTC_H_ENTITY)) {
-        return str == "</" || str == "<";
-
-    } else {
-        return (m_completionTriggerStrings.count(str) > 0);
-    }
+    return (m_completionTriggerStrings.count(str) > 0);
 }
 
 void ContextPhp::ProcessIdleActions() { ContextGeneric::ProcessIdleActions(); }

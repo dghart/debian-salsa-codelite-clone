@@ -41,18 +41,30 @@ class WorkspaceTab : public WorkspaceTabBase
     ThemeHandlerHelper* m_themeHelper;
     ProjectSettingsDlg* m_dlg;
     clWorkspaceView* m_view;
+    wxColour m_bgColour;
+    wxArrayString m_cxxPinnedProjects;
+    clTreeCtrl::BitmapVec_t m_bitmaps;
 
 protected:
+    virtual void OnPinnedCxxProjectSelected(wxDataViewEvent& event);
+    virtual void OnPinnedCxxProjectContextMenu(wxDataViewEvent& event);
     void ProjectSettingsDlgClosed();
     void DoGoHome();
     void DoConfigChanged(const wxString& newConfigName);
-
+    void LoadCxxPinnedProjects();
+    void SaveCxxPinnedProjects();
+    /**
+     * @brief sync the pinned projects view with the file view
+     */
+    void SyncPinnedProjectsView(const wxDataViewItem& item);
+    void ShowPinnedProjectMenu(const wxString& project);
+    
 protected:
     virtual void OnWorkspaceOpenUI(wxUpdateUIEvent& event);
     virtual void OnLinkEditorUI(wxUpdateUIEvent& event);
 
     void OnFolderDropped(clCommandEvent& event);
-
+    void OnPaint(wxPaintEvent& event);
     void CreateGUIControls();
     void ConnectEvents();
     void DoWorkspaceConfig();
@@ -75,9 +87,8 @@ protected:
     void OnActiveEditorChanged(wxCommandEvent& e);
     void OnEditorClosing(wxCommandEvent& e);
     void OnWorkspaceConfig(wxCommandEvent& e);
-    void OnConfigurationManagerChoice(wxCommandEvent& e);
     void OnConfigurationManager(wxCommandEvent& e);
-    void OnConfigChanged(clCommandEvent &e);
+    void OnConfigChanged(clCommandEvent& e);
     void OnActiveProjectChanged(clProjectSettingsEvent& e);
 
 public:
@@ -95,5 +106,10 @@ public:
      * @return
      */
     clWorkspaceView* GetView() { return m_view; }
+    /**
+     * @brief 
+     * @param project
+     */
+    void AddPinnedProject(const wxString& project);
 };
 #endif // __workspacetab__

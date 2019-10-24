@@ -1,25 +1,23 @@
-#include "wordcompletion.h"
-#include <wx/xrc/xmlres.h>
-#include "WordCompletionThread.h"
-#include <wx/stc/stc.h>
-#include "clKeyboardManager.h"
-#include <wx/app.h>
-#include "WordCompletionSettingsDlg.h"
-#include "event_notifier.h"
-#include "cl_command_event.h"
-#include "wxCodeCompletionBoxManager.h"
-#include "WordCompletionDictionary.h"
-#include "lexer_configuration.h"
 #include "ColoursAndFontsManager.h"
+#include "WordCompletionDictionary.h"
+#include "WordCompletionSettingsDlg.h"
+#include "WordCompletionThread.h"
+#include "clKeyboardManager.h"
+#include "cl_command_event.h"
+#include "event_notifier.h"
+#include "lexer_configuration.h"
+#include "wordcompletion.h"
+#include "wxCodeCompletionBoxManager.h"
+#include <wx/app.h>
+#include <wx/stc/stc.h>
+#include <wx/xrc/xmlres.h>
 
 static WordCompletionPlugin* thePlugin = NULL;
 
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new WordCompletionPlugin(manager);
-    }
+    if(thePlugin == 0) { thePlugin = new WordCompletionPlugin(manager); }
     return thePlugin;
 }
 
@@ -35,6 +33,22 @@ CL_PLUGIN_API PluginInfo* GetPluginInfo()
 
 CL_PLUGIN_API int GetPluginInterfaceVersion() { return PLUGIN_INTERFACE_VERSION; }
 
+
+// Helper
+WordCompleter::WordCompleter(WordCompletionPlugin* plugin)
+    : ServiceProvider("Words", eServiceType::kCodeCompletion)
+    , m_plugin(plugin)
+{
+    SetPriority(20);
+    Bind(wxEVT_CC_WORD_COMPLETE, &WordCompleter::OnWordComplete, this);
+}
+
+WordCompleter::~WordCompleter()
+{
+    Unbind(wxEVT_CC_WORD_COMPLETE, &WordCompleter::OnWordComplete, this);
+}
+void WordCompleter::OnWordComplete(clCodeCompletionEvent& event) { m_plugin->OnWordComplete(event); }
+
 WordCompletionPlugin::WordCompletionPlugin(IManager* manager)
     : IPlugin(manager)
 {
@@ -42,18 +56,13 @@ WordCompletionPlugin::WordCompletionPlugin(IManager* manager)
     m_shortName = wxT("Word Completion");
 
     wxTheApp->Bind(wxEVT_MENU, &WordCompletionPlugin::OnSettings, this, XRCID("text_word_complete_settings"));
-    EventNotifier::Get()->Bind(wxEVT_CC_WORD_COMPLETE, &WordCompletionPlugin::OnWordComplete, this);
     m_dictionary = new WordCompletionDictionary();
+    m_completer = new WordCompleter(this);
 }
 
 WordCompletionPlugin::~WordCompletionPlugin() {}
 
-clToolBar* WordCompletionPlugin::CreateToolBar(wxWindow* parent)
-{
-    wxUnusedVar(parent);
-    clToolBar* tb(NULL);
-    return tb;
-}
+void WordCompletionPlugin::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
 
 void WordCompletionPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
 {
@@ -65,7 +74,7 @@ void WordCompletionPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
 void WordCompletionPlugin::UnPlug()
 {
     wxDELETE(m_dictionary);
-    EventNotifier::Get()->Unbind(wxEVT_CC_WORD_COMPLETE, &WordCompletionPlugin::OnWordComplete, this);
+    wxDELETE(m_completer);
     wxTheApp->Unbind(wxEVT_MENU, &WordCompletionPlugin::OnSettings, this, XRCID("text_word_complete_settings"));
 }
 
@@ -80,15 +89,11 @@ void WordCompletionPlugin::OnWordComplete(clCodeCompletionEvent& event)
     settings.Load();
 
     // Enabled?
-    if(!settings.IsEnabled()) {
-        return;
-    }
+    if(!settings.IsEnabled()) { return; }
 
     // Build the suggetsion list
     static wxBitmap sBmp = wxNullBitmap;
-    if(!sBmp.IsOk()) {
-        sBmp = m_mgr->GetStdIcons()->LoadBitmap("word");
-    }
+    if(!sBmp.IsOk()) { sBmp = m_mgr->GetStdIcons()->LoadBitmap("word"); }
 
     // Filter (what the user has typed so far)
     // wxStyledTextCtrl* stc = activeEditor->GetCtrl();
@@ -134,13 +139,9 @@ void WordCompletionPlugin::OnWordComplete(clCodeCompletionEvent& event)
             wxString word = *iter;
             wxString lcWord = word.Lower();
             if(settings.GetComparisonMethod() == WordCompletionSettings::kComparisonStartsWith) {
-                if(lcWord.StartsWith(filter) && filter != word) {
-                    filterdSet.insert(word);
-                }
+                if(lcWord.StartsWith(filter) && filter != word) { filterdSet.insert(word); }
             } else {
-                if(lcWord.Contains(filter) && filter != word) {
-                    filterdSet.insert(word);
-                }
+                if(lcWord.Contains(filter) && filter != word) { filterdSet.insert(word); }
             }
         }
     }

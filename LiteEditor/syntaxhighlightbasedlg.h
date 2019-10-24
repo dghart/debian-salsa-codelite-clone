@@ -14,23 +14,21 @@
 #include <wx/iconbndl.h>
 #include <wx/artprov.h>
 #include <wx/sizer.h>
-#include <wx/pen.h>
-#include <wx/aui/auibar.h>
-#include <map>
-#include <wx/menu.h>
-#include <wx/toolbar.h>
-#include <wx/notebook.h>
 #include <wx/panel.h>
+#include <wx/toolbar.h>
+#include "clToolBar.h"
+#include <wx/notebook.h>
 #include <wx/imaglist.h>
+#include <wx/statbox.h>
+#include <wx/checkbox.h>
+#include <wx/clrpicker.h>
 #include <wx/stattext.h>
 #include <wx/fontpicker.h>
 #include <wx/choice.h>
 #include <wx/arrstr.h>
-#include <wx/clrpicker.h>
 #include <wx/stc/stc.h>
 #include <wx/listbox.h>
 #include <wx/textctrl.h>
-#include <wx/checkbox.h>
 #include <wx/statline.h>
 #include <wx/button.h>
 #if wxVERSION_NUMBER >= 2900
@@ -49,28 +47,19 @@
 #define WXC_FROM_DIP(x) x
 #endif
 
-
 class SyntaxHighlightBaseDlg : public wxDialog
 {
 protected:
-    wxAuiToolBar* m_auibar;
-    std::map<int, wxMenu*> m_dropdownMenus;
-    wxMenu* m_menu142;
-    wxMenuItem* m_menuItemExportAll;
-    wxMenuItem* m_menuItemExportSelective;
-    wxMenu* m_menu151;
-    wxMenuItem* m_menuItem153;
-    wxNotebook* m_notebook76;
+    wxPanel* m_panel171;
+    clToolBar* m_toolbar;
+    wxNotebook* m_notebook;
     wxPanel* m_panelGlobalColours;
+    wxCheckBox* m_cbUseCustomBaseColour;
+    wxColourPickerCtrl* m_colourPickerBaseColour;
     wxStaticText* m_staticText159;
     wxFontPickerCtrl* m_fontPickerGlobal;
     wxStaticText* m_staticText155;
     wxChoice* m_choiceGlobalTheme;
-    wxStaticText* m_staticText91;
-    wxColourPickerCtrl* m_colourPickerOutputPanesFgColour;
-    wxStaticText* m_staticText911;
-    wxColourPickerCtrl* m_colourPickerOutputPanesBgColour;
-    wxStaticText* m_staticText165;
     wxStyledTextCtrl* m_stcPreview;
     wxPanel* m_panelSyntaxHighlight;
     wxListBox* m_listBox;
@@ -115,17 +104,11 @@ protected:
     wxButton* m_buttonApply;
 
 protected:
-    virtual void OnNewTheme(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnToolExportAll(wxAuiToolBarEvent& event) { event.Skip(); }
-    virtual void OnExportAll(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnExportSelective(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnImport(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnRestoreDefaults(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnImportEclipseTheme(wxAuiToolBarEvent& event) { event.Skip(); }
-    virtual void OnLoadEclipseThemeWebsite(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnUseCustomBaseColour(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnUseCustomColourUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnCustomBaseColourPIcked(wxColourPickerEvent& event) { event.Skip(); }
     virtual void OnGlobalFontSelected(wxFontPickerEvent& event) { event.Skip(); }
     virtual void OnGlobalThemeSelected(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnOutputViewColourChanged(wxColourPickerEvent& event) { event.Skip(); }
     virtual void OnLexerSelected(wxCommandEvent& event) { event.Skip(); }
     virtual void OnThemeChanged(wxCommandEvent& event) { event.Skip(); }
     virtual void OnFontChanged(wxFontPickerEvent& event) { event.Skip(); }
@@ -150,18 +133,13 @@ protected:
     virtual void OnButtonApplyUI(wxUpdateUIEvent& event) { event.Skip(); }
 
 public:
-
-    virtual void ShowAuiToolMenu(wxAuiToolBarEvent& event);
-    wxAuiToolBar* GetAuibar() { return m_auibar; }
+    clToolBar* GetToolbar() { return m_toolbar; }
+    wxCheckBox* GetCbUseCustomBaseColour() { return m_cbUseCustomBaseColour; }
+    wxColourPickerCtrl* GetColourPickerBaseColour() { return m_colourPickerBaseColour; }
     wxStaticText* GetStaticText159() { return m_staticText159; }
     wxFontPickerCtrl* GetFontPickerGlobal() { return m_fontPickerGlobal; }
     wxStaticText* GetStaticText155() { return m_staticText155; }
     wxChoice* GetChoiceGlobalTheme() { return m_choiceGlobalTheme; }
-    wxStaticText* GetStaticText91() { return m_staticText91; }
-    wxColourPickerCtrl* GetColourPickerOutputPanesFgColour() { return m_colourPickerOutputPanesFgColour; }
-    wxStaticText* GetStaticText911() { return m_staticText911; }
-    wxColourPickerCtrl* GetColourPickerOutputPanesBgColour() { return m_colourPickerOutputPanesBgColour; }
-    wxStaticText* GetStaticText165() { return m_staticText165; }
     wxStyledTextCtrl* GetStcPreview() { return m_stcPreview; }
     wxPanel* GetPanelGlobalColours() { return m_panelGlobalColours; }
     wxListBox* GetListBox() { return m_listBox; }
@@ -201,11 +179,13 @@ public:
     wxNotebook* GetNotebook2() { return m_notebook2; }
     wxPanel* GetPanel25() { return m_panel25; }
     wxPanel* GetPanelSyntaxHighlight() { return m_panelSyntaxHighlight; }
-    wxNotebook* GetNotebook76() { return m_notebook76; }
-    SyntaxHighlightBaseDlg(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Colours and Fonts"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    wxNotebook* GetNotebook() { return m_notebook; }
+    wxPanel* GetPanel171() { return m_panel171; }
+    SyntaxHighlightBaseDlg(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Colours and Fonts"),
+                           const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                           long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~SyntaxHighlightBaseDlg();
 };
-
 
 class NewThemeDialogBase : public wxDialog
 {
@@ -231,7 +211,9 @@ public:
     wxChoice* GetChoiceLanguage() { return m_choiceLanguage; }
     wxStaticText* GetStaticText135() { return m_staticText135; }
     wxChoice* GetChoiceBaseTheme() { return m_choiceBaseTheme; }
-    NewThemeDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("New Theme"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    NewThemeDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("New Theme"),
+                       const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                       long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~NewThemeDialogBase();
 };
 

@@ -111,8 +111,8 @@ public:
     static size_t CURRENT_VERSION;
 
 protected:
-    virtual void FromJSON(const JSONElement& json);
-    virtual JSONElement ToJSON() const;
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON() const;
 
     void DoUpdateTokensWxMap();
     void DoUpdateTokensWxMapReversed();
@@ -187,7 +187,12 @@ public:
 
     // Serialization API
 
-    wxString ToString();
+    wxString ToString() const;
+    
+    /**
+     * @brief Sync the data stored in this object with the file system 
+     */
+    void SyncData();
 
     void SetCcColourFlags(const size_t& ccColourFlags) { this->m_ccColourFlags = ccColourFlags; }
 

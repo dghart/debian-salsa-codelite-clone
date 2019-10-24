@@ -23,25 +23,25 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "clSocketServer.h"
 #include "clConnectionString.h"
+#include "clSocketServer.h"
 
 #ifndef _WIN32
-#include <unistd.h>
-#include <sys/stat.h>
 #include <arpa/inet.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <unistd.h>
 #endif
 
 clSocketServer::clSocketServer() {}
 
 clSocketServer::~clSocketServer() { DestroySocket(); }
 
-void clSocketServer::CreateServer(const std::string& pipePath)
+int clSocketServer::CreateServer(const std::string& pipePath)
 {
 #ifndef __WXMSW__
     unlink(pipePath.c_str());
@@ -74,26 +74,14 @@ void clSocketServer::CreateServer(const std::string& pipePath)
 
     // define the accept queue size
     ::listen(m_socket, 10);
+    return 0;
 #else
     int port = ::atoi(pipePath.c_str());
-    CreateServer("127.0.0.1", port);
+    return CreateServer("127.0.0.1", port);
 #endif
 }
 
-clSocketBase::Ptr_t clSocketServer::WaitForNewConnection(long timeout)
-{
-    if(SelectRead(timeout) == kTimeout) {
-        return clSocketBase::Ptr_t(NULL);
-    }
-
-    int fd = ::accept(m_socket, 0, 0);
-    if(fd < 0) {
-        throw clSocketException("accept error: " + error());
-    }
-    return clSocketBase::Ptr_t(new clSocketBase(fd));
-}
-
-void clSocketServer::CreateServer(const std::string& address, int port)
+int clSocketServer::CreateServer(const std::string& address, int port)
 {
     // Create a socket
     if((m_socket = ::socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
@@ -118,22 +106,49 @@ void clSocketServer::CreateServer(const std::string& address, int port)
     server.sin_port = htons(port);
 
     // Bind
-    if(::bind(m_socket, (struct sockaddr*)&server, sizeof(server)) == -1) {
-        throw clSocketException("CreateServer: bind operation failed: " + error());
+    if(::bind(m_socket, (struct sockaddr*)&server, sizeof(server)) != 0) {
+        throw clSocketException("CreateServer: bind() error: " + error());
+    }
+
+    if(port == 0) {
+        struct sockaddr_in socket_name;
+#ifdef __WXMSW__
+        int name_len = sizeof(socket_name);
+#else
+        socklen_t name_len = sizeof(socket_name);
+#endif
+        if(::getsockname(m_socket, (struct sockaddr*)&socket_name, &name_len) != 0) {
+            throw clSocketException("CreateServer: getsockname() error: " + error());
+        }
+        port = ntohs(socket_name.sin_port);
     }
     // define the accept queue size
-    ::listen(m_socket, 10);
+    if(::listen(m_socket, 10) != 0) { throw clSocketException("CreateServer: listen() error: " + error()); }
+
+    // return the bound port number
+    return port;
 }
 
-void clSocketServer::Start(const wxString& connectionString)
+int clSocketServer::Start(const wxString& connectionString)
 {
     clConnectionString cs(connectionString);
-    if(!cs.IsOK()) {
-        throw clSocketException("Invalid connection string provided");
-    }
+    if(!cs.IsOK()) { throw clSocketException("Invalid connection string provided"); }
     if(cs.GetProtocol() == clConnectionString::kTcp) {
-        CreateServer(cs.GetHost().mb_str(wxConvUTF8).data(), cs.GetPort());
+        return CreateServer(cs.GetHost().mb_str(wxConvUTF8).data(), cs.GetPort());
     } else {
-        CreateServer(cs.GetPath().mb_str(wxConvUTF8).data());
+        return CreateServer(cs.GetPath().mb_str(wxConvUTF8).data());
     }
+}
+
+clSocketBase::Ptr_t clSocketServer::WaitForNewConnection(long timeout)
+{
+    return clSocketBase::Ptr_t(WaitForNewConnectionRaw(timeout));
+}
+
+clSocketBase* clSocketServer::WaitForNewConnectionRaw(long timeout)
+{
+    if(SelectRead(timeout) == kTimeout) { return NULL; }
+    int fd = ::accept(m_socket, 0, 0);
+    if(fd < 0) { throw clSocketException("accept error: " + error()); }
+    return new clSocketBase(fd);
 }

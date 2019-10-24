@@ -43,6 +43,7 @@ class SFTPClientData : public wxClientData
     wxString localPath;
     wxString remotePath;
     size_t permissions;
+    int lineNumber = wxNOT_FOUND;
 
 public:
     SFTPClientData()
@@ -57,6 +58,8 @@ public:
     const wxString& GetRemotePath() const { return remotePath; }
     void SetPermissions(size_t permissions) { this->permissions = permissions; }
     size_t GetPermissions() const { return permissions; }
+    void SetLineNumber(int lineNumber) { this->lineNumber = lineNumber; }
+    int GetLineNumber() const { return lineNumber; }
 };
 
 class SFTP : public IPlugin
@@ -76,6 +79,10 @@ public:
     void OpenWithDefaultApp(const wxString& localFileName);
     void OpenContainingFolder(const wxString& localFileName);
     void AddRemoteFile(const RemoteFileInfo& remoteFile);
+    SFTPStatusPage* GetOutputPane() { return m_outputPane; }
+    SFTPTreeView* GetTreeView() { return m_treeView; }
+
+    void OpenFile(const wxString& remotePath, int lineNumber = wxNOT_FOUND);
 
 protected:
     void OnReplaceInFiles(clFileSystemEvent& e);
@@ -104,12 +111,12 @@ protected:
     // e.GetLocalFile() -> the local file
     // e.GetRemoteFile() -> the target file
     void OnSaveFile(clSFTPEvent& e);
-    
+
     // Rename a remote file
     // e.GetRemoteFile() -> the "old" remote file path
     // e.GetNewRemoteFile() -> the "new" remote file path
     void OnRenameFile(clSFTPEvent& e);
-    
+
     // Delete a remote file
     // e.GetRemoteFile() -> the file to be deleted
     void OnDeleteFile(clSFTPEvent& e);
@@ -123,10 +130,9 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual clToolBar* CreateToolBar(wxWindow* parent);
+    virtual void CreateToolBar(clToolBar* toolbar);
     virtual void CreatePluginMenu(wxMenu* pluginsMenu);
     virtual void HookPopupMenu(wxMenu* menu, MenuType type);
-    virtual void UnHookPopupMenu(wxMenu* menu, MenuType type);
     virtual void UnPlug();
     IManager* GetManager() { return m_mgr; }
 

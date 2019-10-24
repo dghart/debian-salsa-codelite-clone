@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<CodeLite_Project Name="codelite_terminal" InternalType="GUI">
+<CodeLite_Project Name="codelite_terminal" InternalType="GUI" Version="10.0.0">
   <Plugins>
     <Plugin Name="qmake">
-      <![CDATA[00020001N0005Debug0000000000000001N0007Release000000000000]]>
+      <![CDATA[00040001N0005Debug0000000000000001N0011Debug_Linux0000000000000001N0016Debug_Linux_GTK30000000000000001N0007Release000000000000]]>
     </Plugin>
     <Plugin Name="CMakePlugin">
       <![CDATA[[{
@@ -47,32 +47,20 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="src">
+    <File Name="TextView.cpp"/>
+    <File Name="TextView.h"/>
+    <File Name="SettingsDlg.cpp"/>
+    <File Name="SettingsDlg.h"/>
+    <File Name="wxTerminalOptions.h"/>
+    <File Name="wxTerminalOptions.cpp"/>
+    <File Name="wxTerminalCtrl.h"/>
+    <File Name="wxTerminalCtrl.cpp"/>
+    <File Name="wxTerminalColourHandler.h"/>
+    <File Name="wxTerminalColourHandler.cpp"/>
+    <File Name="wxcrafter_bitmaps.cpp"/>
+    <File Name="wxcrafter.cpp"/>
     <File Name="main.cpp"/>
     <File Name="MainFrame.cpp"/>
-    <File Name="wxcrafter.cpp"/>
-    <File Name="wxcrafter_bitmaps.cpp"/>
-    <File Name="asyncprocess.cpp"/>
-    <File Name="processreaderthread.cpp"/>
-    <File Name="procutils.cpp"/>
-    <File Name="unixprocess_impl.cpp"/>
-    <File Name="winprocess.cpp"/>
-    <File Name="winprocess_impl.cpp"/>
-    <File Name="asyncprocess.h"/>
-    <File Name="processreaderthread.h"/>
-    <File Name="procutils.h"/>
-    <File Name="unixprocess_impl.h"/>
-    <File Name="winprocess.h"/>
-    <File Name="winprocess_impl.h"/>
-    <File Name="my_callback.h"/>
-    <File Name="my_callback.cpp"/>
-    <File Name="terminal_options.h"/>
-    <File Name="terminal_options.cpp"/>
-    <File Name="my_config.h"/>
-    <File Name="my_config.cpp"/>
-    <File Name="SettingsDlg.h"/>
-    <File Name="SettingsDlg.cpp"/>
-    <File Name="commandlineparser.h"/>
-    <File Name="commandlineparser.cpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="include">
     <File Name="MainFrame.h"/>
@@ -98,15 +86,23 @@
       <ResourceCompiler Options=""/>
     </GlobalSettings>
     <Configuration Name="Debug" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;-O0;-Wall;$(shell wx-config --cflags --debug)" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+      <Compiler Options="-g;-O0;-Wall;$(shell wx-config --cflags)" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
+        <IncludePath Value="../CodeLite"/>
+        <IncludePath Value="../Interfaces"/>
+        <IncludePath Value="../Plugin"/>
         <Preprocessor Value="_WIN32_WINNT=0x0501"/>
       </Compiler>
-      <Linker Options="$(shell wx-config --libs std,stc --debug);-mwindows" Required="yes"/>
+      <Linker Options="$(shell wx-config --libs std,stc);-mwindows" Required="yes">
+        <LibraryPath Value="../lib/gcc_lib"/>
+        <Library Value="libcodeliteud.dll"/>
+        <Library Value="libplugin_sdkud.dll"/>
+      </Linker>
       <ResourceCompiler Options="$(shell wx-config --rcflags)" Required="no"/>
-      <General OutputFile="$(IntermediateDirectory)/codelite-terminal" IntermediateDirectory="./Debug" Command="./codelite-terminal" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="no" IsGUIProgram="yes" IsEnabled="yes"/>
+      <General OutputFile="$(IntermediateDirectory)/codelite-terminal" IntermediateDirectory="./Debug" Command="./codelite-terminal" CommandArguments="--working-directory=&quot;C:\src\wxcrafter&quot;" UseSeparateDebugArgs="yes" DebugArguments="--working-directory=&quot;C:\src\wxcrafter&quot;" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="no" IsGUIProgram="yes" IsEnabled="yes"/>
+      <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
-        <![CDATA[]]>
+        <![CDATA[PATH=C:\src\codelite\Runtime;$PATH]]>
       </Environment>
       <Debugger IsRemote="no" RemoteHostName="" RemoteHostPort="" DebuggerPath="" IsExtended="no">
         <DebuggerSearchPaths/>
@@ -136,17 +132,70 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="Debug_Linux" CompilerType="gnu g++" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="Debug_Linux" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="-g;-O0;-Wall;$(shell wx-config --cflags --debug)" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
-        <IncludePath Value="."/>
+        <IncludePath Value="../CodeLite"/>
+        <IncludePath Value="../Interfaces"/>
+        <IncludePath Value="../Plugin"/>
       </Compiler>
       <Linker Options="$(shell wx-config --libs std,stc,aui --debug);" Required="yes">
+        <LibraryPath Value="/home/eran/root/lib/codelite"/>
         <Library Value="util"/>
+        <Library Value="liblibcodelite.so"/>
+        <Library Value="libplugin.so"/>
       </Linker>
       <ResourceCompiler Options="$(shell wx-config --rcflags)" Required="no"/>
-      <General OutputFile="$(IntermediateDirectory)/codelite-terminal" IntermediateDirectory="./Debug" Command="/home/eran/devl/codelite/codelite_terminal/Debug/codelite-terminal" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="/home/eran/devl/TestArea/TestWXC_Grid/Debug" PauseExecWhenProcTerminates="no" IsGUIProgram="yes" IsEnabled="yes"/>
+      <General OutputFile="$(IntermediateDirectory)/codelite-terminal" IntermediateDirectory="./Debug" Command="/home/eran/devl/codelite/codelite_terminal/Debug/codelite-terminal" CommandArguments="--file=/tmp/CodeLite/codelite-terminal.txt --print-tty=/tmp/cl-tty.txt" UseSeparateDebugArgs="no" DebugArguments="--file=/tmp/CodeLite/codelite-terminal.txt --print-tty=/tmp/cl-tty.txt" WorkingDirectory="" PauseExecWhenProcTerminates="no" IsGUIProgram="yes" IsEnabled="yes"/>
+      <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
-        <![CDATA[]]>
+        <![CDATA[LD_LIBRARY_PATH=/home/eran/root/lib/codelite:$LD_LIBRARY_PATH]]>
+      </Environment>
+      <Debugger IsRemote="no" RemoteHostName="" RemoteHostPort="" DebuggerPath="" IsExtended="no">
+        <DebuggerSearchPaths>/home/eran/devl/wx295/build</DebuggerSearchPaths>
+        <PostConnectCommands/>
+        <StartupCommands/>
+      </Debugger>
+      <PreBuild/>
+      <PostBuild/>
+      <CustomBuild Enabled="no">
+        <RebuildCommand/>
+        <CleanCommand/>
+        <BuildCommand/>
+        <PreprocessFileCommand/>
+        <SingleFileCommand/>
+        <MakefileGenerationCommand/>
+        <ThirdPartyToolName>None</ThirdPartyToolName>
+        <WorkingDirectory/>
+      </CustomBuild>
+      <AdditionalRules>
+        <CustomPostBuild/>
+        <CustomPreBuild/>
+      </AdditionalRules>
+      <Completion EnableCpp11="no" EnableCpp14="no">
+        <ClangCmpFlagsC/>
+        <ClangCmpFlags/>
+        <ClangPP/>
+        <SearchPaths/>
+      </Completion>
+    </Configuration>
+    <Configuration Name="Debug_Linux_GTK3" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-g;-O0;-Wall;`/home/eran/devl/wxWidgets/build-release-gtk3/wx-config --cflags --debug`" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+        <IncludePath Value="../CodeLite"/>
+        <IncludePath Value="../Interfaces"/>
+        <IncludePath Value="../Plugin"/>
+      </Compiler>
+      <Linker Options="`/home/eran/devl/wxWidgets/build-release-gtk3/wx-config --libs std,stc,aui --debug`;" Required="yes">
+        <LibraryPath Value="/home/eran/devl/codelite/build-release-gtk3/lib"/>
+        <Library Value="util"/>
+        <Library Value="liblibcodelite.so"/>
+        <Library Value="libplugin.so"/>
+      </Linker>
+      <ResourceCompiler Options="$(shell wx-config --rcflags)" Required="no"/>
+      <General OutputFile="$(IntermediateDirectory)/codelite-terminal" IntermediateDirectory="./DebugGTK3" Command="/home/eran/devl/codelite/codelite_terminal/$(IntermediateDirectory)/codelite-terminal" CommandArguments="--file=/tmp/CodeLite/codelite-terminal.txt --print-tty=/tmp/cl-tty.txt" UseSeparateDebugArgs="no" DebugArguments="--file=/tmp/CodeLite/codelite-terminal.txt --print-tty=/tmp/cl-tty.txt" WorkingDirectory="" PauseExecWhenProcTerminates="no" IsGUIProgram="yes" IsEnabled="yes"/>
+      <BuildSystem Name="Default"/>
+      <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
+        <![CDATA[LD_LIBRARY_PATH=/home/eran/devl/wxWidgets/build-release-gtk3:/home/eran/devl/codelite/build-release-gtk3/lib:$LD_LIBRARY_PATH
+PATH=/home/eran/devl/wxWidgets/build-release-gtk3/:$PATH]]>
       </Environment>
       <Debugger IsRemote="no" RemoteHostName="" RemoteHostPort="" DebuggerPath="" IsExtended="no">
         <DebuggerSearchPaths>/home/eran/devl/wx295/build</DebuggerSearchPaths>
@@ -179,11 +228,19 @@
     <Configuration Name="Release" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="-O2;-Wall;$(shell wx-config --cflags --debug=no)" C_Options="-O2;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
+        <IncludePath Value="../CodeLite"/>
+        <IncludePath Value="../Interfaces"/>
+        <IncludePath Value="../Plugin"/>
         <Preprocessor Value="_WIN32_WINNT=0x0501"/>
       </Compiler>
-      <Linker Options="$(shell wx-config --libs std,stc);-mwindows" Required="yes"/>
+      <Linker Options="$(shell wx-config --libs std,stc);-mwindows" Required="yes">
+        <LibraryPath Value="../lib/gcc_lib"/>
+        <Library Value="libcodeliteu.dll"/>
+        <Library Value="libplugin_sdku.dll"/>
+      </Linker>
       <ResourceCompiler Options="$(shell wx-config --rcflags)" Required="no"/>
-      <General OutputFile="../Runtime/codelite-terminal" IntermediateDirectory="./Release" Command="./codelite-terminal" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="../Runtime" PauseExecWhenProcTerminates="no" IsGUIProgram="no" IsEnabled="yes"/>
+      <General OutputFile="../Runtime/codelite-terminal" IntermediateDirectory="./Release" Command="./codelite-terminal" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="../Runtime" PauseExecWhenProcTerminates="no" IsGUIProgram="yes" IsEnabled="yes"/>
+      <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -193,7 +250,9 @@
         <StartupCommands/>
       </Debugger>
       <PreBuild/>
-      <PostBuild/>
+      <PostBuild>
+        <Command Enabled="yes"/>
+      </PostBuild>
       <CustomBuild Enabled="no">
         <RebuildCommand/>
         <CleanCommand/>
@@ -223,6 +282,7 @@
       <Linker Options="$(shell wx-config --libs std,stc);-mwindows" Required="yes"/>
       <ResourceCompiler Options="$(shell wx-config --rcflags)" Required="no"/>
       <General OutputFile="$(IntermediateDirectory)/codelite-terminal" IntermediateDirectory="$(ConfigurationName)" Command="./codelite-terminal" CommandArguments="--exit --wait --cmd &quot;ls -l&quot;" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="../Runtime" PauseExecWhenProcTerminates="no" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>

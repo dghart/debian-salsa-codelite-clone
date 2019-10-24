@@ -39,7 +39,9 @@
 #include "debugger.h"
 #include "clStatusBar.h"
 #include "clTab.h"
+#include "navigationmanager.h"
 
+class clTreeCtrl;
 class clEditorBar;
 class clWorkspaceView;
 class TagsManager;
@@ -53,6 +55,7 @@ class BuildSettingsConfig;
 class NavMgr;
 class IMacroManager;
 class wxAuiManager;
+class clToolBar;
 
 //--------------------------
 // Auxulary class
@@ -74,6 +77,8 @@ public:
 enum TreeType { TreeFileView = 0, TreeFileExplorer };
 
 enum eOutputPaneTab { kOutputTab_Build, kOutputTab_Output };
+
+enum OF_extra { OF_None = 0x00000001, OF_AddJump = 0x00000002, OF_PlaceNextToCurrent = 0x00000004 };
 
 //------------------------------------------------------------------
 // Defines the interface of the manager
@@ -110,9 +115,7 @@ public:
      */
     void AddWorkspaceTab(const wxString& tabLabel)
     {
-        if(m_workspaceTabs.Index(tabLabel) == wxNOT_FOUND) {
-            m_workspaceTabs.Add(tabLabel);
-        }
+        if(m_workspaceTabs.Index(tabLabel) == wxNOT_FOUND) { m_workspaceTabs.Add(tabLabel); }
     }
 
     /**
@@ -120,10 +123,10 @@ public:
      */
     void AddOutputTab(const wxString& tabLabel)
     {
-        if(m_outputTabs.Index(tabLabel) == wxNOT_FOUND) {
-            m_outputTabs.Add(tabLabel);
-        }
+        if(m_outputTabs.Index(tabLabel) == wxNOT_FOUND) { m_outputTabs.Add(tabLabel); }
     }
+
+    virtual clToolBar* GetToolBar() = 0;
 
     /**
      * @brief show the output pane and if provided, select 'selectedWindow'
@@ -151,7 +154,7 @@ public:
     // return the current editor
     /**
      * @brief return the active editor
-     * @return pointer to the current editor, or NULL incase the active editor is not of type LEditor or no active
+     * @return pointer to the current editor, or NULL incase the active editor is not of type clEditor or no active
      * editor open
      */
     virtual IEditor* GetActiveEditor() = 0;
@@ -172,10 +175,10 @@ public:
      * @param fileName the file to open - use absolute path
      * @param projectName project to associate this file - can be wxEmptyString
      * @param lineno if lineno is not wxNOT_FOUD, the caret will placed on this line number
-     * @return true if file opened
+     * @return Pointer to the newly opened editor or nullptr
      */
     virtual IEditor* OpenFile(const wxString& fileName, const wxString& projectName = wxEmptyString,
-                              int lineno = wxNOT_FOUND) = 0;
+                              int lineno = wxNOT_FOUND, OF_extra flags = OF_AddJump) = 0;
 
     /**
      * @brief open a file with a given tooltip and bitmap
@@ -208,7 +211,8 @@ public:
      * @param type the type of tree
      * @sa TreeType
      */
-    virtual wxTreeCtrl* GetTree(TreeType type) = 0;
+    virtual clTreeCtrl* GetFileExplorerTree() = 0;
+    virtual clTreeCtrl* GetWorkspaceTree() = 0;
 
     /**
      * @brief return a pointer to the workspace pane notebook (the one with the 'workspace' title)
@@ -448,6 +452,7 @@ public:
      * @return project name or wxEmptyString if the search failed
      */
     virtual wxString GetProjectNameByFile(const wxString& fullPathFileName) = 0;
+    virtual wxString GetProjectNameByFile(wxString& fullPathFileName) = 0;
 
     /**
      * @brief accessor to singleton object in the application
@@ -628,6 +633,12 @@ public:
      * @brief open the find in files dialog with multiple search paths
      */
     virtual void OpenFindInFileForPaths(const wxArrayString& paths) = 0;
+
+    /**
+     * @brief display message to the user using the info bar
+     */
+    virtual void DisplayMessage(const wxString& message, int flags = wxICON_INFORMATION,
+                                const std::vector<std::pair<wxWindowID, wxString> >& buttons = {}) = 0;
 };
 
 #endif // IMANAGER_H

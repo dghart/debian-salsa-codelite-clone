@@ -53,6 +53,7 @@
 #include <wx/utils.h>
 #include <wx/wupdlock.h>
 #include <wx/xrc/xmlres.h>
+#include "clSystemSettings.h"
 
 #define CXX_AND_JAVASCRIPT "c++"
 
@@ -74,6 +75,9 @@ const wxString sampleText = "class Demo {\n"
                             "    }\n"
                             "}";
 
+#define DARK_ICONS _("Dark Theme Icons Set")
+#define LIGHT_ICONS _("Light Theme Icons Set")
+
 SyntaxHighlightDlg::SyntaxHighlightDlg(wxWindow* parent)
     : SyntaxHighlightBaseDlg(parent)
     , m_isModified(false)
@@ -82,7 +86,7 @@ SyntaxHighlightDlg::SyntaxHighlightDlg(wxWindow* parent)
 {
     // Get list of available lexers
     wxString lexerName;
-    LEditor* editor = clMainFrame::Get()->GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = clMainFrame::Get()->GetMainBook()->GetActiveEditor(true);
     wxArrayString lexers = ColoursAndFontsManager::Get().GetAllLexersNames();
     if(editor) { lexerName = editor->GetContext()->GetName().Lower(); }
 
@@ -104,8 +108,6 @@ SyntaxHighlightDlg::SyntaxHighlightDlg(wxWindow* parent)
     }
 
     // Load the global colours
-    m_colourPickerOutputPanesFgColour->SetColour(ColoursAndFontsManager::Get().GetGlobalFgColour());
-    m_colourPickerOutputPanesBgColour->SetColour(ColoursAndFontsManager::Get().GetGlobalBgColour());
     m_choiceGlobalTheme->Append(ColoursAndFontsManager::Get().GetAvailableThemesForLexer("c++"));
     m_choiceGlobalTheme->SetStringSelection(ColoursAndFontsManager::Get().GetGlobalTheme());
 
@@ -118,7 +120,45 @@ SyntaxHighlightDlg::SyntaxHighlightDlg(wxWindow* parent)
     m_isModified = false;
     SetName("SyntaxHighlightDlg");
     WindowAttrManager::Load(this);
-    CentreOnParent();
+    m_toolbar->SetMiniToolBar(false);
+    m_toolbar->AddTool(wxID_NEW, _("New Theme"), clGetManager()->GetStdIcons()->LoadBitmap("file_new"));
+    m_toolbar->AddTool(wxID_SAVE, _("Export"), clGetManager()->GetStdIcons()->LoadBitmap("file_save"));
+    m_toolbar->AddTool(XRCID("export_all"), _("Export All"),
+                       clGetManager()->GetStdIcons()->LoadBitmap("file_save_all"));
+    m_toolbar->AddTool(XRCID("import_zip"), _("Import from ZIP file"),
+                       clGetManager()->GetStdIcons()->LoadBitmap("file_open"));
+    m_toolbar->AddTool(XRCID("revert_changes"), _("Reaload Default Settings"),
+                       clGetManager()->GetStdIcons()->LoadBitmap("file_reload"));
+    m_toolbar->AddTool(XRCID("import_eclipse_theme"), _("Import Eclipse Theme"),
+                       clGetManager()->GetStdIcons()->LoadBitmap("eclipse"), "", wxITEM_DROPDOWN);
+    m_toolbar->Realize();
+    m_toolbar->Bind(wxEVT_TOOL, &SyntaxHighlightDlg::OnNewTheme, this, wxID_NEW);
+    m_toolbar->Bind(wxEVT_TOOL, &SyntaxHighlightDlg::OnExportSelective, this, wxID_SAVE);
+    m_toolbar->Bind(wxEVT_TOOL, &SyntaxHighlightDlg::OnExportAll, this, XRCID("export_all"));
+    m_toolbar->Bind(wxEVT_TOOL, &SyntaxHighlightDlg::OnImport, this, XRCID("import_zip"));
+    m_toolbar->Bind(wxEVT_TOOL, &SyntaxHighlightDlg::OnRestoreDefaults, this, XRCID("revert_changes"));
+    m_toolbar->Bind(wxEVT_TOOL, &SyntaxHighlightDlg::OnImportEclipseTheme, this, XRCID("import_eclipse_theme"));
+    m_toolbar->Bind(wxEVT_TOOL_DROPDOWN,
+                    [&](wxCommandEvent& e) {
+                        wxMenu m;
+                        m.Append(XRCID("load_eclipse_theme_website"), _("Load Eclipse Themes WebSite.."));
+                        m.Bind(wxEVT_MENU, &SyntaxHighlightDlg::OnLoadEclipseThemeWebsite, this,
+                               XRCID("load_eclipse_theme_website"));
+                        m_toolbar->ShowMenuForButton(XRCID("import_eclipse_theme"), &m);
+                    },
+                    XRCID("import_eclipse_theme"));
+
+    // Theme handling
+    wxColour baseColour = clConfig::Get().Read("BaseColour", clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE));
+    m_colourPickerBaseColour->SetColour(baseColour);
+    m_useBaseColourInitial = clConfig::Get().Read("UseCustomBaseColour", false);
+    m_useBaseColourEnding = m_useBaseColourInitial;
+    m_cbUseCustomBaseColour->SetValue(m_useBaseColourInitial);
+    if(m_cbUseCustomBaseColour) {
+        m_initialTheme = DrawingUtils::IsDark(baseColour) ? kTHEME_DARK : kTHEME_LIGHT;
+        m_endingTheme = m_initialTheme;
+    }
+    ::clSetDialogBestSizeAndPosition(this);
 }
 
 void SyntaxHighlightDlg::DoUpdatePreview()
@@ -162,20 +202,20 @@ void SyntaxHighlightDlg::Clear()
 {
     // Global Settings page
     m_choiceLexerThemes->Clear();
-    m_globalFontPicker->SetSelectedFont(wxSystemSettings::GetFont(wxSYS_ANSI_FIXED_FONT));
-    m_globalBgColourPicker->SetColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+    m_globalFontPicker->SetSelectedFont(clSystemSettings::GetFont(wxSYS_ANSI_FIXED_FONT));
+    m_globalBgColourPicker->SetColour(clSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
     m_fileSpec->ChangeValue("");
 
     // Customize page
     m_properties->Clear();
-    m_fontPicker->SetSelectedFont(wxSystemSettings::GetFont(wxSYS_ANSI_FIXED_FONT));
-    m_colourPicker->SetColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
-    m_bgColourPicker->SetColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+    m_fontPicker->SetSelectedFont(clSystemSettings::GetFont(wxSYS_ANSI_FIXED_FONT));
+    m_colourPicker->SetColour(clSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
+    m_bgColourPicker->SetColour(clSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
     m_eolFilled->SetValue(false);
     m_styleWithinPreProcessor->SetValue(false);
 
     // Text Selection page
-    m_colourPickerSelTextBgColour->SetColour(wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT));
+    m_colourPickerSelTextBgColour->SetColour(clSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT));
     m_isModified = false;
 }
 
@@ -228,18 +268,12 @@ void SyntaxHighlightDlg::SaveChanges()
         CallAfter(&SyntaxHighlightDlg::LoadLexer, m_lexer->GetThemeName());
     }
 
+    // Save the base colour changes
+    clConfig::Get().Write("BaseColour", m_colourPickerBaseColour->GetColour());
+    clConfig::Get().Write("UseCustomBaseColour", m_cbUseCustomBaseColour->IsChecked());
+
     // Now save the changes to the file system
     ColoursAndFontsManager::Get().Save();
-
-    wxString oldFg = EditorConfigST::Get()->GetCurrentOutputviewFgColour();
-    wxString oldBg = EditorConfigST::Get()->GetCurrentOutputviewBgColour();
-
-    wxString newFg = m_colourPickerOutputPanesFgColour->GetColour().GetAsString(wxC2S_HTML_SYNTAX);
-    EditorConfigST::Get()->SetCurrentOutputviewFgColour(newFg);
-
-    wxString newBg = m_colourPickerOutputPanesBgColour->GetColour().GetAsString(wxC2S_HTML_SYNTAX);
-    EditorConfigST::Get()->SetCurrentOutputviewBgColour(newBg);
-
     m_isModified = false;
 }
 
@@ -449,8 +483,8 @@ void SyntaxHighlightDlg::CreateLexerPage()
 
     if(m_properties->GetCount()) { m_properties->SetSelection(0); }
 
-    wxString initialColor = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT).GetAsString(wxC2S_HTML_SYNTAX);
-    wxString bgInitialColor = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW).GetAsString(wxC2S_HTML_SYNTAX);
+    wxString initialColor = clSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT).GetAsString(wxC2S_HTML_SYNTAX);
+    wxString bgInitialColor = clSystemSettings::GetColour(wxSYS_COLOUR_WINDOW).GetAsString(wxC2S_HTML_SYNTAX);
     wxFont initialFont = wxNullFont;
     // bool     initialEolFilled (false);
     bool initialStyleWithinPreProcessor(true);
@@ -591,9 +625,19 @@ void SyntaxHighlightDlg::OnExportSelective(wxCommandEvent& event)
     DoExport(lexersToExport);
 }
 
-void SyntaxHighlightDlg::OnExportAll(wxCommandEvent& event) { DoExport(); }
+void SyntaxHighlightDlg::OnExportAll(wxCommandEvent& event)
+{
+    // EclipseThemeImporterManager importer;
+    // importer.ImportCxxToAll();
+    DoExport();
+}
 
-void SyntaxHighlightDlg::OnToolExportAll(wxAuiToolBarEvent& event) { DoExport(); }
+void SyntaxHighlightDlg::OnToolExportAll(wxCommandEvent& event)
+{
+    // EclipseThemeImporterManager importer;
+    // importer.ImportCxxToAll();
+    DoExport();
+}
 
 void SyntaxHighlightDlg::OnRestoreDefaults(wxCommandEvent& event)
 {
@@ -611,7 +655,7 @@ void SyntaxHighlightDlg::OnRestoreDefaults(wxCommandEvent& event)
     }
 }
 
-void SyntaxHighlightDlg::OnImportEclipseTheme(wxAuiToolBarEvent& event)
+void SyntaxHighlightDlg::OnImportEclipseTheme(wxCommandEvent& event)
 {
     wxFileDialog selector(this, _("Select eclipse XML theme file"), "", "", "Eclipse Theme Files (*.xml)|*.xml",
                           wxFD_OPEN | wxFD_MULTIPLE | wxFD_FILE_MUST_EXIST);
@@ -646,18 +690,21 @@ void SyntaxHighlightDlg::OnGlobalThemeSelected(wxCommandEvent& event)
 {
     m_globalThemeChanged = true;
     m_isModified = true;
-    if(!m_globalBgColourChanged) {
-        // If the user did not alter the global bg colour, select a proper bg colour
-        // for him/her
-        LexerConf::Ptr_t lexerText =
-            ColoursAndFontsManager::Get().GetLexer("text", m_choiceGlobalTheme->GetStringSelection());
-        CHECK_PTR_RET(lexerText);
-        wxColour bgColour =
-            lexerText->IsDark() ? DrawingUtils::GetPanelBgColour() : wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
-        m_colourPickerOutputPanesBgColour->SetColour(bgColour);
-        // CallAfter(&SyntaxHighlightDlg::DoShowTooltipForGlobalBgColourChanged);
-    }
     DoUpdatePreview();
+
+    LexerConf::Ptr_t previewLexer =
+        ColoursAndFontsManager::Get().GetLexer("text", m_choiceGlobalTheme->GetStringSelection());
+
+    if(previewLexer && previewLexer->IsDark() && m_cbUseCustomBaseColour->IsChecked()) {
+        wxColour bgColour = ColoursAndFontsManager::Get().GetBackgroundColourFromLexer(previewLexer);
+        m_colourPickerBaseColour->SetColour(bgColour);
+        m_endingTheme = kTHEME_DARK;
+    } else if(previewLexer && m_cbUseCustomBaseColour->IsChecked()) {
+        // Light colour
+        wxColour bgColour = ColoursAndFontsManager::Get().GetBackgroundColourFromLexer(previewLexer);
+        m_colourPickerBaseColour->SetColour(bgColour);
+        m_endingTheme = kTHEME_LIGHT;
+    }
 }
 
 void SyntaxHighlightDlg::OnGlobalFontSelected(wxFontPickerEvent& event)
@@ -681,17 +728,7 @@ void SyntaxHighlightDlg::DoSetGlobalBgColour(const wxColour& colour)
     m_bgColourPicker->SetColour(colour.GetAsString(wxC2S_HTML_SYNTAX));
 }
 
-void SyntaxHighlightDlg::DoShowTooltipForGlobalBgColourChanged()
-{
-    if(!m_globalBgColourChangedTooltipShown) {
-        wxRichToolTip tip(_("Global Background Colour Adjusted"),
-                          _("Notice that CodeLite altered the global output panes\n"
-                            "background colour to match the theme background colour"));
-        tip.SetIcon(wxICON_INFORMATION);
-        tip.ShowFor(m_colourPickerOutputPanesBgColour);
-        m_globalBgColourChangedTooltipShown = true;
-    }
-}
+void SyntaxHighlightDlg::DoShowTooltipForGlobalBgColourChanged() {}
 
 void SyntaxHighlightDlg::DoExport(const wxArrayString& lexers)
 {
@@ -712,4 +749,35 @@ void SyntaxHighlightDlg::DoExport(const wxArrayString& lexers)
     zw.Close();
 
     ::wxMessageBox(_("Settings have been saved into:\n") + zw.GetFilename().GetFullPath());
+}
+
+void SyntaxHighlightDlg::OnUseCustomColourUI(wxUpdateUIEvent& event)
+{
+    event.Enable(m_cbUseCustomBaseColour->IsChecked());
+}
+void SyntaxHighlightDlg::OnCustomBaseColourPIcked(wxColourPickerEvent& event)
+{
+    m_isModified = true;
+    m_endingTheme = DrawingUtils::IsDark(event.GetColour()) ? kTHEME_DARK : kTHEME_LIGHT;
+    event.Skip();
+}
+
+void SyntaxHighlightDlg::OnUseCustomBaseColour(wxCommandEvent& event)
+{
+    m_isModified = true;
+    m_useBaseColourEnding = event.IsChecked();
+    if(event.IsChecked()) {
+        // Adjust the colour to the selected theme
+        LexerConf::Ptr_t lexer =
+            ColoursAndFontsManager::Get().GetLexer("text", m_choiceGlobalTheme->GetStringSelection());
+        wxColour bgColour = ColoursAndFontsManager::Get().GetBackgroundColourFromLexer(lexer);
+        if(bgColour.IsOk()) { m_colourPickerBaseColour->SetColour(bgColour); }
+    }
+    m_endingTheme = DrawingUtils::IsDark(m_colourPickerBaseColour->GetColour()) ? kTHEME_DARK : kTHEME_LIGHT;
+    event.Skip();
+}
+
+bool SyntaxHighlightDlg::IsRestartRequired() const
+{
+    return (m_useBaseColourEnding != m_useBaseColourInitial) || (m_initialTheme != m_endingTheme);
 }

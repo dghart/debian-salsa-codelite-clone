@@ -26,11 +26,11 @@
 #ifndef I_PROCESS_H
 #define I_PROCESS_H
 
-#include <wx/string.h>
-#include <wx/event.h>
 #include "codelite_exports.h"
 #include <map>
+#include <wx/event.h>
 #include <wx/sharedptr.h>
+#include <wx/string.h>
 
 enum IProcessCreateFlags {
     IProcessCreateDefault = (1 << 0),           // Default: create process with no console window
@@ -39,6 +39,10 @@ enum IProcessCreateFlags {
     IProcessCreateSync =
         (1 << 3), // Create a synchronous process (i.e. there is no background thread that performs the reads)
     IProcessCreateAsSuperuser = (1 << 4), // On platforms that support it, start the process as superuser
+    IProcessNoRedirect = (1 << 5),
+    IProcessStderrEvent = (1 << 6), // fire a separate event for stderr output
+    IProcessRawOutput = (1 << 7),   // return the process output as is, don't strip anything. By default CodeLite strips
+                                    // terminal colours escape sequences
 };
 
 class WXDLLIMPEXP_CL IProcess;
@@ -64,6 +68,7 @@ protected:
     bool m_hardKill;
     IProcessCallback* m_callback;
     size_t m_flags; // The creation flags
+
 public:
     typedef wxSharedPtr<IProcess> Ptr_t;
 
@@ -91,10 +96,21 @@ public:
     virtual void Detach() = 0;
 
     // Read from process stdout - return immediately if no data is available
-    virtual bool Read(wxString& buff) = 0;
+    virtual bool Read(wxString& buff, wxString& buffErr) = 0;
 
     // Write to the process stdin
+    // This version add LF to the buffer
     virtual bool Write(const wxString& buff) = 0;
+
+    // ANSI version
+    // This version add LF to the buffer
+    virtual bool Write(const std::string& buff) = 0;
+
+    // Write to the process stdin
+    virtual bool WriteRaw(const wxString& buff) = 0;
+
+    // ANSI version
+    virtual bool WriteRaw(const std::string& buff) = 0;
 
     /**
      * @brief wait for process to terminate and return all its output to the caller
@@ -127,6 +143,11 @@ public:
     void SetHardKill(bool hardKill) { this->m_hardKill = hardKill; }
     bool GetHardKill() const { return m_hardKill; }
     IProcessCallback* GetCallback() { return m_callback; }
+
+    /**
+     * @brief do we have process redirect enabled?
+     */
+    bool IsRedirect() const { return !(m_flags & IProcessNoRedirect); }
 };
 
 // Help method
@@ -139,7 +160,8 @@ public:
  * @return
  */
 WXDLLIMPEXP_CL IProcess* CreateAsyncProcess(wxEvtHandler* parent, const wxString& cmd,
-    size_t flags = IProcessCreateDefault, const wxString& workingDir = wxEmptyString);
+                                            size_t flags = IProcessCreateDefault,
+                                            const wxString& workingDir = wxEmptyString);
 
 /**
  * @brief create synchronus process
@@ -148,8 +170,8 @@ WXDLLIMPEXP_CL IProcess* CreateAsyncProcess(wxEvtHandler* parent, const wxString
  * @param workingDir working directory for the new process
  * @return IPorcess handle on succcess
  */
-WXDLLIMPEXP_CL IProcess* CreateSyncProcess(
-    const wxString& cmd, size_t flags = IProcessCreateDefault, const wxString& workingDir = wxEmptyString);
+WXDLLIMPEXP_CL IProcess* CreateSyncProcess(const wxString& cmd, size_t flags = IProcessCreateDefault,
+                                           const wxString& workingDir = wxEmptyString);
 
 /**
  * @brief start process
@@ -161,6 +183,7 @@ WXDLLIMPEXP_CL IProcess* CreateSyncProcess(
  * @return
  */
 WXDLLIMPEXP_CL IProcess* CreateAsyncProcessCB(wxEvtHandler* parent, IProcessCallback* cb, const wxString& cmd,
-    size_t flags = IProcessCreateDefault, const wxString& workingDir = wxEmptyString);
+                                              size_t flags = IProcessCreateDefault,
+                                              const wxString& workingDir = wxEmptyString);
 
 #endif // I_PROCESS_H

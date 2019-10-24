@@ -47,6 +47,7 @@ private:
     void RunLint();
     void QueuePhpcsCommand(const wxString& phpPath, const wxString& file);
     void QueuePhpmdCommand(const wxString& phpPath, const wxString& file);
+    void QueuePhpstanCommand(const wxString& phpPath, const wxString& file);
     void OnPhpSettingsChanged(clCommandEvent& event);
 
 protected:
@@ -60,7 +61,7 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual clToolBar* CreateToolBar(wxWindow* parent);
+    virtual void CreateToolBar(clToolBar* toolbar);
     /**
      * @brief Add plugin menu to the "Plugins" menu item in the menu bar
      */

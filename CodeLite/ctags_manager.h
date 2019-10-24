@@ -72,9 +72,8 @@ class IProcess;
 #define USE_TAGS_SQLITE3 1
 
 // send this event whenever the a tags file needs to be updated
-extern WXDLLIMPEXP_CL const wxEventType wxEVT_UPDATE_FILETREE_EVENT;
-extern WXDLLIMPEXP_CL const wxEventType wxEVT_TAGS_DB_UPGRADE;
-extern WXDLLIMPEXP_CL const wxEventType wxEVT_TAGS_DB_UPGRADE_INTER;
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_TAGS_DB_UPGRADE, wxCommandEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_TAGS_DB_UPGRADE_INTER, wxCommandEvent);
 
 struct DoxygenComment {
     wxString name;
@@ -467,7 +466,7 @@ public:
      * return tags belongs to given scope and kind
      * @param scopeName the scope to search
      * @param kind tags's kind to return
-     * @param tags [ouput] the result vector
+     * @param tags [output] the result vector
      * @param inherits set to true if you want inherited members as well members
      */
     void TagsByScope(const wxString& scopeName, const wxString& kind, std::vector<TagEntryPtr>& tags,
@@ -477,7 +476,7 @@ public:
      * return tags belongs to given scope and kind
      * @param scopeName the scope to search
      * @param kind list of tags kind to return
-     * @param tags [ouput] the result vector
+     * @param tags [output] the result vector
      * @param inherits set to true if you want inherited members as well members
      * @param include_anon included anonymous members (of Unions/structs/enums)
      */
@@ -488,7 +487,7 @@ public:
      * return tags belongs to given typeref and kind
      * @param scopeName the typeref to search
      * @param kind list of tags kind to return
-     * @param tags [ouput] the result vector
+     * @param tags [output] the result vector
      * @param inherits set to true if you want inherited members as well members
      * @param include_anon included anonymous members (of Unions/structs/enums)
      */

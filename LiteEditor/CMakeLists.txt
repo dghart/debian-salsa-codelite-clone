@@ -71,6 +71,10 @@ endif()
 set (EXE_PERM OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
 
 if(NOT APPLE)
+    install(FILES ${CL_SRC_ROOT}/codelite_open_helper.py DESTINATION ${CL_PREFIX}/bin PERMISSIONS ${EXE_PERM})
+endif()
+
+if(NOT APPLE)
     install(TARGETS codelite DESTINATION ${CL_PREFIX}/bin PERMISSIONS ${EXE_PERM})
     if (UNIX)
         install(FILES ${CL_SRC_ROOT}/Runtime/codelite_exec DESTINATION ${CL_PREFIX}/bin PERMISSIONS ${EXE_PERM})
@@ -80,9 +84,8 @@ if(NOT APPLE)
     endif (UNIX)
 
     ## codelite icons
-    install(FILES ${CL_SRC_ROOT}/Runtime/codelite-icons-fresh-farm.zip DESTINATION ${CL_PREFIX}/share/codelite)
-    install(FILES ${CL_SRC_ROOT}/Runtime/codelite-bitmaps.zip DESTINATION ${CL_PREFIX}/share/codelite)
-    install(FILES ${CL_SRC_ROOT}/Runtime/codelite-icons-dark.zip DESTINATION ${CL_PREFIX}/share/codelite)
+    install(FILES ${CL_SRC_ROOT}/Runtime/codelite-bitmaps-dark.zip DESTINATION ${CL_PREFIX}/share/codelite)
+    install(FILES ${CL_SRC_ROOT}/Runtime/codelite-bitmaps-light.zip DESTINATION ${CL_PREFIX}/share/codelite)
     install(FILES ${CL_SRC_ROOT}/Runtime/codelite-icons.zip DESTINATION ${CL_PREFIX}/share/codelite)
 
     ## License file
@@ -111,36 +114,36 @@ if(NOT APPLE)
         ## Install icons
         
         ## 32x32
-        install(FILES ${CL_SRC_ROOT}/bitmaps/32-codelite-logo@2x.png
+        install(FILES ${CL_SRC_ROOT}/bitmaps-light/32-codelite-logo@2x.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/32x32@2x/apps
                 RENAME codelite.png)
                 
-        install(FILES ${CL_SRC_ROOT}/bitmaps/32-codelite-logo.png
+        install(FILES ${CL_SRC_ROOT}/bitmaps-light/32-codelite-logo.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/32x32/apps
                 RENAME codelite.png)
         ## 64x64
-        install(FILES ${CL_SRC_ROOT}/bitmaps/64-codelite-logo@2x.png
+        install(FILES ${CL_SRC_ROOT}/bitmaps-light/64-codelite-logo@2x.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/64x64@2x/apps
                 RENAME codelite.png)
                 
-        install(FILES ${CL_SRC_ROOT}/bitmaps/64-codelite-logo.png
+        install(FILES ${CL_SRC_ROOT}/bitmaps-light/64-codelite-logo.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/64x64/apps
                 RENAME codelite.png)
                 
         ## 128x128
-        install(FILES ${CL_SRC_ROOT}/bitmaps/128-codelite-logo@2x.png
+        install(FILES ${CL_SRC_ROOT}/bitmaps-light/128-codelite-logo@2x.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/128x128@2x/apps
                 RENAME codelite.png)
                 
-        install(FILES ${CL_SRC_ROOT}/bitmaps/128-codelite-logo.png
+        install(FILES ${CL_SRC_ROOT}/bitmaps-light/128-codelite-logo.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/128x128/apps
                 RENAME codelite.png)
         ## 256x256
-        install(FILES ${CL_SRC_ROOT}/bitmaps/256-codelite-logo@2x.png
+        install(FILES ${CL_SRC_ROOT}/bitmaps-light/256-codelite-logo@2x.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/256x256@2x/apps
                 RENAME codelite.png)
                 
-        install(FILES ${CL_SRC_ROOT}/bitmaps/256-codelite-logo.png
+        install(FILES ${CL_SRC_ROOT}/bitmaps-light/256-codelite-logo.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/256x256/apps
                 RENAME codelite.png)
 
@@ -176,9 +179,10 @@ if(NOT APPLE)
         if (${WX_LIBSOUTPUT} MATCHES "^-L.+") # In recent, multi-architecture, distro versions it'll start with -L/foo/bar
             string(REGEX REPLACE "^-L([^ ;]+).*" "\\1" WX_LIBS_DIR ${WX_LIBSOUTPUT})
         else()
-			# In recent fedoras, which do things with wx-config that might politely be described as 'strange,  wx-config doesn't emit -L/usr/lib64
-			find_file( USRLIBSIXTYFOUR "libwx_baseu-3.1.so" "/usr/lib64" )
-			if ( NOT USRLIBSIXTYFOUR MATCHES ".*NOTFOUND" )
+			# In recent fedoras, which do things with wx-config that might politely be described as 'strange',  wx-config doesn't emit -L/usr/lib64
+			#find_file( USRLIBSIXTYFOUR "libwx_baseu-3.1.so" "/usr/lib64" ) No, this can't cope with e.g. libwx_base2u, or 3.1.3<SomeGitVersion> and find_file doesn't do globs/regex
+			execute_process(COMMAND "find /usr/lib64/ -iname libwx_base*3.1*" OUTPUT_VARIABLE wxBASELIBDIR)
+			if ( NOT wxBASELIBDIR MATCHES ".*NOTFOUND" )
 				set(WX_LIBS_DIR "/usr/lib64")
 			else()
 				set(WX_LIBS_DIR "/usr/lib") # ${WX_LIBS_DIR} will be empty for older, non multi-architecture, distro versions that still use /usr/lib
@@ -195,13 +199,20 @@ if(NOT APPLE)
             if (${ITEM} MATCHES "-lwx_.+" AND NOT ${ITEM} MATCHES "-l.+_all.+")
                 string(REGEX REPLACE "^-l" "lib" LIBITEM ${ITEM}) 
                 # openSUSE have started to use libwx_gtk2u_xrc-suse.so instead of libwx_gtk2u_xrc-3.1, so allow for extra text there
-                string(REGEX REPLACE "(libwx_[a-z0-9_]+-)(.+)" "\\1*\\2" LIBITEMADJ ${LIBITEM})
+                string(REGEX REPLACE "(libwx_[a-z0-9._]+-)(.+)" "\\1*\\2" LIBITEMADJ ${LIBITEM})
                 list(APPEND WX_LIBS_ALL ${WX_LIBS_DIR}/${LIBITEMADJ}*.so*) # we need the terminal [.]so because the rpms contain both dynamic and static libs
             endif()
         endforeach()
 
         file(GLOB wxfilepaths ${WX_LIBS_ALL})
         install(FILES ${wxfilepaths} DESTINATION ${CL_PREFIX}/${CL_INSTALL_LIBDIR}/codelite)
+        #install(CODE "set(INSTALL_DIR \"${CL_PREFIX}/${CL_INSTALL_LIBDIR}/codelite\")")
+        #install(FILES ${CL_SRC_ROOT}/Runtime/codelite-fix-rpath DESTINATION 
+        #        ${CL_PREFIX}/${CL_INSTALL_LIBDIR}/codelite 
+        #        PERMISSIONS 
+        #        ${EXE_PERM})
+        #install(CODE "set(SOURCE_DIR \"${CL_SRC_ROOT}\")")
+        #install(SCRIPT "${CL_SRC_ROOT}/Runtime/codelite_post_install.cmake")
     endif()
 
     if ( USE_CLANG AND MINGW )

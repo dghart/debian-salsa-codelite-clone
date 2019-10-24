@@ -6,20 +6,24 @@
 #include <wx/xrc/xmlres.h>
 #include "wxCodeCompletionBoxEntry.h"
 #include "wxCodeCompletionBoxManager.h"
-#include "json_node.h"
+#include "JSON.h"
 #include <wx/tokenzr.h>
 #include <set>
 #include <algorithm>
+#include "codelite_events.h"
+#include "webtools.h"
 
-CSSCodeCompletion::CSSCodeCompletion()
-    : m_isEnabled(true)
+CSSCodeCompletion::CSSCodeCompletion(WebTools* plugin)
+    : ServiceProvider("WebTools: CSS", eServiceType::kCodeCompletion)
+    , m_isEnabled(true)
+    , m_plugin(plugin)
 {
-    JSONRoot root(CSS_JSON);
-    JSONElement arr = root.toElement();
+    JSON root(CSS_JSON);
+    JSONItem arr = root.toElement();
     int count = arr.arraySize();
     std::set<wxString> valuesSet;
     for(int i = 0; i < count; ++i) {
-        JSONElement entry = arr.arrayItem(i);
+        JSONItem entry = arr.arrayItem(i);
         if(!entry.hasNamedObject("name")) continue;
 
         Entry e;
@@ -38,9 +42,11 @@ CSSCodeCompletion::CSSCodeCompletion()
         e.property = v;
         m_entries.push_back(e);
     });
+
+    Bind(wxEVT_CC_CODE_COMPLETE, &CSSCodeCompletion::OnCodeComplete, this);
 }
 
-CSSCodeCompletion::~CSSCodeCompletion() {}
+CSSCodeCompletion::~CSSCodeCompletion() { Unbind(wxEVT_CC_CODE_COMPLETE, &CSSCodeCompletion::OnCodeComplete, this); }
 
 void CSSCodeCompletion::CssCodeComplete(IEditor* editor)
 {
@@ -88,8 +94,8 @@ void CSSCodeCompletion::CssCodeComplete(IEditor* editor)
                 wxCodeCompletionBoxEntry::Ptr_t entry = wxCodeCompletionBoxEntry::New(values.Item(i), 0);
                 entries.push_back(entry);
             }
-            wxCodeCompletionBoxManager::Get().ShowCompletionBox(
-                editor->GetCtrl(), entries, bitmaps, 0, editor->GetCurrentPosition(), this);
+            wxCodeCompletionBoxManager::Get().ShowCompletionBox(editor->GetCtrl(), entries, bitmaps, 0,
+                                                                editor->GetCurrentPosition(), this);
         }
     } else {
         wxCodeCompletionBox::BmpVec_t bitmaps;
@@ -117,4 +123,15 @@ wxString CSSCodeCompletion::GetPreviousWord(IEditor* editor, int pos)
     wxArrayString words = ::wxStringTokenize(line, "\r\n \t", wxTOKEN_STRTOK);
     if(words.IsEmpty()) return "";
     return words.Last();
+}
+
+void CSSCodeCompletion::OnCodeComplete(clCodeCompletionEvent& event)
+{
+    event.Skip();
+    IEditor* editor = dynamic_cast<IEditor*>(event.GetEditor());
+    if(editor && m_plugin->IsCSSFile(editor)) {
+        // CSS code completion
+        event.Skip(false);
+        CssCodeComplete(editor);
+    }
 }

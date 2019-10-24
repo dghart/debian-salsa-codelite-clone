@@ -23,42 +23,43 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "precompiled_header.h"
+#include "ColoursAndFontsManager.h"
+#include "CompilerLocatorCygwin.h"
+#include "SocketAPI/clSocketClient.h"
+#include "app.h"
+#include "asyncprocess.h" // IProcess
 #include "autoversion.h"
+#include "clInitializeDialog.h"
+#include "clKeyboardManager.h"
+#include "cl_config.h"
 #include "cl_registry.h"
+#include "conffilelocator.h"
+#include "dirsaver.h"
+#include "editor_config.h"
+#include "environmentconfig.h"
+#include "event_notifier.h"
+#include "evnvarlist.h"
+#include "exelocator.h"
 #include "file_logger.h"
 #include "fileextmanager.h"
-#include "evnvarlist.h"
-#include "environmentconfig.h"
-#include "conffilelocator.h"
-#include "app.h"
-#include "dirsaver.h"
-#include "xmlutils.h"
-#include "editor_config.h"
-#include "wx_xml_compatibility.h"
-#include "manager.h"
-#include "exelocator.h"
-#include "macros.h"
-#include "stack_walker.h"
-#include "procutils.h"
-#include "globals.h"
 #include "frame.h"
-#include "asyncprocess.h" // IProcess
-#include "new_build_tab.h"
-#include "cl_config.h"
 #include "globals.h"
-#include <CompilerLocatorMinGW.h>
-#include <wx/regex.h>
-#include "CompilerLocatorCygwin.h"
-#include "ColoursAndFontsManager.h"
-#include "clKeyboardManager.h"
-#include "clInitializeDialog.h"
-#include "event_notifier.h"
-#include "clsplashscreen.h"
-#include <wx/persist.h>
+#include "macros.h"
+#include "manager.h"
+#include "new_build_tab.h"
+#include "precompiled_header.h"
+#include "procutils.h"
 #include "singleinstancethreadjob.h"
-#include "SocketAPI/clSocketClient.h"
+#include "stack_walker.h"
+#include "wx_xml_compatibility.h"
+#include "xmlutils.h"
+#include <CompilerLocatorMinGW.h>
 #include <wx/imagjpeg.h>
+#include <wx/persist.h>
+#include <wx/regex.h>
+#include "fileexplorer.h"
+#include "workspace_pane.h"
+#include "clSystemSettings.h"
 
 //#define __PERFORMANCE
 #include "performance.h"
@@ -68,8 +69,8 @@
 //////////////////////////////////////////////
 
 #if defined(__WXMAC__) || defined(__WXGTK__)
-#include <sys/wait.h>
 #include <signal.h> // sigprocmask
+#include <sys/wait.h>
 #endif
 
 #ifdef __WXMSW__
@@ -245,35 +246,20 @@ CodeLiteApp::CodeLiteApp(void)
     , m_pluginLoadPolicy(PP_All)
     , m_persistencManager(NULL)
     , m_startedInDebuggerMode(false)
-#ifdef __WXMSW__
-    , m_handler(NULL)
-    , m_user32Dll(NULL)
-#endif
 {
 }
-
 CodeLiteApp::~CodeLiteApp(void)
 {
     wxImage::CleanUpHandlers();
-#ifdef __WXMSW__
-    if(m_handler) {
-        FreeLibrary(m_handler);
-        m_handler = NULL;
-    }
-#endif
-    if(m_singleInstance) {
-        delete m_singleInstance;
-    }
+    if(m_singleInstance) { delete m_singleInstance; }
     wxDELETE(m_persistencManager);
 }
 
-#ifdef __WXMSW__
-typedef BOOL WINAPI (*SetProcessDPIAwareFunc)();
-#endif
+static wxLogNull NO_LOG;
 
 bool CodeLiteApp::OnInit()
 {
-#if defined(__WXMSW__) && !defined(NDEBUG)
+#if defined(__WXMSW__) && CL_DEBUG_BUILD
     SetAppName(wxT("codelite-dbg"));
 #elif defined(__WXOSX__)
     SetAppName(wxT("CodeLite"));
@@ -293,6 +279,7 @@ bool CodeLiteApp::OnInit()
     sigset_t mask_set;
     sigemptyset(&mask_set);
     sigaddset(&mask_set, SIGPIPE);
+    sigaddset(&mask_set, SIGTTIN);
     sigprocmask(SIG_SETMASK, &mask_set, NULL);
 
     // Handle sigchld
@@ -306,6 +293,9 @@ bool CodeLiteApp::OnInit()
 
 #endif
     wxSocketBase::Initialize();
+    
+    // Redirect all error messages to stderr
+    wxLog::SetActiveTarget(new wxLogStderr());
 
 #if wxUSE_ON_FATAL_EXCEPTION
     // trun on fatal exceptions handler
@@ -313,23 +303,13 @@ bool CodeLiteApp::OnInit()
 #endif
 
 #ifdef __WXMSW__
-
-    m_user32Dll = LoadLibrary(L"User32.dll");
-    if(m_user32Dll) {
-        SetProcessDPIAwareFunc pFunc = (SetProcessDPIAwareFunc)GetProcAddress(m_user32Dll, "SetProcessDPIAware");
-        if(pFunc) {
-            pFunc();
-        }
-        FreeLibrary(m_user32Dll);
-        m_user32Dll = NULL;
+    typedef BOOL WINAPI (*SetProcessDPIAwareFunc)();
+    HINSTANCE user32Dll = LoadLibrary(L"User32.dll");
+    if(user32Dll) {
+        SetProcessDPIAwareFunc pFunc = (SetProcessDPIAwareFunc)GetProcAddress(user32Dll, "SetProcessDPIAware");
+        if(pFunc) { pFunc(); }
+        FreeLibrary(user32Dll);
     }
-
-    // as described in http://jrfonseca.dyndns.org/projects/gnu-win32/software/drmingw/
-    // load the exception handler dll so we will get Dr MinGW at runtime
-    m_handler = LoadLibrary(wxT("exchndl.dll"));
-
-// Enable this process debugging priviliges
-// EnableDebugPriv();
 #endif
 
     // Init resources and add the PNG handler
@@ -366,14 +346,10 @@ bool CodeLiteApp::OnInit()
         }
     }
 
-    if(parser.Found(wxT("d"), &newDataDir)) {
-        clStandardPaths::Get().SetUserDataDir(newDataDir);
-    }
+    if(parser.Found(wxT("d"), &newDataDir)) { clStandardPaths::Get().SetUserDataDir(newDataDir); }
 
     // check for single instance
-    if(!IsSingleInstance(parser)) {
-        return false;
-    }
+    if(!IsSingleInstance(parser)) { return false; }
 
     if(parser.Found(wxT("h"))) {
         // print usage
@@ -557,7 +533,9 @@ bool CodeLiteApp::OnInit()
         wxFileName::Mkdir(clStandardPaths::Get().GetUserDataDir(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
     }
 #endif
-
+    
+    clSystemSettings::Get(); // Initialise the custom settings _before_ we start constructing the main frame
+    
     Manager* mgr = ManagerST::Get();
     EditorConfig* cfg = EditorConfigST::Get();
     cfg->SetInstallDir(mgr->GetInstallDir());
@@ -569,26 +547,6 @@ bool CodeLiteApp::OnInit()
         CL_ERROR(wxT("Failed to load configuration file: %s/config/codelite.xml"), wxGetCwd().c_str());
         return false;
     }
-
-#if !defined(__WXMAC__) && defined(NDEBUG)
-    // Now all image handlers have been added, show splash screen; but only when using Release builds of codelite
-    // Also, if started as debugger interface, disable the splash screen
-    if(!IsStartedInDebuggerMode()) {
-        GeneralInfo inf;
-        cfg->ReadObject(wxT("GeneralInfo"), &inf);
-        if(inf.GetFlags() & CL_SHOW_SPLASH) {
-            wxBitmap bitmap;
-            wxString splashName(clStandardPaths::Get().GetDataDir() + wxT("/images/splashscreen.png"));
-            if(bitmap.LoadFile(splashName, wxBITMAP_TYPE_PNG)) {
-                wxString mainTitle = CODELITE_VERSION_STRING;
-                clSplashScreen::g_splashScreen =
-                    new clSplashScreen(clSplashScreen::CreateSplashScreenBitmap(bitmap),
-                                       wxSPLASH_CENTRE_ON_SCREEN | wxSPLASH_NO_TIMEOUT, -1, NULL, wxID_ANY);
-                wxYield();
-            }
-        }
-    }
-#endif
 
 #ifdef __WXGTK__
     bool redirect = clConfig::Get().Read(kConfigRedirectLogOutput, true);
@@ -613,7 +571,7 @@ bool CodeLiteApp::OnInit()
     vars.InsertVariable(wxT("Default"), wxT("CodeLiteDir"), ManagerST::Get()->GetInstallDir());
     EnvironmentConfig::Instance()->WriteObject(wxT("Variables"), &vars);
 
-//---------------------------------------------------------
+    //---------------------------------------------------------
 
 #ifdef __WXMSW__
 
@@ -632,9 +590,7 @@ bool CodeLiteApp::OnInit()
             const wxLanguageInfo* info = wxLocale::FindLanguageInfo(preferredLocalename);
             if(info) {
                 preferredLocale = info->Language;
-                if(preferredLocale == wxLANGUAGE_UNKNOWN) {
-                    preferredLocale = wxLANGUAGE_ENGLISH;
-                }
+                if(preferredLocale == wxLANGUAGE_UNKNOWN) { preferredLocale = wxLANGUAGE_ENGLISH; }
             }
         }
 
@@ -692,11 +648,11 @@ bool CodeLiteApp::OnInit()
 
     // Make sure that the colours and fonts manager is instantiated
     ColoursAndFontsManager::Get().Load();
-    
+
     // Merge the user settings with any new settings
     ColoursAndFontsManager::Get().ImportLexersFile(wxFileName(clStandardPaths::Get().GetLexersDir(), "lexers.json"),
                                                    false);
-
+    
     // Create the main application window
     clMainFrame::Initialize((parser.GetParamCount() == 0) && !IsStartedInDebuggerMode());
     m_pMainFrame = clMainFrame::Get();
@@ -713,22 +669,12 @@ bool CodeLiteApp::OnInit()
 
     if(!IsStartedInDebuggerMode()) {
         for(size_t i = 0; i < parser.GetParamCount(); i++) {
-            wxString argument = parser.GetParam(i);
-
-            // convert to full path and open it
-            wxFileName fn(argument);
-            fn.MakeAbsolute(ManagerST::Get()->GetOriginalCwd());
-
-            if(fn.GetExt() == wxT("workspace")) {
-                ManagerST::Get()->OpenWorkspace(fn.GetFullPath());
-            } else {
-                clMainFrame::Get()->GetMainBook()->OpenFile(fn.GetFullPath(), wxEmptyString, lineNumber);
-            }
+            OpenItem(parser.GetParam(i), lineNumber);
         }
     }
 
-    wxLogMessage(wxString::Format(wxT("Install path: %s"), ManagerST::Get()->GetInstallDir().c_str()));
-    wxLogMessage(wxString::Format(wxT("Startup Path: %s"), ManagerST::Get()->GetStartupDirectory().c_str()));
+    clLogMessage(wxString::Format(wxT("Install path: %s"), ManagerST::Get()->GetInstallDir().c_str()));
+    clLogMessage(wxString::Format(wxT("Startup Path: %s"), ManagerST::Get()->GetStartupDirectory().c_str()));
 
 #ifdef __WXGTK__
     // Needed on GTK
@@ -739,8 +685,7 @@ bool CodeLiteApp::OnInit()
 
     // Especially with the OutputView open, CodeLite was consuming 50% of a cpu, mostly in updateui
     // The next line limits the frequency of UpdateUI events to every 100ms
-    wxUpdateUIEvent::SetUpdateInterval(100);
-
+    wxUpdateUIEvent::SetUpdateInterval(200);
     return TRUE;
 }
 
@@ -814,7 +759,7 @@ bool CodeLiteApp::IsSingleInstance(const wxCmdLineParser& parser)
                 bool dummy;
                 client.ConnectRemote("127.0.0.1", SINGLE_INSTANCE_PORT, dummy);
 
-                JSONRoot json(cJSON_Object);
+                JSON json(cJSON_Object);
                 json.toElement().addProperty("args", files);
                 client.WriteMessage(json.toElement().format());
                 return false;
@@ -928,9 +873,7 @@ wxString CodeLiteApp::DoFindMenuFile(const wxString& installDirectory, const wxS
             wxXmlDocument doc;
             if(doc.Load(menuFile.GetFullPath())) {
                 wxString version = doc.GetRoot()->GetPropVal(wxT("version"), wxT("1.0"));
-                if(version != requiredVersion) {
-                    return defaultMenuFile;
-                }
+                if(version != requiredVersion) { return defaultMenuFile; }
             }
         }
         return menuFile.GetFullPath();
@@ -1068,4 +1011,43 @@ void CodeLiteApp::PrintUsage(const wxCmdLineParser& parser)
     wxString usageString = parser.GetUsageString();
     std::cout << usageString.mb_str(wxConvUTF8).data() << std::endl;
 #endif
+}
+
+void CodeLiteApp::OpenFolder(const wxString& path)
+{
+    wxArrayString files;
+    if(wxDir::GetAllFiles(path, &files, "*.workspace", wxDIR_FILES) == 1) {
+        ManagerST::Get()->OpenWorkspace(files.Item(0));
+    } else {
+        clMainFrame::Get()->GetFileExplorer()->OpenFolder(path);
+        clMainFrame::Get()->GetWorkspacePane()->SelectTab(_("Explorer"));
+    }
+}
+
+void CodeLiteApp::OpenFile(const wxString& path, long lineNumber)
+{
+    wxFileName fn(path);
+    if(fn.GetExt() == wxT("workspace")) {
+        ManagerST::Get()->OpenWorkspace(fn.GetFullPath());
+    } else {
+        clMainFrame::Get()->GetMainBook()->OpenFile(fn.GetFullPath(), wxEmptyString, lineNumber);
+    }
+}
+
+void CodeLiteApp::OpenItem(const wxString& path, long lineNumber)
+{
+    // convert to full path and open it
+    if(path == ".") {
+        // Open the current folder
+        OpenFolder(ManagerST::Get()->GetOriginalCwd());
+    } else {
+        wxFileName fn(path);
+        fn.MakeAbsolute(ManagerST::Get()->GetOriginalCwd());
+        if(wxFileName::DirExists(fn.GetFullPath())) {
+            OpenFolder(fn.GetFullPath());
+
+        } else {
+            OpenFile(fn.GetFullPath(), lineNumber);
+        }
+    }
 }

@@ -39,7 +39,10 @@ public:
     virtual wxString Type() const;
     virtual void FromResultSet(wxSQLite3ResultSet& res);
     virtual void PrintStdout(int indent) const;
-
+    
+    void FromJSON(const JSONItem& json);
+    JSONItem ToJSON() const;
+    
 protected:
     // The local variabels defined in this function of type
     // PHPEntityVariable
@@ -74,6 +77,8 @@ public:
      * @param db
      */
     virtual void Store(PHPLookupTable* lookup);
+    
+    virtual wxString ToTooltip() const;
 };
 
 #endif // PHPENTITYFUNCTION_H

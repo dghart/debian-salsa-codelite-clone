@@ -25,11 +25,11 @@
 #ifndef _ProcessReaderThread_H_
 #define _ProcessReaderThread_H_
 
-#include <deque>
-#include "wx/thread.h"
-#include "wx/event.h"
-#include "codelite_exports.h"
 #include "cl_command_event.h"
+#include "codelite_exports.h"
+#include "wx/event.h"
+#include "wx/thread.h"
+#include <deque>
 
 class IProcess;
 /**
@@ -41,6 +41,9 @@ class WXDLLIMPEXP_CL ProcessReaderThread : public wxThread
 protected:
     wxEvtHandler* m_notifiedWindow;
     IProcess* m_process;
+
+protected:
+    void NotifyTerminated();
 
 public:
     /**
@@ -88,6 +91,7 @@ public:
 };
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_ASYNC_PROCESS_OUTPUT, clProcessEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_ASYNC_PROCESS_STDERR, clProcessEvent);
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_ASYNC_PROCESS_TERMINATED, clProcessEvent);
 
 #endif // _ProcessReaderThread_H_

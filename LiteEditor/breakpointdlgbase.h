@@ -4,8 +4,8 @@
 // Do not modify this file by hand!
 //////////////////////////////////////////////////////////////////////
 
-#ifndef CODELITE_LITEEDITOR_BREAKPOINTDLG_BASE_CLASSES_H
-#define CODELITE_LITEEDITOR_BREAKPOINTDLG_BASE_CLASSES_H
+#ifndef _CODELITE_LITEEDITOR_BREAKPOINTDLG_BASE_CLASSES_H
+#define _CODELITE_LITEEDITOR_BREAKPOINTDLG_BASE_CLASSES_H
 
 #include <wx/settings.h>
 #include <wx/xrc/xmlres.h>
@@ -13,9 +13,10 @@
 #include <wx/panel.h>
 #include <wx/artprov.h>
 #include <wx/sizer.h>
-#include <wx/listctrl.h>
+#include <wx/dataview.h>
 #include "breakpointslistctrl.h"
 #include <wx/button.h>
+#include "clThemedButton.h"
 #include <wx/dialog.h>
 #include <wx/iconbndl.h>
 #include <wx/stattext.h>
@@ -42,22 +43,19 @@
 #define WXC_FROM_DIP(x) x
 #endif
 
-
 class BreakpointTabBase : public wxPanel
 {
 protected:
-    BreakpointsListctrl* m_listCtrlBreakpoints;
-    wxButton* m_buttonAdd;
-    wxButton* m_buttonEdit;
-    wxButton* m_buttonDelete;
-    wxButton* m_buttonDeleteAll;
-    wxButton* m_buttonApplyPending;
+    BreakpointsListctrl* m_dvListCtrlBreakpoints;
+    clThemedButton* m_buttonAdd;
+    clThemedButton* m_buttonEdit;
+    clThemedButton* m_buttonDelete;
+    clThemedButton* m_buttonDeleteAll;
+    clThemedButton* m_buttonApplyPending;
 
 protected:
-    virtual void OnItemActivated(wxListEvent& event) { event.Skip(); }
-    virtual void OnItemDeselected(wxListEvent& event) { event.Skip(); }
-    virtual void OnItemSelected(wxListEvent& event) { event.Skip(); }
-    virtual void OnContextMenu(wxContextMenuEvent& event) { event.Skip(); }
+    virtual void OnContextMenu(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnBreakpointActivated(wxDataViewEvent& event) { event.Skip(); }
     virtual void OnAdd(wxCommandEvent& event) { event.Skip(); }
     virtual void OnEdit(wxCommandEvent& event) { event.Skip(); }
     virtual void OnDelete(wxCommandEvent& event) { event.Skip(); }
@@ -65,16 +63,16 @@ protected:
     virtual void OnApplyPending(wxCommandEvent& event) { event.Skip(); }
 
 public:
-    BreakpointsListctrl* GetListCtrlBreakpoints() { return m_listCtrlBreakpoints; }
-    wxButton* GetButtonAdd() { return m_buttonAdd; }
-    wxButton* GetButtonEdit() { return m_buttonEdit; }
-    wxButton* GetButtonDelete() { return m_buttonDelete; }
-    wxButton* GetButtonDeleteAll() { return m_buttonDeleteAll; }
-    wxButton* GetButtonApplyPending() { return m_buttonApplyPending; }
-    BreakpointTabBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxTAB_TRAVERSAL);
+    BreakpointsListctrl* GetDvListCtrlBreakpoints() { return m_dvListCtrlBreakpoints; }
+    clThemedButton* GetButtonAdd() { return m_buttonAdd; }
+    clThemedButton* GetButtonEdit() { return m_buttonEdit; }
+    clThemedButton* GetButtonDelete() { return m_buttonDelete; }
+    clThemedButton* GetButtonDeleteAll() { return m_buttonDeleteAll; }
+    clThemedButton* GetButtonApplyPending() { return m_buttonApplyPending; }
+    BreakpointTabBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
+                      const wxSize& size = wxSize(-1, -1), long style = wxTAB_TRAVERSAL);
     virtual ~BreakpointTabBase();
 };
-
 
 class BreakpointPropertiesDlgBase : public wxDialog
 {
@@ -150,7 +148,10 @@ public:
     wxSpinCtrl* GetSpinIgnore() { return m_spinIgnore; }
     wxButton* GetButton6() { return m_button6; }
     wxButton* GetButton7() { return m_button7; }
-    BreakpointPropertiesDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Breakpoint and Watchpoint Properties"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    BreakpointPropertiesDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY,
+                                const wxString& title = _("Breakpoint and Watchpoint Properties"),
+                                const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                                long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~BreakpointPropertiesDlgBase();
 };
 

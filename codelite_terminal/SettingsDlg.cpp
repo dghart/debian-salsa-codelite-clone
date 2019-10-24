@@ -1,34 +1,25 @@
 #include "SettingsDlg.h"
-#include "my_config.h"
+#include "wxTerminalOptions.h"
+#include <drawingutils.h>
 
 SettingsDlg::SettingsDlg(wxWindow* parent)
     : SettingsDlgBase(parent)
 {
-    MyConfig config;
-    m_bg_colour = config.GetBgColour();
-    m_fg_colour = config.GetFgColour();
-    m_font      = config.GetFont();
-    
-    m_fontPicker->SetFont( m_font );
-    m_colourPickerBG->SetColour( m_bg_colour );
-    m_colourPickerFG->SetColour( m_fg_colour );
+    Load();
 }
 
-SettingsDlg::~SettingsDlg()
+SettingsDlg::~SettingsDlg() {}
+
+void SettingsDlg::Load()
 {
+    m_fontPicker->SetSelectedFont(wxTerminalOptions::Get().GetFont());
+    m_colourPickerBG->SetColour(wxTerminalOptions::Get().GetBgColour());
+    m_colourPickerFG->SetColour(wxTerminalOptions::Get().GetTextColour());
 }
 
-void SettingsDlg::OnFontSelected(wxFontPickerEvent& event)
+void SettingsDlg::Save()
 {
-    m_font = event.GetFont();
-}
-
-void SettingsDlg::OnBGColour(wxColourPickerEvent& event)
-{
-    m_bg_colour = event.GetColour();
-}
-
-void SettingsDlg::OnFGColour(wxColourPickerEvent& event)
-{
-    m_fg_colour = event.GetColour();
+    wxTerminalOptions::Get().SetFont(GetFontPicker()->GetSelectedFont());
+    wxTerminalOptions::Get().SetBgColour(GetColourPickerBG()->GetColour());
+    wxTerminalOptions::Get().SetTextColour(GetColourPickerFG()->GetColour());
 }

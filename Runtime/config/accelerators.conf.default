@@ -48,6 +48,9 @@ fold_all|View|Toggle All Folds|
 fold_topmost_in_selection|View|Toggle All Topmost Folds in Selection|
 fold_all_in_selection|View|Toggle Every Fold in Selection|
 display_eol|View|Display EOL|
+wxID_ZOOM_IN|View::Zoom|Zoom In|
+wxID_ZOOM_OUT|View::Zoom|Zoom Out|
+wxID_ZOOM_FIT|View::Zoom|Reset Zoom|Ctrl-0
 whitepsace_invisible|View::Show Whitespace|Invisible|Alt-F1
 whitepsace_always|View::Show Whitespace|Show Always|Alt-F2
 whitespace_visiable_after_indent|View::Show Whitespace|Visible After First Indent|Alt-F3
@@ -76,6 +79,7 @@ find_next_at_caret|Search::Find and Replace|Find Word At Caret|
 find_previous_at_caret|Search::Find and Replace|Find Word At Caret Backward|
 grep_current_file|Search|Grep Selection in the Current File|Ctrl-Shift-G
 grep_current_workspace|Search|Grep Selection in the Workspace|
+web_search_selection|Search|Search for Selection with default browser|Ctrl-Shift-W
 next_fif_match|Search::Find In Files|Go to Next 'Find In File' Match|F8
 previous_fif_match|Search::Find In Files|Go to Previous 'Find In File' Match|Ctrl-F8
 ID_GOTO_ANYTHING|Search|Goto Anything|Ctrl-Shift-P
@@ -171,7 +175,8 @@ retag_file|C++|Re-Tag File|
 select_next|Search|Select Next Occurrence|Ctrl-F3
 select_previous|Search|Select Previous Occurrence|Ctrl-Shift-F3
 hide_status_bar|View|Show Status Bar|
-hide_tool_bar|View|Show ToolBar|
+hide_tool_bar|View|Show Tool Bar|
+show_menu_bar|View|Show Menu Bar|
 unittestpp_new_simple_test|Plugins::UnitTest++|Create new test...|
 unittestpp_new_class_test|Plugins::UnitTest++|Create tests for class...|
 mark_project_as_ut|Plugins::UnitTest++|Mark this project as UnitTest++ project|

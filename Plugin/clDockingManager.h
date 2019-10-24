@@ -26,16 +26,17 @@
 #ifndef CLDOCKINGMANAGER_H
 #define CLDOCKINGMANAGER_H
 
+#include "Notebook.h"
 #include "codelite_exports.h"
 #include <wx/aui/framemanager.h>
-#include "Notebook.h"
 
 class WXDLLIMPEXP_SDK clDockingManager : public wxAuiManager
 {
 protected:
     void OnRender(wxAuiManagerEvent& event);
     void OnButtonClicked(wxAuiManagerEvent& event);
-    
+    void OnAuiPaneActivated(wxAuiManagerEvent& e);
+
     void ShowWorkspaceOpenTabMenu();
     void ShowOutputViewOpenTabMenu();
     

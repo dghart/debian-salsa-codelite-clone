@@ -55,7 +55,6 @@ protected:
     LocalsView* m_xdebugLocalsView;
     EvalPane* m_xdebugEvalPane;
     bool m_showWelcomePage;
-    bool m_toggleToolbar;
 #if USE_SFTP
     PhpSFTPHandler::Ptr_t m_sftpHandler;
 #endif //USE_SFTP
@@ -88,10 +87,9 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual clToolBar* CreateToolBar(wxWindow* parent);
+    virtual void CreateToolBar(clToolBar* toolbar);
     virtual void CreatePluginMenu(wxMenu* pluginsMenu);
     virtual void HookPopupMenu(wxMenu* menu, MenuType type);
-    virtual void UnHookPopupMenu(wxMenu* menu, MenuType type);
     virtual void UnPlug();
     void RunXDebugDiagnostics();
 
@@ -119,7 +117,6 @@ public:
     void OnGetActiveProjectFiles(wxCommandEvent& e);
     void OnNewProject(clNewProjectEvent& e);
     void OnNewProjectFinish(clNewProjectEvent& e);
-    void OnFindInFilesDismissed(clCommandEvent& e);
     void OnRunXDebugDiagnostics(wxCommandEvent& e);
     void OnMenuCommand(wxCommandEvent& e);
     void OnXDebugShowBreakpointsWindow(wxCommandEvent& e);

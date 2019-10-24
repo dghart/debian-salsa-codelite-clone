@@ -35,7 +35,7 @@
 #include <set>
 #include "macros.h"
 
-class LEditor;
+class clEditor;
 
 /**
  * \ingroup LiteEditor
@@ -52,7 +52,7 @@ class LEditor;
 class ContextBase : public wxEvtHandler
 {
 protected:
-    LEditor* m_container;
+    clEditor* m_container;
     wxString m_name;
     wxString m_selectedWord;
     std::vector<wxMenuItem*> m_dynItems;
@@ -76,9 +76,15 @@ protected:
 
 public:
     // ctor-dtor
-    ContextBase(LEditor* container);
+    ContextBase(clEditor* container);
     ContextBase(const wxString& name);
+
     virtual ~ContextBase();
+
+    /**
+     * @brief user typed '@' inside a block comment. Code complete possible keywords
+     */
+    virtual void BlockCommentComplete();
 
     /**
      * @brief return true if str is a string that should trigger a code completion
@@ -94,16 +100,16 @@ public:
     /**
      * Return the context parent control
      */
-    LEditor& GetCtrl() { return *m_container; }
+    clEditor& GetCtrl() { return *m_container; }
 
-    LEditor& GetCtrl() const { return *m_container; }
+    clEditor& GetCtrl() const { return *m_container; }
     /**
      * Return the context name
      */
     const wxString& GetName() const { return m_name; }
 
     // every Context derived class must implement the following methods
-    virtual ContextBase* NewInstance(LEditor* container) = 0;
+    virtual ContextBase* NewInstance(clEditor* container) = 0;
     virtual void ApplySettings() = 0;
 
     // functions with default implementation:
@@ -112,7 +118,6 @@ public:
     virtual void OnCalltipCancel(){};
     virtual void OnDwellEnd(wxStyledTextEvent& event) { event.Skip(); }
     virtual void OnDbgDwellEnd(wxStyledTextEvent& event) { event.Skip(); }
-    virtual void OnDwellStart(wxStyledTextEvent& event) { event.Skip(); }
     virtual void OnDbgDwellStart(wxStyledTextEvent& event) { event.Skip(); }
     virtual void OnKeyDown(wxKeyEvent& event) { event.Skip(); }
     virtual void AddMenuDynamicContent(wxMenu* WXUNUSED(menu)) {}
@@ -135,9 +140,14 @@ public:
     virtual bool IsAtLineComment() const { return false; }
     virtual void AutoIndent(const wxChar&);
     virtual void AutoAddComment();
-    virtual void CompleteWord() {}
-    virtual void CodeComplete(long pos = wxNOT_FOUND) { wxUnusedVar(pos); }
-    virtual void GotoDefinition() {}
+    virtual bool CompleteWord() { return false; }
+    virtual bool CodeComplete(long pos = wxNOT_FOUND)
+    {
+        wxUnusedVar(pos);
+        return false;
+    }
+    virtual bool GetHoverTip(int pos) { return false; }
+    virtual bool GotoDefinition() { return false; }
     virtual TagEntryPtr GetTagAtCaret(bool scoped, bool impl) { return NULL; }
     virtual wxString GetCurrentScopeName() { return wxEmptyString; }
     virtual void SemicolonShift() {}

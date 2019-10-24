@@ -24,6 +24,7 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "clStrings.h"
 #include "clTabTogglerHelper.h"
+#include "detachedpanesinfo.h"
 #include "dockablepanemenumanager.h"
 #include "editor_config.h"
 #include "event_notifier.h"
@@ -42,14 +43,9 @@
 #include <wx/dcbuffer.h>
 #include <wx/xrc/xmlres.h>
 
-#if HAS_LIBCLANG
-#include "ClangOutputTab.h"
-#endif
-
 OutputPane::OutputPane(wxWindow* parent, const wxString& caption)
     : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(200, 250))
     , m_caption(caption)
-    , m_logTargetOld(NULL)
     , m_buildInProgress(false)
 {
     CreateGUIControls();
@@ -63,7 +59,6 @@ OutputPane::OutputPane(wxWindow* parent, const wxString& caption)
 
 OutputPane::~OutputPane()
 {
-    delete wxLog::SetActiveTarget(m_logTargetOld);
     EventNotifier::Get()->Disconnect(wxEVT_EDITOR_CLICKED, wxCommandEventHandler(OutputPane::OnEditorFocus), NULL,
                                      this);
     EventNotifier::Get()->Disconnect(wxEVT_BUILD_STARTED, clBuildEventHandler(OutputPane::OnBuildStarted), NULL, this);
@@ -77,11 +72,6 @@ void OutputPane::CreateGUIControls()
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
     SetSizer(mainSizer);
     SetMinClientSize(wxSize(-1, 250));
-#if USE_AUI_NOTEBOOK
-    long style = wxAUI_NB_TOP | wxAUI_NB_TAB_MOVE | wxAUI_NB_WINDOWLIST_BUTTON | wxAUI_NB_TAB_SPLIT;
-    m_book = new Notebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, style);
-    m_book->SetTabDirection(EditorConfigST::Get()->GetOptions()->GetOutputTabsDirection());
-#else
     long style = (kNotebook_Default | kNotebook_AllowDnD);
     if(EditorConfigST::Get()->GetOptions()->GetOutputTabsDirection() == wxBOTTOM) {
         style |= kNotebook_BottomTabs;
@@ -105,14 +95,11 @@ void OutputPane::CreateGUIControls()
     style |= kNotebook_UnderlineActiveTab;
     if(EditorConfigST::Get()->GetOptions()->IsMouseScrollSwitchTabs()) { style |= kNotebook_MouseScrollSwitchTabs; }
     m_book = new Notebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, style);
-#endif
+    m_book->Bind(wxEVT_BOOK_FILELIST_BUTTON_CLICKED, &OutputPane::OnOutputBookFileListMenu, this);
+
     BitmapLoader* bmpLoader = PluginManager::Get()->GetStdIcons();
 
     // Calculate the widest tab (the one with the 'Workspace' label) TODO: What happens with translations?
-    int xx, yy;
-    wxFont fnt = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
-    wxWindow::GetTextExtent(wxGetTranslation(REPLACE_IN_FILES), &xx, &yy, NULL, NULL, &fnt);
-
     mainSizer->Add(m_book, 1, wxEXPAND | wxALL | wxGROW, 0);
 
     // the IManager instance
@@ -120,10 +107,14 @@ void OutputPane::CreateGUIControls()
 
     // Build tab
     m_buildWin = new NewBuildTab(m_book);
+#if PHP_BUILD
+    m_buildWin->Hide();
+#else
     m_book->AddPage(m_buildWin, wxGetTranslation(BUILD_WIN), true, bmpLoader->LoadBitmap(wxT("build")));
     m_tabs.insert(std::make_pair(wxGetTranslation(BUILD_WIN),
                                  Tab(wxGetTranslation(BUILD_WIN), m_buildWin, bmpLoader->LoadBitmap(wxT("build")))));
     mgr->AddOutputTab(wxGetTranslation(BUILD_WIN));
+#endif
 
     // Find in files
     m_findResultsTab = new FindResultsTab(m_book, wxID_ANY, wxGetTranslation(FIND_IN_FILES_WIN));
@@ -143,41 +134,20 @@ void OutputPane::CreateGUIControls()
 
     // Show Usage ("References")
     m_showUsageTab = new FindUsageTab(m_book, wxGetTranslation(SHOW_USAGE));
+#if PHP_BUILD
+    m_showUsageTab->Hide();
+#else
     m_book->AddPage(m_showUsageTab, wxGetTranslation(SHOW_USAGE), false, bmpLoader->LoadBitmap(wxT("find")));
     m_tabs.insert(std::make_pair(wxGetTranslation(SHOW_USAGE), Tab(wxGetTranslation(SHOW_USAGE), m_showUsageTab,
                                                                    bmpLoader->LoadBitmap(wxT("find")))));
     mgr->AddOutputTab(wxGetTranslation(SHOW_USAGE));
-
+#endif
     // Output tab
     m_outputWind = new OutputTab(m_book, wxID_ANY, wxGetTranslation(OUTPUT_WIN));
     m_book->AddPage(m_outputWind, wxGetTranslation(OUTPUT_WIN), false, bmpLoader->LoadBitmap(wxT("console")));
     m_tabs.insert(std::make_pair(wxGetTranslation(OUTPUT_WIN), Tab(wxGetTranslation(OUTPUT_WIN), m_outputWind,
                                                                    bmpLoader->LoadBitmap(wxT("console")))));
     mgr->AddOutputTab(wxGetTranslation(OUTPUT_WIN));
-
-#if HAS_LIBCLANG
-    // Clang tab
-    NewProjImgList images;
-    m_clangOutputTab = new ClangOutputTab(m_book);
-    m_book->AddPage(m_clangOutputTab, wxGetTranslation(CLANG_TAB), false, bmpLoader->LoadBitmap("clang"));
-    m_tabs.insert(std::make_pair(wxGetTranslation(CLANG_TAB),
-                                 Tab(wxGetTranslation(CLANG_TAB), m_clangOutputTab, bmpLoader->LoadBitmap("clang"))));
-    mgr->AddOutputTab(wxGetTranslation(CLANG_TAB));
-#endif
-
-    /////////////////////////////////////
-    // Set the trace's font & colors
-    /////////////////////////////////////
-
-    wxStyledTextCtrl* stcLog = new wxStyledTextCtrl(m_book);
-    m_book->AddPage(stcLog, wxGetTranslation(TRACE_TAB), false, bmpLoader->LoadBitmap("log"));
-    m_logTargetOld = wxLog::SetActiveTarget(new wxclTextCtrl(stcLog));
-    m_tabs.insert(std::make_pair(wxGetTranslation(TRACE_TAB),
-                                 Tab(wxGetTranslation(TRACE_TAB), stcLog, bmpLoader->LoadBitmap("log"))));
-    mgr->AddOutputTab(wxGetTranslation(TRACE_TAB));
-
-    // Now that we set up our own log target, re-enable the logging
-    wxLog::EnableLogging(true);
 
     // Tasks panel
     m_taskPanel = new TaskPanel(m_book, wxID_ANY, wxGetTranslation(TASKS));
@@ -309,7 +279,7 @@ void OutputPane::OnToggleTab(clCommandEvent& event)
         // Insert the page
         int where = clTabTogglerHelper::IsTabInNotebook(GetNotebook(), t.m_label);
         if(where == wxNOT_FOUND) {
-            GetNotebook()->AddPage(t.m_window, t.m_label, false, t.m_bmp);
+            GetNotebook()->AddPage(t.m_window, t.m_label, true, t.m_bmp);
         } else {
             GetNotebook()->SetSelection(where);
         }
@@ -317,5 +287,51 @@ void OutputPane::OnToggleTab(clCommandEvent& event)
         // hide the tab
         int where = GetNotebook()->GetPageIndex(t.m_label);
         if(where != wxNOT_FOUND) { GetNotebook()->RemovePage(where); }
+    }
+}
+
+void OutputPane::OnOutputBookFileListMenu(clContextMenuEvent& event)
+{
+    wxMenu* menu = event.GetMenu();
+    menu->AppendSeparator();
+
+    DetachedPanesInfo dpi;
+    EditorConfigST::Get()->ReadObject("DetachedPanesList", &dpi);
+
+    wxMenu* hiddenTabsMenu = new wxMenu();
+    const wxArrayString& tabs = clGetManager()->GetOutputTabs();
+    for(size_t i = 0; i < tabs.size(); ++i) {
+        const wxString& label = tabs.Item(i);
+        if((m_book->GetPageIndex(label) != wxNOT_FOUND)) {
+            // Tab is visible, dont show it
+            continue;
+        }
+        
+        if(hiddenTabsMenu->GetMenuItemCount() == 0) {
+            // we are adding the first menu item
+            menu->AppendSeparator();
+        }
+        
+        int tabId = wxXmlResource::GetXRCID(wxString() << "output_tab_" << label);
+        wxMenuItem* item = new wxMenuItem(hiddenTabsMenu, tabId, label);
+        hiddenTabsMenu->Append(item);
+
+        // Output pane does not support "detach"
+        if(dpi.GetPanes().Index(label) != wxNOT_FOUND) { item->Enable(false); }
+
+        hiddenTabsMenu->Bind(wxEVT_MENU,
+                             // Use lambda by value here so we make a copy
+                             [=](wxCommandEvent& e) {
+                                 clCommandEvent eventShow(wxEVT_SHOW_OUTPUT_TAB);
+                                 eventShow.SetSelected(true).SetString(label);
+                                 EventNotifier::Get()->AddPendingEvent(eventShow);
+                             },
+                             tabId);
+    }
+
+    if(hiddenTabsMenu->GetMenuItemCount() == 0) {
+        wxDELETE(hiddenTabsMenu);
+    } else {
+        menu->AppendSubMenu(hiddenTabsMenu, _("Hidden Tabs"), _("Hidden Tabs"));
     }
 }

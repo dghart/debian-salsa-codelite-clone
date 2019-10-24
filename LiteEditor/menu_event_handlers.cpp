@@ -36,19 +36,46 @@
 void EditHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
     wxUnusedVar(event);
-    LEditor* editor = (LEditor*)owner;
+    clEditor* editor = (clEditor*)owner;
 
     OptionsConfigPtr options = editor->GetOptions();
-    if(event.GetId() == wxID_COPY) {
-        editor->CopyAllowLine();
-
-    } else if(event.GetId() == wxID_CUT) {
+    switch(event.GetId()) {
+    case wxID_ZOOM_IN:
+        editor->ZoomIn();
+        return;
+    case wxID_ZOOM_OUT:
+        editor->ZoomOut();
+        return;
+    case wxID_ZOOM_FIT:
+        editor->SetZoom(0);
+        return;
+    case wxID_COPY:
+        if(options->GetCopyLineEmptySelection()) {
+            editor->CopyAllowLine();
+        } else {
+            editor->Copy();
+        }
+        return;
+    case wxID_CUT:
         editor->Cut();
-
-    } else if(event.GetId() == wxID_PASTE) {
+        return;
+    case wxID_PASTE:
         editor->Paste();
+        return;
+    case wxID_SELECTALL:
+        editor->SelectAll();
+        return;
+    case wxID_DUPLICATE:
+        editor->SelectionDuplicate();
+        return;
+    case wxID_DELETE:
+        editor->DeleteBack();
+        return;
+    default:
+        break;
+    }
 
-    } else if(event.GetId() == wxID_UNDO) {
+    if(event.GetId() == wxID_UNDO) {
         if(editor->GetCommandsProcessor().CanUndo()) {
             editor->Undo();
             editor->GetCommandsProcessor().CloseSciUndoAction();
@@ -65,15 +92,8 @@ void EditHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
     } else if(event.GetId() == XRCID("label_current_state")) {
         wxString label =
             wxGetTextFromUser("What would you like to call the current state?", "Label current state", "", editor);
-        if(!label.empty()) {
-            editor->GetCommandsProcessor().SetUserLabel(label);
-        }
+        if(!label.empty()) { editor->GetCommandsProcessor().SetUserLabel(label); }
 
-    } else if(event.GetId() == wxID_SELECTALL) {
-        editor->SelectAll();
-
-    } else if(event.GetId() == wxID_DUPLICATE) {
-        editor->SelectionDuplicate();
     } else if(event.GetId() == XRCID("delete_line_end")) {
         editor->DelLineRight();
 
@@ -101,16 +121,13 @@ void EditHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
     } else if(event.GetId() == XRCID("transpose_lines")) {
         editor->LineTranspose();
 
-    } else if(event.GetId() == wxID_DELETE) {
-        editor->DeleteBack();
-
     } else if(event.GetId() == XRCID("move_line_down")) {
 
         int curline = editor->GetCurrentLine();
         int lastline = editor->LineFromPosition(editor->GetLength() - 1);
 
         if(editor->GetSelection().empty() ||
-            (editor->LineFromPos(editor->GetSelectionStart() == editor->LineFromPos(editor->GetSelectionEnd())))) {
+           (editor->LineFromPos(editor->GetSelectionStart() == editor->LineFromPos(editor->GetSelectionEnd())))) {
             // No selection (or only a trivial 1-line one)
             if(curline != lastline) {
                 editor->LineDown();
@@ -124,7 +141,7 @@ void EditHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
     } else if(event.GetId() == XRCID("move_line_up")) {
 
         if(editor->GetSelection().empty() ||
-            (editor->LineFromPos(editor->GetSelectionStart() == editor->LineFromPos(editor->GetSelectionEnd())))) {
+           (editor->LineFromPos(editor->GetSelectionStart() == editor->LineFromPos(editor->GetSelectionEnd())))) {
             // No selection (or only a trivial 1-line one)
             editor->LineTranspose();
             editor->LineUp();
@@ -155,10 +172,10 @@ void EditHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 
 void EditHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& event)
 {
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
 
     if(event.GetId() == wxID_COPY || event.GetId() == XRCID("trim_trailing") || event.GetId() == XRCID("to_lower") ||
-        event.GetId() == XRCID("to_upper")) {
+       event.GetId() == XRCID("to_upper")) {
         event.Enable(editor);
 
     } else if(event.GetId() == wxID_CUT) {
@@ -189,10 +206,8 @@ void EditHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& event)
 //------------------------------------
 void BraceMatchHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
-    if(!editor) {
-        return;
-    }
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
+    if(!editor) { return; }
 
     if(event.GetId() == XRCID("select_to_brace")) {
         editor->MatchBraceAndSelect(true);
@@ -203,7 +218,7 @@ void BraceMatchHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& eve
 
 void BraceMatchHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& event)
 {
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
     event.Enable(editor && editor->GetLength() > 0);
 }
 
@@ -212,13 +227,12 @@ void BraceMatchHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& e
 //------------------------------------
 void FindReplaceHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
     if(editor) {
         if(event.GetId() == wxID_FIND) {
-            clMainFrame::Get()->GetMainBook()->ShowQuickBar(editor->GetFirstSelection());
-
+            clMainFrame::Get()->GetMainBook()->ShowQuickBar(editor->GetFirstSelection(), false);
         } else if(event.GetId() == wxID_REPLACE) {
-            editor->DoFindAndReplace(true);
+            clMainFrame::Get()->GetMainBook()->ShowQuickBar(editor->GetFirstSelection(), true);
 
         } else if(event.GetId() == XRCID("ID_QUICK_ADD_NEXT")) {
             editor->QuickAddNext();
@@ -242,10 +256,8 @@ void FindReplaceHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& 
 void GotoHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
     wxUnusedVar(event);
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
-    if(!editor) {
-        return;
-    }
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
+    if(!editor) { return; }
 
     wxString msg;
     msg.Printf(_("Go to line number (1 - %i):"), editor->GetLineCount());
@@ -297,10 +309,8 @@ void GotoHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& event)
 //------------------------------------
 void BookmarkHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
-    if(!editor) {
-        return;
-    }
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
+    if(!editor) { return; }
 
     if(event.GetId() == XRCID("toggle_bookmark")) {
         editor->ToggleMarker();
@@ -326,18 +336,14 @@ void BookmarkHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& eve
 //------------------------------------
 void GotoDefinitionHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
-    if(!editor) {
-        return;
-    }
-    if(event.GetId() == XRCID("goto_definition")) {
-        editor->GotoDefinition();
-    }
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
+    if(!editor) { return; }
+    if(event.GetId() == XRCID("goto_definition")) { editor->GotoDefinition(); }
 }
 
 void GotoDefinitionHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& event)
 {
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
     if(event.GetId() == XRCID("goto_previous_definition")) {
         event.Enable(editor && editor->CanGotoPreviousDefintion());
     } else {
@@ -351,7 +357,7 @@ void GotoDefinitionHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEven
 
 void WordWrapHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& event)
 {
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
     if(!editor) {
         event.Enable(false);
         return;
@@ -363,10 +369,8 @@ void WordWrapHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& eve
 
 void WordWrapHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
-    if(!editor) {
-        return;
-    }
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
+    if(!editor) { return; }
 
     editor->SetWrapMode(event.IsChecked() ? wxSTC_WRAP_WORD : wxSTC_WRAP_NONE);
 }
@@ -377,10 +381,8 @@ void WordWrapHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event
 void FoldHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
     wxUnusedVar(event);
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
-    if(!editor) {
-        return;
-    }
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
+    if(!editor) { return; }
 
     if(event.GetId() == XRCID("toggle_fold"))
         editor->ToggleCurrentFold();
@@ -392,10 +394,10 @@ void FoldHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
         editor->FoldAll();
 }
 
-void FoldHandler::ProcessUpdateUIEvent(
-    wxWindow* owner, wxUpdateUIEvent& event) // Used for ToggleAllFoldsInSelection() etc
+void FoldHandler::ProcessUpdateUIEvent(wxWindow* owner,
+                                       wxUpdateUIEvent& event) // Used for ToggleAllFoldsInSelection() etc
 {
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
     if(!editor) {
         event.Enable(false);
         return;
@@ -412,36 +414,22 @@ void FoldHandler::ProcessUpdateUIEvent(
 
 void DebuggerMenuHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
-    LEditor* editor = dynamic_cast<LEditor*>(owner);
-    if(!editor) {
-        return;
-    }
+    clEditor* editor = dynamic_cast<clEditor*>(owner);
+    if(!editor) { return; }
 
-    if(event.GetId() == XRCID("add_breakpoint")) {
-        editor->AddBreakpoint();
-    }
-    if(event.GetId() == XRCID("insert_breakpoint")) {
-        editor->ToggleBreakpoint();
-    }
+    if(event.GetId() == XRCID("add_breakpoint")) { editor->AddBreakpoint(); }
+    if(event.GetId() == XRCID("insert_breakpoint")) { editor->ToggleBreakpoint(); }
     if((event.GetId() == XRCID("insert_temp_breakpoint")) || (event.GetId() == XRCID("insert_disabled_breakpoint")) ||
-        (event.GetId() == XRCID("insert_cond_breakpoint"))) {
+       (event.GetId() == XRCID("insert_cond_breakpoint"))) {
         editor->AddOtherBreakpointType(event);
     }
-    if(event.GetId() == XRCID("delete_breakpoint")) {
-        editor->DelBreakpoint();
-    }
+    if(event.GetId() == XRCID("delete_breakpoint")) { editor->DelBreakpoint(); }
 
-    if(event.GetId() == XRCID("toggle_breakpoint_enabled_status")) {
-        editor->ToggleBreakpointEnablement();
-    }
+    if(event.GetId() == XRCID("toggle_breakpoint_enabled_status")) { editor->ToggleBreakpointEnablement(); }
 
-    if(event.GetId() == XRCID("ignore_breakpoint")) {
-        editor->OnIgnoreBreakpoint();
-    }
+    if(event.GetId() == XRCID("ignore_breakpoint")) { editor->OnIgnoreBreakpoint(); }
 
-    if(event.GetId() == XRCID("edit_breakpoint")) {
-        editor->OnEditBreakpoint();
-    }
+    if(event.GetId() == XRCID("edit_breakpoint")) { editor->OnEditBreakpoint(); }
 
     if(event.GetId() == XRCID("disable_all_breakpoints")) {
         clDebugEvent event(wxEVT_DBG_UI_DISABLE_ALL_BREAKPOINTS);
@@ -458,7 +446,7 @@ void DebuggerMenuHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& e
     if(event.GetId() == XRCID("delete_all_breakpoints")) {
 
         // First let the plugins do this thing
-        clDebugEvent event(wxEVT_DBG_UI_DELTE_ALL_BREAKPOINTS);
+        clDebugEvent event(wxEVT_DBG_UI_DELETE_ALL_BREAKPOINTS);
         EventNotifier::Get()->AddPendingEvent(event);
 
         // Now clear the manager

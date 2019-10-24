@@ -26,21 +26,20 @@
 #include "LLDBCallStack.h"
 #include "LLDBProtocol/LLDBEvent.h"
 #include "LLDBProtocol/LLDBConnector.h"
+#include "LLDBPlugin.h"
 #include <wx/wupdlock.h>
 #include "macros.h"
 #include "globals.h"
 #include "file_logger.h"
 
-LLDBCallStackPane::LLDBCallStackPane(wxWindow* parent, LLDBConnector* connector)
+LLDBCallStackPane::LLDBCallStackPane(wxWindow* parent, LLDBPlugin& plugin)
     : LLDBCallStackBase(parent)
-    , m_connector(connector)
+    , m_plugin(plugin)
+    , m_connector(plugin.GetLLDB())
     , m_selectedFrame(0)
 {
     m_connector->Bind(wxEVT_LLDB_STOPPED, &LLDBCallStackPane::OnBacktrace, this);
     m_connector->Bind(wxEVT_LLDB_RUNNING, &LLDBCallStackPane::OnRunning, this);
-
-    m_model.reset(new CallstackModel(this, m_dvListCtrlBacktrace));
-    m_dvListCtrlBacktrace->AssociateModel(m_model.get());
 }
 
 LLDBCallStackPane::~LLDBCallStackPane()
@@ -60,14 +59,22 @@ void LLDBCallStackPane::OnBacktrace(LLDBEvent& event)
     SetSelectedFrame(bt.GetSelectedFrameId());
 
     const LLDBBacktrace::EntryVec_t& entries = bt.GetCallstack();
+    wxDataViewItem selectedItem;
     for(size_t i = 0; i < entries.size(); ++i) {
-        wxVector<wxVariant> cols;
         const LLDBBacktrace::Entry& entry = entries.at(i);
-        cols.push_back(wxString::Format("%d", entry.id));
+        wxVector<wxVariant> cols;
+        cols.push_back(wxString() << entry.id);
         cols.push_back(entry.functionName);
-        cols.push_back(entry.filename);
-        cols.push_back(wxString::Format("%d", (int)(entry.line + 1)));
+        cols.push_back(m_plugin.GetFilenameForDisplay(entry.filename));
+        cols.push_back(wxString() << (int)(entry.line + 1));
         m_dvListCtrlBacktrace->AppendItem(cols);
+        wxDataViewItem item = m_dvListCtrlBacktrace->RowToItem(i);
+        if(bt.GetSelectedFrameId() == entry.id) { selectedItem = item; }
+    }
+
+    if(selectedItem.IsOk()) {
+        m_dvListCtrlBacktrace->Select(selectedItem);
+        m_dvListCtrlBacktrace->EnsureVisible(selectedItem);
     }
 }
 
@@ -99,7 +106,7 @@ bool CallstackModel::GetAttr(const wxDataViewItem& item, unsigned int col, wxDat
 void LLDBCallStackPane::OnContextMenu(wxDataViewEvent& event)
 {
     wxMenu menu;
-    
+
     menu.Append(11981, _("Copy backtrace"), _("Copy backtrace"));
     int selection = GetPopupMenuSelectionFromUser(menu);
     switch(selection) {
@@ -114,15 +121,13 @@ void LLDBCallStackPane::OnContextMenu(wxDataViewEvent& event)
 void LLDBCallStackPane::DoCopyBacktraceToClipboard()
 {
     wxString callstack;
-    for(int i = 0; i < m_dvListCtrlBacktrace->GetItemCount(); ++i) {
+    for(size_t i = 0; i < m_dvListCtrlBacktrace->GetItemCount(); ++i) {
         wxString line;
-        for(size_t col = 0; col < 4; ++col) {
-            wxVariant value;
-            m_dvListCtrlBacktrace->GetValue(value, i, col);
-            line << value.GetString() << " ";
+        for(size_t col = 0; col < m_dvListCtrlBacktrace->GetHeader()->size(); ++col) {
+            line << m_dvListCtrlBacktrace->GetItemText(m_dvListCtrlBacktrace->RowToItem(i), col) << " ";
         }
         callstack << line << "\n";
     }
-    CL_DEBUG("LLDB: Copying stack to clipboard");
+    clDEBUG() << "LLDB: Copying stack to clipboard";
     ::CopyToClipboard(callstack);
 }
