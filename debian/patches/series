@@ -4,8 +4,10 @@
 05_build-flags.patch
 09_use-x-terminal-editor.patch
 10_move-helper-binaries.patch
-15_fix_about_box_license.patch
 24_default_no_check_for_updates.patch
 25_shlibs-adjustments.patch
 26_remove_hardcoded_x86.patch
 28_spelling.patch
+29_codelite_terminal_compilation_fixes.patch
+30_change_two_nonfree_svgs.patch
+auto-gitignore

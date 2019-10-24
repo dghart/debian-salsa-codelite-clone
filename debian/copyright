@@ -3,15 +3,12 @@ Upstream-Name: CodeLite
 Upstream-Contact: Eran Ifrah <eran.ifrah@gmail.com>
 Source: https://github.com/eranif/codelite
 Files-Excluded:
- .clang-format
- .editorconfig
- make-weekly
- make-weekly.bat
  *.exe
  *.dll
  codelitephp/bin
  icons
  patches
+ sdk/asio*
  sdk/astyle
  sdk/clang
  sdk/codelite_cppcheck
@@ -21,17 +18,16 @@ Files-Excluded:
  sdk/libssh
  sdk/lldb
  sdk/src
+ sdk/websocketpp
  sdk/wxconfig
  sdk/wxflatnotebook
  sdk/wxsqlite3
  sqlite3
- LiteEditor/resource.h
  SpellChecker/hunspell
  Runtime/debugserver
  Runtime/src
  Runtime/OpenTerm
  UnitTest++
- WebTools/javascript-*.zip
 
 Files: *
 Copyright: 2007-2014 Eran Ifrah <eran.ifrah@gmail.com>
@@ -144,11 +140,6 @@ License: GPL-3+
 Files: Runtime/gdb_printers/qt4.py
 Copyright: 2009 Niko Sams <niko.sams@gmail.com>
 License: GPL-2+
-
-Files: WebTools/javascript.zip
-Copyright: 2013 Marijn Haverbeke and others <marijnh@gmail.com>
-License: MIT
-Comment: https://github.com/marijnh/tern
 
 Files: ZoomNavigator/*
 Copyright: 2013 Brandon Captain <bcaptain404@gmail.com>

@@ -4,28 +4,6 @@ Author: Alessio Treglia <alessio@debian.org>
 Forwarded: not-needed
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
---- a/CodeLite/procutils.cpp
-+++ b/CodeLite/procutils.cpp
-@@ -429,7 +429,7 @@ bool ProcUtils::Shell(const wxString& pr
-         terminal = where;
-     }
-     cmd = terminal;*/
--    terminal = wxT("xterm");
-+    terminal = wxT("x-terminal-emulator");
-     if(!programConsoleCommand.IsEmpty()) {
-         tokens = wxStringTokenize(programConsoleCommand, wxT(" "), wxTOKEN_STRTOK);
-         if(!tokens.IsEmpty()) {
---- a/codelite_terminal/procutils.cpp
-+++ b/codelite_terminal/procutils.cpp
-@@ -432,7 +432,7 @@ bool ProcUtils::Shell(const wxString &pr
-     	terminal = where;
-     }
-     cmd = terminal;*/
--    terminal = wxT ( "xterm" );
-+    terminal = wxT ( "x-terminal-emulator" );
-     if ( !programConsoleCommand.IsEmpty() ) {
-         tokens = wxStringTokenize ( programConsoleCommand, wxT ( " " ), wxTOKEN_STRTOK );
-         if ( !tokens.IsEmpty() ) {
 --- a/LiteEditor/manager.cpp
 +++ b/LiteEditor/manager.cpp
 @@ -1959,7 +1959,7 @@ void Manager::DbgStart(long attachPid)
@@ -37,19 +15,6 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
      if(!EditorConfigST::Get()->GetOptions()->GetProgramConsoleCommand().IsEmpty()) {
          tokens =
              wxStringTokenize(EditorConfigST::Get()->GetOptions()->GetProgramConsoleCommand(), wxT(" "), wxTOKEN_STRTOK);
---- a/Plugin/consolefinder.cpp
-+++ b/Plugin/consolefinder.cpp
-@@ -153,7 +153,9 @@ wxString ConsoleFinder::GetConsoleName()
- 	//try to locate the default terminal
- 	wxString terminal;
- 	wxString where;
--	if (ExeLocator::Locate(wxT("gnome-terminal"), where)) {
-+	if (ExeLocator::Locate(wxT("x-terminal-emulator"), where)) {
-+		terminal = wxT("x-terminal-emulator -e ");
-+	} else if (ExeLocator::Locate(wxT("gnome-terminal"), where)) {
- 		terminal = wxT("gnome-terminal -e ");
- 	} else if (ExeLocator::Locate(wxT("konsole"), where)) {
- 		terminal = wxT("konsole");
 --- a/LiteEditor/app.cpp
 +++ b/LiteEditor/app.cpp
 @@ -201,7 +201,9 @@ static void WaitForDebugger(int signo)

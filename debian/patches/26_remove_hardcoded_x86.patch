@@ -4,18 +4,16 @@ Author: James Cowgill <jcowgill@debian.org>
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -75,14 +75,6 @@ set( WITH_SFTP 1 )
- 
- set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations") # Avoid very multiple warnings spam due to deprecated wx methods
- 
--if( UNIX AND NOT APPLE)
+@@ -76,11 +76,6 @@
+ if( UNIX AND NOT APPLE)
+     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--disable-new-dtags")
+     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--disable-new-dtags")
 -    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
 -        set(CMAKE_LIBRARY_ARCHITECTURE "x86_64-linux-gnu")
 -    else()
 -        set(CMAKE_LIBRARY_ARCHITECTURE "i386-linux-gnu")
 -    endif()
--endif()
--
+ endif()
+ 
  if ( UNIX )
-     # Configure CCache if available
-     find_program(CCACHE_FOUND ccache)
+

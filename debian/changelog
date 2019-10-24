@@ -1,3 +1,19 @@
+codelite (13.0+dfsg-1) unstable; urgency=medium
+
+  * QA upload.
+
+  * New upstream release:
+    - Add new and missing plugins to codelite-plugins.
+    - Refresh patches.
+    - Patch out two non-free licenced svgs.
+
+  * debian/control:
+    - Build against the GTK+3 version of wxWidgets (Closes: #934096, #940540).
+    - Bump standards to 4.4.1 and remove debian/compat.
+    - Add an upstream metadata file.
+
+ -- David Hart <david@codelite.org>  Sun, 13 Oct 2019 10:10:27 +0100
+
 codelite (12.0+dfsg-1) unstable; urgency=medium
 
   * QA upload.

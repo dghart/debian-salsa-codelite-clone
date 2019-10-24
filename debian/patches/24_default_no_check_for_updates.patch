@@ -1,10 +1,4 @@
-Description: Do not check for updates by default
- On Debian update checking should be done by the package manager, not the
- application itself at runtime. It's also a privacy breach if the user doesn't
- know about it. This patch doesn't remove anything, it just changes the
- default setting.
-Author: James Cowgill <jcowgill@debian.org>
-Forwarded: not-needed
+Description: Turn off automatic new-version checking.
 diff --git a/LiteEditor/editorsettingsmiscpanel.cpp b/LiteEditor/editorsettingsmiscpanel.cpp
 index 23df8dc9e..8dd812c55 100644
 --- a/LiteEditor/editorsettingsmiscpanel.cpp
@@ -22,9 +16,9 @@ diff --git a/LiteEditor/frame.cpp b/LiteEditor/frame.cpp
 index 9e33922c1..27ae73179 100644
 --- a/LiteEditor/frame.cpp
 +++ b/LiteEditor/frame.cpp
-@@ -2944,11 +2944,6 @@ void clMainFrame::OnTimer(wxTimerEvent& event)
-     wxLogMessage("Using " + wxStyledTextCtrl::GetLibraryVersionInfo().ToString());
-     if(::clIsCygwinEnvironment()) { wxLogMessage("Running under Cygwin environment"); }
+@@ -2563,11 +2563,6 @@ void clMainFrame::OnTimer(wxTimerEvent& event)
+     clLogMessage("Using " + wxStyledTextCtrl::GetLibraryVersionInfo().ToString());
+     if(::clIsCygwinEnvironment()) { clLogMessage("Running under Cygwin environment"); }
  
 -    if(clConfig::Get().Read(kConfigCheckForNewVersion, true)) {
 -        m_webUpdate = new WebUpdateJob(this, false, clConfig::Get().Read("PromptForNewReleaseOnly", false));

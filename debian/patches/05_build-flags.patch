@@ -5,9 +5,11 @@ Author: James Cowgill <jcowgill@debian.org>
 Forwarded: not-needed
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
---- a/CMakeLists.txt
-+++ b/CMakeLists.txt
-@@ -347,20 +347,6 @@ else ()
+Index: codelite-13.0/CMakeLists.txt
+===================================================================
+--- codelite-13.0.orig/CMakeLists.txt
++++ codelite-13.0/CMakeLists.txt
+@@ -372,20 +372,6 @@ else ()
      set ( DEBUG_BUILD 0 )
      set(CMAKE_INSTALL_DO_STRIP TRUE)
      message("-- CMAKE_INSTALL_DO_STRIP is " ${CMAKE_INSTALL_DO_STRIP})
@@ -28,12 +30,12 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
      set( CL_PCH_FILE "${CL_SRC_ROOT}/PCH/precompiled_header_release.h")
      set( CL_PCH_TARGET "precompiled_header_release.h.gch")
-@@ -381,9 +367,6 @@ else ()
+@@ -406,9 +392,6 @@ else ()
      message("-- Shared Objects will be written into ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
  
      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")        ## Optimize
 -    if(CMAKE_COMPILER_IS_GNUCXX)
--        set(CMAKE_EXE_LINKER_FLAGS "-s")  ## Strip binary
+-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s")  ## Strip binary
 -    endif(CMAKE_COMPILER_IS_GNUCXX)
  
      ## In release, add NDEBUG unless explicitly told not to

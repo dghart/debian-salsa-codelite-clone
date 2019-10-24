@@ -1,3 +1,6 @@
 # Although built with the correct flags, most CodeLite plugins do not contain
 # any fortifiable function calls.
 codelite-plugins binary: hardening-no-fortify-functions
+
+# Lintian decided that the archive file phprefactor.phar was a script.
+codelite-plugins binary: script-not-executable
