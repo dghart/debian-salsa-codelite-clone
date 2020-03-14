@@ -1,3 +1,24 @@
+codelite (14.0+dfsg-1) unstable; urgency=medium
+
+  * QA upload.
+
+  * New upstream release.
+    - Remove the .py extension from a script with language-extension
+
+  * d/patches:
+    - Refresh patches.
+    - Drop 2 patches applied upstream.
+    - Make a helper script python3-compatible.
+
+  * debian/control:
+    - Bump standards to 4.5.0.
+    - Change Recommends: qt4-qmake to qt5-qmake.
+
+  * debian/lintian-overrides:
+    - Add override for file-references-package-build-path false positive.
+
+ -- David Hart <david@codelite.org>  Sat, 14 Mar 2020 16:13:10 +0000
+
 codelite (13.0+dfsg-1) unstable; urgency=medium
 
   * QA upload.

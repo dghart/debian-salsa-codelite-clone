@@ -27,6 +27,7 @@
 
 #include "codelite_exports.h"
 #include <wx/string.h>
+#include <wx/arrstr.h>
 
 class WXDLLIMPEXP_CL StringUtils
 {
@@ -46,6 +47,21 @@ public:
      * @param modbuffer
      */
     static void StripTerminalColouring(const wxString& buffer, wxString& modbuffer);
+    
+    /**
+     * @brief build argv out of str
+     */
+    static char** BuildArgv(const wxString& str, int &argc);
+    
+    /**
+     * @brief build argv out of str
+     */
+    static wxArrayString BuildArgv(const wxString& str);
+    
+    /**
+     * @brief free argv created by StringUtils::BuildArgv method
+     */
+    static void FreeArgv(char** argv, int argc);
 };
 
 #endif // STRINGUTILS_H

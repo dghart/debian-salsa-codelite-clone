@@ -8,6 +8,5 @@
 25_shlibs-adjustments.patch
 26_remove_hardcoded_x86.patch
 28_spelling.patch
-29_codelite_terminal_compilation_fixes.patch
-30_change_two_nonfree_svgs.patch
+31_python3_upgrade.patch
 auto-gitignore

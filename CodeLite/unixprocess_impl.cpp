@@ -50,6 +50,10 @@
 #include <libutil.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#elif defined(__NetBSD__)
+#include <util.h>
+#include <sys/ioctl.h>
+#include <termios.h>
 #else
 #include <pty.h>
 #include <utmp.h>
@@ -252,7 +256,9 @@ static void RemoveTerminalColoring(char* buffer)
     StringUtils::StripTerminalColouring(cinput, coutout);
 
     // coutout is ALWAYS <= cinput, so we can safely copy the content to the buffer
-    strcpy(buffer, coutout.c_str());
+    if(coutout.length() < cinput.length()) {
+        strcpy(buffer, coutout.c_str());
+    }
 }
 
 UnixProcessImpl::UnixProcessImpl(wxEvtHandler* parent)
@@ -371,14 +377,21 @@ IProcess* UnixProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, si
                                    const wxString& workingDirectory, IProcessCallback* cb)
 {
     wxString newCmd = cmd;
+    const char *sudo_path;
+
     if((flags & IProcessCreateAsSuperuser)) {
-        if(wxFileName::Exists("/usr/bin/sudo")) {
-            newCmd.Prepend("/usr/bin/sudo --askpass ");
+        sudo_path = "/usr/bin/sudo";
+        if(!wxFileName::Exists(sudo_path)) {
+            sudo_path = "/usr/local/bin/sudo";
+        }
+        if(wxFileName::Exists(sudo_path)) {
+            newCmd.Prepend(sudo_path);
+            newCmd.Prepend(" --askpass ");
             clDEBUG1() << "Executing command:" << newCmd << clEndl;
 
         } else {
             clWARNING() << "Unable to run command: '" << cmd
-                        << "' as superuser: /usr/bin/sudo: no such file or directory" << clEndl;
+                        << "' as superuser: sudo: no such file or directory" << clEndl;
         }
     } else {
         clDEBUG1() << "Executing command:" << newCmd << clEndl;
@@ -529,6 +542,11 @@ void UnixProcessImpl::Detach()
         delete m_thr;
     }
     m_thr = NULL;
+}
+
+void UnixProcessImpl::Signal(wxSignal sig)
+{
+   wxKill(GetPid(), sig, NULL, wxKILL_CHILDREN);
 }
 
 #endif //#if defined(__WXMAC )||defined(__WXGTK__)

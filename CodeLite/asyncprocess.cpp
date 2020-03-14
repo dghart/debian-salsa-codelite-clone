@@ -26,6 +26,7 @@
 class wxEvtHandler;
 class IProcess;
 #include <wx/string.h>
+#include "macros.h"
 
 #ifdef __WXMSW__
 #include "winprocess_impl.h"
@@ -33,8 +34,10 @@ class IProcess;
 #include "unixprocess_impl.h"
 #endif
 
-IProcess* CreateAsyncProcess(wxEvtHandler* parent, const wxString& cmd, size_t flags, const wxString& workingDir)
+IProcess* CreateAsyncProcess(wxEvtHandler* parent, const wxString& cmd, size_t flags, const wxString& workingDir,
+                             const clEnvList_t* env)
 {
+    clEnvironment e(env);
 #ifdef __WXMSW__
     wxString errMsg;
     return WinProcessImpl::Execute(parent, cmd, errMsg, flags, workingDir);
@@ -44,8 +47,9 @@ IProcess* CreateAsyncProcess(wxEvtHandler* parent, const wxString& cmd, size_t f
 }
 
 IProcess* CreateAsyncProcessCB(wxEvtHandler* parent, IProcessCallback* cb, const wxString& cmd, size_t flags,
-                               const wxString& workingDir)
+                               const wxString& workingDir, const clEnvList_t* env)
 {
+    clEnvironment e(env);
 #ifdef __WXMSW__
     wxString errMsg;
     return WinProcessImpl::Execute(parent, cmd, errMsg, flags, workingDir, cb);
@@ -54,8 +58,9 @@ IProcess* CreateAsyncProcessCB(wxEvtHandler* parent, IProcessCallback* cb, const
 #endif
 }
 
-IProcess* CreateSyncProcess(const wxString& cmd, size_t flags, const wxString& workingDir)
+IProcess* CreateSyncProcess(const wxString& cmd, size_t flags, const wxString& workingDir, const clEnvList_t* env)
 {
+    clEnvironment e(env);
 #ifdef __WXMSW__
     wxString errMsg;
     return WinProcessImpl::Execute(NULL, cmd, errMsg, flags | IProcessCreateSync, workingDir);

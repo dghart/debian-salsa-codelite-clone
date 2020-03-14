@@ -1,6 +1,7 @@
 usr/bin/codelite
 usr/bin/codelite-make
 usr/bin/codelite_fix_files
+usr/bin/codelite_open_helper.py
 usr/bin/codelite-cc             usr/lib/codelite
 usr/bin/codelite-echo           usr/lib/codelite
 usr/bin/codelite-terminal       usr/lib/codelite

@@ -4,6 +4,8 @@
 #include <wx/ffile.h>
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
+#include <clZipReader.h>
+#include "clFilesCollector.h"
 
 std::map<wxString, wxBitmap> wxCrafter::ResourceLoader::m_bitmaps;
 std::map<wxString, wxString> wxCrafter::ResourceLoader::m_files;
@@ -13,34 +15,33 @@ wxCrafter::ResourceLoader::ResourceLoader(const wxString& skin)
     if(m_bitmaps.empty()) {
         wxString zipFile;
         zipFile << wxStandardPaths::Get().GetDataDir() << wxFileName::GetPathSeparator() << skin << wxT(".zip");
+        clZipReader zip(zipFile);
 
-        wxArrayString files;
-        ListZipFiles(zipFile, files);
+        std::unordered_map<wxString, clZipReader::Entry> entries;
+        zip.ExtractAll(entries);
+        if(entries.empty()) { return; }
 
-        for(size_t i = 0; i < files.GetCount(); i++) {
-
-            wxString bitmapFile;
-            if(ExtractFileFromZip(zipFile, wxFileName(files.Item(i)).GetFullName(),
-                                  wxStandardPaths::Get().GetUserDataDir(), bitmapFile)) {
-                wxBitmap bmp;
-                if(bmp.LoadFile(bitmapFile, wxBITMAP_TYPE_PNG)) {
-                    m_bitmaps[wxFileName(files.Item(i)).GetName()] = bmp;
-
+        // Loop over the files
+        for(const auto& entry : entries) {
+            wxFileName fn = wxFileName(entry.first);
+            wxString name = fn.GetName();
+            clZipReader::Entry d = entry.second;
+            if(d.len && d.buffer) {
+                // Avoid wxAsserts by checking it's likely to be a png before creating the image
+                if(fn.GetExt() == "png") {
+                    wxMemoryInputStream is(d.buffer, d.len);
+                    wxImage img(is, wxBITMAP_TYPE_PNG);
+                    wxBitmap bmp(img);
+                    if(bmp.IsOk()) { m_bitmaps[name] = bmp; }
                 } else {
-                    // Simple file
-                    wxFFile fp(bitmapFile, wxT("r+b"));
-                    if(fp.IsOpened()) {
-                        wxString fileContent;
-                        if(fp.ReadAll(&fileContent, wxConvUTF8)) {
-                            wxFileName fn(files.Item(i));
-                            m_files.insert(std::make_pair(fn.GetFullName(), fileContent));
-                        }
-                    }
+                    wxString fileContent((const char*)d.buffer, d.len);
+                    m_files.insert({ fn.GetFullName(), fileContent });
                 }
-
-                ::wxRemoveFile(bitmapFile);
+                // release the memory
+                free(d.buffer);
             }
         }
+        entries.clear();
     }
 }
 

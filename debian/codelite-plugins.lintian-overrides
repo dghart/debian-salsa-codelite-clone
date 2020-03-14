@@ -4,3 +4,8 @@ codelite-plugins binary: hardening-no-fortify-functions
 
 # Lintian decided that the archive file phprefactor.phar was a script.
 codelite-plugins binary: script-not-executable
+
+# Object files in two static contain their build paths, as can be seen using 'strings'.
+# However none of the symbols are affected, and nm, objdump can't see the path.
+# So I think this is a false-positive.
+codelite-plugins binary: file-references-package-build-path

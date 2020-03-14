@@ -312,8 +312,10 @@ void SearchThread::DoSearchFile(const wxString& fileName, const SearchData* data
             }
         }
 
+        // Dont search for empty strings
+        if(findString.empty()) { return; }
+        
         if(!data->IsMatchCase()) { findString.MakeLower(); }
-
         while(tkz.HasMoreTokens()) {
 
             // Read the next line
@@ -599,6 +601,7 @@ void SearchThread::FilterFiles(wxArrayString& files, const SearchData* data)
         }
     });
     files.swap(tmpFiles);
+    files.Sort([](const wxString& f1, const wxString& f2) -> int { return f1.CmpNoCase(f2); });
 }
 
 static SearchThread* gs_SearchThread = NULL;

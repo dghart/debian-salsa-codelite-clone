@@ -56,10 +56,10 @@ wxString SetDefaultBookmarkColours()
 }
 
 OptionsConfig::OptionsConfig(wxXmlNode* node)
-    : m_displayFoldMargin(false)
-    , m_underlineFoldLine(true)
+    : m_displayFoldMargin(true)
+    , m_underlineFoldLine(false)
     , m_scrollBeyondLastLine(true)
-    , m_foldStyle(wxT("Arrows with Background Colour"))
+    , m_foldStyle("Flatten Tree Square Headers")
     , m_displayBookmarkMargin(true)
     , m_bookmarkShape(wxT("Small Arrow"))
     , m_bookmarkBgColours(SetDefaultBookmarkColours())
@@ -69,7 +69,7 @@ OptionsConfig::OptionsConfig(wxXmlNode* node)
     , m_clearHighlitWordsOnFind(true)
     , m_displayLineNumbers(true)
     , m_relativeLineNumbers(false)
-    , m_showIndentationGuidelines(false)
+    , m_showIndentationGuidelines(true)
     , m_caretLineColour(wxT("LIGHT BLUE"))
     , m_indentUsesTabs(true)
     , m_indentWidth(4)
@@ -80,17 +80,17 @@ OptionsConfig::OptionsConfig(wxXmlNode* node)
     , m_foldAtElse(false)
     , m_foldPreprocessor(false)
     , m_edgeMode(0 /*wxSCI_EDGE_NONE*/)
-    , m_edgeColumn(80)
+    , m_edgeColumn(120)
     , m_edgeColour(wxColour(wxT("LIGHT GREY")))
     , m_highlightMatchedBraces(true)
     , m_foldBgColour(wxColour(240, 240, 240))
     , m_autoAdjustHScrollBarWidth(false)
-    , m_caretWidth(1)
+    , m_caretWidth(2)
     , m_caretBlinkPeriod(500)
     , m_copyLineEmptySelection(true)
     , m_programConsoleCommand(TERMINAL_CMD)
     , m_eolMode(wxT("Default"))
-    , m_hideChangeMarkerMargin(false)
+    , m_hideChangeMarkerMargin(true)
     , m_hideOutpuPaneOnUserClick(false)
     , m_hideOutputPaneNotIfBuild(false)
     , m_hideOutputPaneNotIfSearch(true)
@@ -122,15 +122,14 @@ OptionsConfig::OptionsConfig(wxXmlNode* node)
     , m_preferredLocale(wxT("en_US"))
     , m_useLocale(0)
     , m_trimOnlyModifiedLines(true)
-    , m_options(Opt_AutoCompleteCurlyBraces | Opt_AutoCompleteNormalBraces | Opt_NavKey_Shift | Opt_WrapBrackets |
-                Opt_WrapQuotes | Opt_AutoCompleteDoubleQuotes | Opt_FoldHighlightActiveBlock |
-                Opt_WrapCmdWithDoubleQuotes | Opt_TabStyleMinimal | Opt_HideDockingWindowCaption)
+    , m_options(Opt_AutoCompleteCurlyBraces | Opt_NavKey_Shift | Opt_FoldHighlightActiveBlock | Opt_TabStyleMinimal)
     , m_options2(0)
     , m_workspaceTabsDirection(wxUP)
     , m_outputTabsDirection(wxUP)
     , m_indentedComments(false)
     , m_nbTabHeight(nbTabHt_Tall)
     , m_webSearchPrefix(wxT("https://www.google.com/search?q="))
+    , m_smartParen(true)
 {
     m_debuggerMarkerLine = DrawingUtils::LightColour("LIME GREEN", 8.0);
     m_mswTheme = false;
@@ -175,6 +174,7 @@ OptionsConfig::OptionsConfig(wxXmlNode* node)
         m_caretBlinkPeriod = XmlUtils::ReadLong(node, wxT("CaretBlinkPeriod"), m_caretBlinkPeriod);
         m_caretWidth = XmlUtils::ReadLong(node, wxT("CaretWidth"), m_caretWidth);
         m_copyLineEmptySelection = XmlUtils::ReadBool(node, wxT("CopyLineEmptySelection"), m_copyLineEmptySelection);
+        m_smartParen = XmlUtils::ReadBool(node, wxT("SmartParen"), m_smartParen);
         m_programConsoleCommand = XmlUtils::ReadString(node, wxT("ConsoleCommand"), m_programConsoleCommand);
         m_eolMode = XmlUtils::ReadString(node, wxT("EOLMode"), m_eolMode);
         m_hideChangeMarkerMargin = XmlUtils::ReadBool(node, wxT("HideChangeMarkerMargin"));
@@ -320,6 +320,7 @@ wxXmlNode* OptionsConfig::ToXml() const
     n->AddProperty(wxT("WorkspaceTabsDirection"), wxString() << (int)m_workspaceTabsDirection);
     n->AddProperty(wxT("IndentedComments"), BoolToString(m_indentedComments));
     n->AddProperty(wxT("CopyLineEmptySelection"), BoolToString(m_copyLineEmptySelection));
+    n->AddProperty(wxT("SmartParen"), BoolToString(m_smartParen));
 
     wxString tmp;
     tmp << m_indentWidth;

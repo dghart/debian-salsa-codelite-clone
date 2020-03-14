@@ -49,6 +49,7 @@
 #include <wx/platinfo.h>
 #include <wx/stc/stc.h>
 #include <wx/xrc/xmlres.h>
+#include "macromanager.h"
 
 static LLDBPlugin* thePlugin = NULL;
 
@@ -387,7 +388,7 @@ void LLDBPlugin::OnDebugStart(clDebugEvent& event)
 
         BuildConfigPtr bldConf = clCxxWorkspaceST::Get()->GetProjBuildConf(pProject->GetName(), wxEmptyString);
         if(!bldConf) {
-            ::wxMessageBox(wxString() << _("Could not locate the requested buid configuration"), "LLDB Debugger",
+            ::wxMessageBox(wxString() << _("Could not locate the requested build configuration"), "LLDB Debugger",
                            wxICON_ERROR | wxOK | wxCENTER);
             return;
         }
@@ -421,8 +422,8 @@ void LLDBPlugin::OnDebugStart(clDebugEvent& event)
             args = bldConf->GetCommandArguments();
         }
 
-        workingDirectory = ::ExpandVariables(bldConf->GetWorkingDirectory(), pProject, m_mgr->GetActiveEditor());
-        exepath = ::ExpandVariables(exepath, pProject, m_mgr->GetActiveEditor());
+        workingDirectory = MacroManager::Instance()->Expand(bldConf->GetWorkingDirectory(), m_mgr, pProject->GetName());
+        exepath = MacroManager::Instance()->Expand(exepath, m_mgr, pProject->GetName());
 
         {
             DirSaver ds;

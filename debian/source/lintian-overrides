@@ -2,6 +2,3 @@
 testsuite-autopkgtest-missing
 # The upstream source is unsigned
 codelite source: debian-watch-does-not-check-gpg-signature
-# The patch 30_change_two_nonfree_svgs swaps out non-free svgs
-# but lintian was still objecting to the non-free content of the _patch_.
-codelite source: license-problem-cc-by-nc-sa

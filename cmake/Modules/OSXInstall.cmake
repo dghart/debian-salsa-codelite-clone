@@ -10,7 +10,7 @@ macro(CL_INSTALL_NAME_TOOL _findwhat_ _binary_)
     if(APPLE)
         install(CODE 
             "
-            execute_process(COMMAND /bin/bash -c \"otool -L ${_binary_} | grep ${_findwhat_} |grep -v executable_path \"
+            execute_process(COMMAND /bin/sh -c \"otool -L ${_binary_} | grep ${_findwhat_} |grep -v executable_path \"
                              OUTPUT_VARIABLE RESULT1
                              OUTPUT_STRIP_TRAILING_WHITESPACE
                              )
@@ -31,7 +31,7 @@ macro(CL_INSTALL_NAME_TOOL_EX _findwhat_ _replacewith_ _binary_)
     if(APPLE)
         install(CODE 
             "
-            execute_process(COMMAND /bin/bash -c \"otool -L ${_binary_} | grep ${_findwhat_} |grep -v executable_path \"
+            execute_process(COMMAND /bin/sh -c \"otool -L ${_binary_} | grep ${_findwhat_} |grep -v executable_path \"
                              OUTPUT_VARIABLE RESULT1
                              OUTPUT_STRIP_TRAILING_WHITESPACE
                              )
@@ -229,7 +229,8 @@ macro(OSX_MAKE_BUNDLE_DIRECTORY)
              ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS)
         
         ## Copy and fix libclang.dylib / liblldb
-        file(COPY ${CL_SRC_ROOT}/sdk/lldb/unix/lib/liblldb.3.5.0.dylib
+        message(STATUS "Copying ${CL_SRC_ROOT}/sdk/lldb/osx/lib/liblldb.10.0.0svn.dylib -> ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/")
+        file(COPY ${CL_SRC_ROOT}/sdk/lldb/osx/lib/liblldb.10.0.0svn.dylib
              DESTINATION 
              ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/
              )

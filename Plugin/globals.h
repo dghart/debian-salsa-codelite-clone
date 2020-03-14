@@ -288,21 +288,16 @@ WXDLLIMPEXP_SDK wxString clGetUserName();
 WXDLLIMPEXP_SDK void GetProjectTemplateList(std::list<ProjectPtr>& list);
 
 /**
- * @brief extract file from Zip and place it under targetDir
- * @param zipPath path to the Zip file (fullpath)
- * @param filename the file name to search in the archive
- * @param targetDir where to place the extracted file
- * @param targetFileName the path of the file that was actually extracted
- * @return true on success, false otherwise
- */
-WXDLLIMPEXP_SDK bool ExtractFileFromZip(const wxString& zipPath, const wxString& filename, const wxString& targetDir,
-                                        wxString& targetFileName);
-
-/**
  * @brief set the native Windows theme for the application
  * @param win [input]
  */
 WXDLLIMPEXP_SDK void MSWSetNativeTheme(wxWindow* win, const wxString& theme = wxT("Explorer"));
+
+/**
+ * @brief under Windows 10 and later, enable dark mode controls (where it is implemented)
+ * based on the selected editor theme. This is dont recursievly on win
+ */
+WXDLLIMPEXP_SDK void MSWSetWindowDarkTheme(wxWindow* win);
 
 /**
  * @brief make relative only if a subpath of reference_path (or is reference_path itself)
@@ -555,6 +550,11 @@ WXDLLIMPEXP_SDK double clGetContentScaleFactor();
 WXDLLIMPEXP_SDK int clGetScaledSize(int size);
 
 /**
+ * @brief return the real size for based on Window DIP
+ */
+WXDLLIMPEXP_SDK int clGetSize(int size, const wxWindow* win);
+
+/**
  * @param signo singal number
  * @brief send signo to the
  * @param processID the process ID to kill
@@ -626,4 +626,21 @@ WXDLLIMPEXP_SDK void clSetTLWindowBestSizeAndPosition(wxWindow* win);
  * @param win
  */
 WXDLLIMPEXP_SDK void clSetDialogBestSizeAndPosition(wxDialog* win);
+
+/**
+ * @brief similar to clSetDialogBestSizeAndPosition but use a smaller default size
+ */
+WXDLLIMPEXP_SDK void clSetSmallDialogBestSizeAndPosition(wxDialog* win);
+
+/**
+ * @brief set a dialog size and position. Ratio is the size of the dialog compared to its parent
+ * ration <= 0.0 the same size as the parent
+ */
+WXDLLIMPEXP_SDK void clSetDialogSizeAndPosition(wxDialog* win, double ratio);
+
+/**
+ * @brief return true if a C++ workspace is opened
+ */
+WXDLLIMPEXP_SDK bool clIsCxxWorkspaceOpened();
+
 #endif // GLOBALS_H

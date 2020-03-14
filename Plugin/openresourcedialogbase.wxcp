@@ -19,7 +19,7 @@
 			"border":	0,
 			"gbSpan":	",",
 			"gbPosition":	",",
-			"m_styles":	["wxRESIZE_BORDER"],
+			"m_styles":	["wxCAPTION", "wxRESIZE_BORDER"],
 			"m_sizerFlags":	[],
 			"m_properties":	[{
 					"type":	"string",
@@ -76,7 +76,7 @@
 				}, {
 					"type":	"bool",
 					"m_label":	"Enable Window Persistency:",
-					"m_value":	true
+					"m_value":	false
 				}, {
 					"type":	"string",
 					"m_label":	"Title:",
@@ -265,7 +265,7 @@
 							"border":	5,
 							"gbSpan":	"1,1",
 							"gbPosition":	"0,0",
-							"m_styles":	["wxDV_ROW_LINES", "wxDV_SINGLE"],
+							"m_styles":	["wxDV_ROW_LINES", "wxDV_MULTIPLE"],
 							"m_sizerFlags":	["wxEXPAND"],
 							"m_properties":	[{
 									"type":	"winid",
@@ -274,7 +274,7 @@
 								}, {
 									"type":	"string",
 									"m_label":	"Size:",
-									"m_value":	"-1,200"
+									"m_value":	"-1,-1"
 								}, {
 									"type":	"string",
 									"m_label":	"Minimum Size:",

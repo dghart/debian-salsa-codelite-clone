@@ -1,12 +1,12 @@
 #include "clTabRendererGTK3.h"
 
 #include "ColoursAndFontsManager.h"
+#include "clSystemSettings.h"
 #include "drawingutils.h"
 #include "editor_config.h"
 #include <wx/dcmemory.h>
 #include <wx/font.h>
 #include <wx/settings.h>
-#include "clSystemSettings.h"
 
 #define DRAW_LINE(__p1, __p2) \
     dc.DrawLine(__p1, __p2);  \
@@ -14,8 +14,8 @@
     dc.DrawLine(__p1, __p2);  \
     dc.DrawLine(__p1, __p2);
 
-clTabRendererGTK3::clTabRendererGTK3()
-    : clTabRenderer("GTK3")
+clTabRendererGTK3::clTabRendererGTK3(const wxWindow* parent)
+    : clTabRenderer("GTK3", parent)
 {
 #ifdef __WXGTK__
     bottomAreaHeight = 0;
@@ -26,8 +26,7 @@ clTabRendererGTK3::clTabRendererGTK3()
     smallCurveWidth = 0;
     overlapWidth = 0;
     verticalOverlapWidth = 0;
-    xSpacer = 15;
-    ySpacer = EditorConfigST::Get()->GetOptions()->GetNotebookTabHeight() + 2;
+    // xSpacer = 15;
 }
 
 clTabRendererGTK3::~clTabRendererGTK3() {}
@@ -35,6 +34,7 @@ clTabRendererGTK3::~clTabRendererGTK3() {}
 void clTabRendererGTK3::Draw(wxWindow* parent, wxDC& dc, wxDC& fontDC, const clTabInfo& tabInfo,
                              const clTabColours& colours, size_t style, eButtonState buttonState)
 {
+    bool isDark = DrawingUtils::IsDark(colours.activeTabBgColour);
     wxColour inactiveTabPenColour = colours.inactiveTabPenColour;
 
     wxColour activeTabBgColour = DrawingUtils::IsDark(colours.tabAreaColour)
@@ -65,7 +65,7 @@ void clTabRendererGTK3::Draw(wxWindow* parent, wxDC& dc, wxDC& fontDC, const clT
                                                                                          : tabInfo.GetBitmap();
         dc.DrawBitmap(bmp, tabInfo.m_bmpX + rr.GetX(), tabInfo.m_bmpY + rr.GetY());
     }
-    wxString label = tabInfo.m_label;
+    wxString label = tabInfo.GetBestLabel(style);
     if(bVerticalTabs) {
         // Check that the text can fit into the tab label
         int textEndCoord = tabInfo.m_textX + tabInfo.m_textWidth;
@@ -75,12 +75,12 @@ void clTabRendererGTK3::Draw(wxWindow* parent, wxDC& dc, wxDC& fontDC, const clT
             DrawingUtils::TruncateText(tabInfo.m_label, newSize, dc, label);
         }
     }
-
-    fontDC.DrawText(label, tabInfo.m_textX + rr.GetX(), tabInfo.m_textY + rr.GetY());
-    if(tabInfo.IsActive() && (style & kNotebook_CloseButtonOnActiveTab)) {
-        // Draw the X button
-        DrawButton(parent, dc, tabInfo, colours, buttonState);
+    if(tabInfo.IsActive()) { 
+        wxColour activeTabTextColour = isDark ? colours.markerColour : colours.activeTabTextColour;
+        dc.SetTextForeground(activeTabTextColour); 
     }
+    fontDC.DrawText(label, tabInfo.m_textX + rr.GetX(), tabInfo.m_textY + rr.GetY());
+    if(style & kNotebook_CloseButtonOnActiveTab) { DrawButton(parent, dc, tabInfo, colours, buttonState); }
     if(tabInfo.IsActive()) { DrawMarker(dc, tabInfo, colours, style | kNotebook_UnderlineActiveTab); }
 }
 

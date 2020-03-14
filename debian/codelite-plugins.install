@@ -12,6 +12,7 @@ usr/lib/codelite/EOSWiki.so
 usr/lib/codelite/ExternalTools.so
 usr/lib/codelite/HelpPlugin.so
 usr/lib/codelite/LanguageServer.so
+usr/bin/codelite-lsp-helper usr/lib/codelite
 usr/lib/codelite/MemCheck.so
 usr/lib/codelite/Outline.so
 usr/lib/codelite/PHPLint.so

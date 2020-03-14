@@ -3,6 +3,8 @@
 #include "fileutils.h"
 #include "procutils.h"
 #include "file_logger.h"
+#include <wx/arrstr.h>
+#include <wx/tokenzr.h>
 
 clConsoleCodeLiteTerminal::clConsoleCodeLiteTerminal()
 {
@@ -146,7 +148,7 @@ wxString clConsoleCodeLiteTerminal::GetBinary() const
 #ifdef __WXOSX__
     wxString cmd = codeliteTerminal.GetPath();
     cmd = WrapWithQuotesIfNeeded(cmd);
-    cmd.Prepend("/usr/bin/open ");
+    cmd.Prepend("open ");
     cmd << " --args ";
     return cmd;
 #else

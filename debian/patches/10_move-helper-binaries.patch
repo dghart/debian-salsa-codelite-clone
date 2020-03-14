@@ -43,25 +43,16 @@ index e71aae353..cf025a025 100644
      wxString newpath;
      wxGetEnv(wxT("PATH"), &newpath);
  
-diff --git a/Plugin/pipedprocess.cpp b/Plugin/pipedprocess.cpp
-index 6c5c3e05e..88f3b194b 100644
+index 0fa2542d3..f286556e3 100644
 --- a/Plugin/pipedprocess.cpp
 +++ b/Plugin/pipedprocess.cpp
-@@ -29,6 +29,7 @@
- #include <wx/sstream.h>
- #include "wx/msgdlg.h"
- #include <wx/filename.h>
-+#include "cl_standard_paths.h"
- 
- PipedProcess::PipedProcess(int id, const wxString &cmdLine)
- : wxProcess(NULL, id)
-@@ -55,8 +56,7 @@ void PipedProcess::Terminate()
+@@ -55,8 +55,7 @@ void PipedProcess::Terminate()
  {
  #ifdef __WXGTK__
  	wxString cmd;
 -	wxFileName exePath(clStandardPaths::Get().GetExecutablePath());
 -	wxFileName script(exePath.GetPath(), wxT("codelite_kill_children"));
 +	wxFileName script(clStandardPaths::Get().GetBinaryFullPath("codelite_kill_children"));
- 	cmd << wxT("/bin/sh -f ") << script.GetFullPath() << wxT(" ") << GetPid();
+ 	cmd << wxT("/bin/bash -f ") << script.GetFullPath() << wxT(" ") << GetPid();
  	wxExecute(cmd, wxEXEC_ASYNC);
  #else

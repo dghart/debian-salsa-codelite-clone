@@ -21,6 +21,7 @@ cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 ##      -DAUTOGEN_REVISION=1|0                     // Should cmake generate makefiles that auto generates the autoversion.cpp file - default is 1               #
 ##      -DWITH_PCH=1|0                             // Enable Pre Compiled Header?                                                                               #
 ##      -DUSE_AUI_NOTEBOOK=1|0                     // use custom Notebook or wxWidgets's wxAuiNotebook (default is 0)                                           #
+##      -DWITH_WX_CONFIG=<path>                    // Specify a particular wxWidgets wx-config command to use.                                                  #
 ##      -DWITH_WXPATH=<fullpath>                   // Specify a particular wxWidgets build to use. The format must be /path/to/different_wx-config/directory/   #
 ##      -DMAKE_DEB=1|0                             // When set to 1, you can use make package to create .deb file for codelite                                  #
 ##      -DENABLE_SFTP=1|0                          // When set to 1 codelite is built with SFTP support. Default is build _with_ SFTP support                   #
@@ -67,11 +68,15 @@ if(NOT SQLITE3_FOUND)
 endif()
 
 set( IS_FREEBSD 0 )
+set( IS_NETBSD 0 )
 set( BUILD_WXC 0 )
 set( CL_COPY_WX_LIBS 0 )
 set( WITH_SFTP 1 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations") # Avoid very multiple warnings spam due to deprecated wx methods
+if( UNIX AND NOT APPLE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isystem /usr/include/harfbuzz") # Needed for fedora 31 so far, but will spread. See https://gitlab.kitware.com/cmake/cmake/issues/19531
+endif()
 
 if( UNIX AND NOT APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--disable-new-dtags")
@@ -112,7 +117,7 @@ if ( APPLE )
   set(WX_COMPONENTS "std aui propgrid ribbon")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libc++")
 else ( APPLE )
-  set(WX_COMPONENTS "std aui propgrid stc ribbon")
+  set(WX_COMPONENTS "std aui propgrid stc ribbon richtext")
 endif()
 
 if (WITH_WXPATH)
@@ -120,7 +125,11 @@ if (WITH_WXPATH)
 endif()
 unset(WITH_WXPATH CACHE)
 
-set( CL_WX_CONFIG wx-config )
+if (WITH_WX_CONFIG)
+    set( CL_WX_CONFIG ${WITH_WX_CONFIG} )
+else (WITH_WX_CONFIG)
+    set( CL_WX_CONFIG wx-config )
+endif()
 
 if (UNIX OR MINGW)
     execute_process(COMMAND which ${CL_WX_CONFIG} OUTPUT_VARIABLE WX_TOOL OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -204,6 +213,11 @@ endif()
 if(ENABLE_SFTP MATCHES 0)
     set( WITH_SFTP 0 )
 endif (ENABLE_SFTP MATCHES 0)
+
+if(MAKE_RPM_SLIM MATCHES 1)
+    set( WITH_SFTP 0 )
+endif()
+
 unset(ENABLE_SFTP CACHE)
 
 if ( WITH_SFTP )
@@ -221,10 +235,10 @@ if ( WITH_SFTP )
             if (UNIX AND NOT APPLE )
                 ## Linux / FreeBSD
                 message("**** NOTICE: Install libssh-dev and try again")
-            else (UNIX AND NOT APPLE )
+            elseif (NOT MINGW )
                 ## OSX
                 message("**** NOTICE: Install libssh and try again (brew install libssh)")
-            endif (UNIX AND NOT APPLE )
+            endif ()
             message(FATAL_ERROR "-- Could not find libssh")
         endif( LIBSSH_NOT_FOUND_POS GREATER -1 )
 
@@ -483,8 +497,8 @@ if ( MAKE_DEB )
     endif()
     set(CPACK_GENERATOR                   "DEB")
     set(CPACK_PACKAGE_NAME                "CodeLite")
-    set(CPACK_PACKAGE_VERSION             "13.0.0-${GTKNAME}")
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER   "Eran Ifrah <eran.ifrah@gmail.com>")
+    set(CPACK_PACKAGE_VERSION             "14.0.0-${GTKNAME}")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER   "Eran Ifrah <eran@codelite.org>")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "C/C++/PHP and Node.js IDE (Integrated Development Environment)")
     set(CPACK_DEBIAN_PACKAGE_SECTION      "devel")
     set(CPACK_DEBIAN_PACKAGE_PRIORITY     "optional")
@@ -494,6 +508,52 @@ if ( MAKE_DEB )
     set(CPACK_STRIP_FILES TRUE)
     INCLUDE(CPack)
 endif( MAKE_DEB )
+
+if ( MAKE_RPM )
+    message("-- Generating rpm target")
+    message("-- CPACK_PACKAGE_ARCHITECTURE amd64")
+    if (GTK_VERSION EQUAL 3)
+        set(GTKNAME "gtk3")
+    else()
+        set(GTKNAME "gtk2")
+    endif()
+    set(CPACK_RPM_PACKAGE_AUTOREQ 0)
+    set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
+            "/usr/share/icons;/usr/share/locale/;/usr/share/locale/cs;/usr/share/locale/cs/LC_MESSAGES;/usr/share/locale/ru_RU;/usr/share/locale/ru_RU/LC_MESSAGES;/usr/share/locale/zh_CN;/usr/share/locale/zh_CN/LC_MESSAGES;/usr/share/man;/usr/share/icons/hicolor;/usr/share/icons/hicolor/128x128;/usr/share/icons/hicolor/128x128/apps;/usr/share/icons/hicolor/256x256;/usr/share/icons/hicolor/256x256/apps;/usr/share/icons/hicolor/32x32;/usr/share/icons/hicolor/32x32/apps;/usr/share/icons/hicolor/64x64;/usr/share/icons/hicolor/64x64/apps;/usr/share/applications")
+    set(CPACK_RPM_PACKAGE_REQUIRES          "gcc, g++, git, sqlite, libssh, gtk2, cmake")
+    set(CPACK_GENERATOR                     "RPM")
+    set(CPACK_RPM_PACKAGE_NAME              "CodeLite")
+    set(CPACK_RPM_FILE_NAME                 "CodeLite-14.0.0-x86_64.rpm")
+    set(CPACK_RPM_PACKAGE_VERSION           "14.0.0-${GTKNAME}")
+    set(CPACK_PACKAGE_CONTACT               "Eran Ifrah <eran@codelite.org>")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY   "C/C++/PHP/Node.js IDE (Integrated Development Environment)")
+    set(CPACK_PACKAGE_VENDOR                "The CodeLite Team")
+    set(CPACK_STRIP_FILES TRUE)
+    INCLUDE(CPack)
+endif( MAKE_RPM )
+
+if ( MAKE_RPM_SLIM )
+    message("-- Generating rpm target")
+    message("-- CPACK_PACKAGE_ARCHITECTURE amd64")
+    if (GTK_VERSION EQUAL 3)
+        set(GTKNAME "gtk3")
+    else()
+        set(GTKNAME "gtk2")
+    endif()
+    set(CPACK_RPM_PACKAGE_AUTOREQ 0)
+    set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
+            "/usr/share/icons;/usr/share/locale/;/usr/share/locale/cs;/usr/share/locale/cs/LC_MESSAGES;/usr/share/locale/ru_RU;/usr/share/locale/ru_RU/LC_MESSAGES;/usr/share/locale/zh_CN;/usr/share/locale/zh_CN/LC_MESSAGES;/usr/share/man;/usr/share/icons/hicolor;/usr/share/icons/hicolor/128x128;/usr/share/icons/hicolor/128x128/apps;/usr/share/icons/hicolor/256x256;/usr/share/icons/hicolor/256x256/apps;/usr/share/icons/hicolor/32x32;/usr/share/icons/hicolor/32x32/apps;/usr/share/icons/hicolor/64x64;/usr/share/icons/hicolor/64x64/apps;/usr/share/applications")
+    set(CPACK_RPM_PACKAGE_REQUIRES          "gcc72, g++72, git, sqlite, gtk2, cmake")
+    set(CPACK_GENERATOR                     "RPM")
+    set(CPACK_RPM_PACKAGE_NAME              "CodeLite")
+    set(CPACK_RPM_FILE_NAME                 "CodeLite-slim-14.0.0-gtk2-x86_64.rpm")
+    set(CPACK_RPM_PACKAGE_VERSION           "14.0.0-${GTKNAME}")
+    set(CPACK_PACKAGE_CONTACT               "Eran Ifrah <eran@codelite.org>")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY   "C/C++ IDE (Integrated Development Environment)")
+    set(CPACK_PACKAGE_VENDOR                "Eran Ifrah")
+    set(CPACK_STRIP_FILES TRUE)
+    INCLUDE(CPack)
+endif( MAKE_RPM_SLIM )
 
 ############################################
 ## SFTP support

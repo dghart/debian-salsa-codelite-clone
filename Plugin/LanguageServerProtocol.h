@@ -1,21 +1,22 @@
 #ifndef LANGUAG_ESERVER_PROTOCOL_H
 #define LANGUAG_ESERVER_PROTOCOL_H
 
-#include "codelite_exports.h"
+#include "LSP/IPathConverter.hpp"
+#include "LSP/MessageWithParams.h"
+#include "LSPNetwork.h"
+#include "ServiceProvider.h"
+#include "SocketAPI/clSocketClientAsync.h"
 #include "asyncprocess.h"
 #include "cl_command_event.h"
-#include <wxStringHash.h>
-#include <wx/sharedptr.h>
+#include "codelite_exports.h"
 #include "macros.h"
 #include <map>
 #include <queue>
 #include <string>
-#include "LSP/MessageWithParams.h"
 #include <unordered_map>
-#include "SocketAPI/clSocketClientAsync.h"
-#include "LSPNetwork.h"
 #include <wx/filename.h>
-#include "ServiceProvider.h"
+#include <wx/sharedptr.h>
+#include <wxStringHash.h>
 
 class IEditor;
 class WXDLLIMPEXP_SDK LSPRequestMessageQueue
@@ -55,6 +56,7 @@ class WXDLLIMPEXP_SDK LanguageServerProtocol : public ServiceProvider
     wxString m_outputBuffer;
     wxString m_rootFolder;
     wxString m_connectionString;
+    IPathConverter::Ptr_t m_pathConverter;
 
     // initialization
     eState m_state = kUnInitialized;
@@ -65,6 +67,7 @@ class WXDLLIMPEXP_SDK LanguageServerProtocol : public ServiceProvider
     size_t m_createFlags = 0;
     wxStringSet_t m_unimplementedMethods;
     bool m_disaplayDiagnostics = true;
+    int m_lastCompletionRequestId = wxNOT_FOUND;
 
 public:
     typedef wxSharedPtr<LanguageServerProtocol> Ptr_t;
@@ -90,14 +93,14 @@ protected:
     bool ShouldHandleFile(IEditor* editor) const;
     wxString GetLogPrefix() const;
     void ProcessQueue();
-    static wxString GetLanguageId(const wxFileName& fn) { return GetLanguageId(fn.GetFullName()); }
+    static wxString GetLanguageId(const wxFileName& fn);
     static wxString GetLanguageId(const wxString& fn);
 
 protected:
     /**
      * @brief notify about file open
      */
-    void SendOpenRequest(const wxFileName& filename, const wxString& fileContent, const wxString& languageId);
+    void SendOpenRequest(const wxFileName& filename, const std::string& fileContent, const wxString& languageId);
 
     /**
      * @brief report a file-close notification
@@ -107,19 +110,19 @@ protected:
     /**
      * @brief report a file-changed notification
      */
-    void SendChangeRequest(const wxFileName& filename, const wxString& fileContent);
+    void SendChangeRequest(const wxFileName& filename, const std::string& fileContent);
 
     /**
      * @brief report a file-save notification
      */
-    void SendSaveRequest(const wxFileName& filename, const wxString& fileContent);
+    void SendSaveRequest(const wxFileName& filename, const std::string& fileContent);
 
     /**
      * @brief request for a code completion at a given doc/position
      */
     void SendCodeCompleteRequest(const wxFileName& filename, size_t line, size_t column);
 
-    void DoStart();
+    bool DoStart();
 
     /**
      * @brief add message to the outgoing queue
@@ -127,7 +130,8 @@ protected:
     void QueueMessage(LSP::MessageWithParams::Ptr_t request);
 
 public:
-    LanguageServerProtocol(const wxString& name, eNetworkType netType, wxEvtHandler* owner);
+    LanguageServerProtocol(const wxString& name, eNetworkType netType, wxEvtHandler* owner,
+                           IPathConverter::Ptr_t pathConverter);
     virtual ~LanguageServerProtocol();
 
     LanguageServerProtocol& SetDisaplayDiagnostics(bool disaplayDiagnostics)
@@ -136,6 +140,8 @@ public:
         return *this;
     }
     bool IsDisaplayDiagnostics() const { return m_disaplayDiagnostics; }
+    void SetPathConverter(IPathConverter::Ptr_t pathConverter) { this->m_pathConverter = pathConverter; }
+    IPathConverter::Ptr_t GetPathConverter() const { return m_pathConverter; }
     LanguageServerProtocol& SetName(const wxString& name)
     {
         this->m_name = name;
@@ -164,13 +170,13 @@ public:
      * @param rootFolder the LSP root folder (to be passed during the 'initialize' request)
      * @param languages supported languages by this LSP
      */
-    void Start(const wxArrayString& lspCommand, const wxString& connectionString, const wxString& workingDirectory,
+    bool Start(const wxArrayString& lspCommand, const wxString& connectionString, const wxString& workingDirectory,
                const wxString& rootFolder, const wxArrayString& languages, size_t flags);
 
     /**
      * @brief same as above, but reuse the current parameters
      */
-    void Start();
+    bool Start();
 
     /**
      * @brief is the LSP running?

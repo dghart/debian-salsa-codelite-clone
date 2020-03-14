@@ -2,6 +2,7 @@
 #include "CompilersDetectorManager.h"
 #include "build_settings_config.h"
 #include "clBootstrapWizard.h"
+#include "drawingutils.h"
 #include "file_logger.h"
 #include "globals.h"
 #include "macros.h"
@@ -11,7 +12,6 @@
 #include <wx/dcmemory.h>
 #include <wx/msgdlg.h>
 #include <wx/wupdlock.h>
-#include "drawingutils.h"
 #include <wxStringHash.h>
 
 static std::vector<wxString> GetCxxPlugins()
@@ -37,11 +37,30 @@ static std::vector<wxString> GetCxxPlugins()
     return cxxPlugins;
 }
 
+static std::vector<wxString> GetCommonPlugins()
+{
+    static std::vector<wxString> cxxPlugins;
+    if(cxxPlugins.empty()) {
+        cxxPlugins.push_back("AutoSave");
+        cxxPlugins.push_back("Source Code Formatter");
+        cxxPlugins.push_back("CodeLite Vim");
+        cxxPlugins.push_back("Diff Plugin");
+        cxxPlugins.push_back("LanguageServerPlugin");
+        cxxPlugins.push_back("Outline");
+        cxxPlugins.push_back("SFTP");
+        cxxPlugins.push_back("Git");
+        cxxPlugins.push_back("ExternalTools");
+    }
+    return cxxPlugins;
+}
+
 static std::vector<wxString> GetAllPlugins()
 {
     static std::vector<wxString> allPlugins;
     static std::unordered_set<wxString> commonPlugins;
-    if(commonPlugins.empty()) { commonPlugins.insert("Source Code Formatter"); }
+    if(commonPlugins.empty()) {
+        GetCommonPlugins();
+    }
     if(allPlugins.empty()) {
 
         clConfig conf("plugins.conf");
@@ -50,7 +69,9 @@ static std::vector<wxString> GetAllPlugins()
 
         const PluginInfo::PluginMap_t& pluginsInfo = plugins.GetPlugins();
         std::for_each(pluginsInfo.begin(), pluginsInfo.end(), [&](const std::pair<wxString, PluginInfo>& item) {
-            if(commonPlugins.count(item.second.GetName()) == 0) { allPlugins.push_back(item.first); }
+            if(commonPlugins.count(item.second.GetName()) == 0) {
+                allPlugins.push_back(item.first);
+            }
         });
     }
     return allPlugins;
@@ -80,7 +101,8 @@ public:
     }
 };
 
-#define DARK_THEME "Tomorrow Night"
+#define DARK_THEME "Retta light"
+#define NO_SO_LIGHT_THEME "Roboticket"
 #define LIGHT_THEME "Atom One Light"
 
 const wxString sampleText = "class Demo {\n"
@@ -103,14 +125,27 @@ const wxString sampleText = "class Demo {\n"
 
 clBootstrapWizard::clBootstrapWizard(wxWindow* parent)
     : clBoostrapWizardBase(parent)
-    , m_selectedTheme(LIGHT_THEME)
     , m_developmentProfile(0)
 {
-    if(DrawingUtils::IsDark(wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE))) { m_selectedTheme = DARK_THEME; }
+    m_selectedTheme = LIGHT_THEME;
+    if(DrawingUtils::IsDark(wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE))) {
+        m_selectedTheme = DARK_THEME;
+    }
+
+    m_themePicker->Clear();
+    wxArrayString options;
+    options.Add(_("System Default"));
+    options.Add(_("Dark"));
+    options.Add(_("Grey"));
+    options.Add(_("Light"));
+    m_themePicker->Append(options);
+    m_themePicker->SetSelection(0);
 
     m_stc24->SetText(sampleText);
     LexerConf::Ptr_t lexer = ColoursAndFontsManager::Get().GetLexer("c++", m_selectedTheme);
-    if(lexer) { lexer->Apply(m_stc24, true); }
+    if(lexer) {
+        lexer->Apply(m_stc24, true);
+    }
     m_stc24->SetKeyWords(1, "Demo std string");
     m_stc24->SetKeyWords(3, "other number");
 
@@ -128,31 +163,52 @@ clBootstrapWizard::clBootstrapWizard(wxWindow* parent)
 
 clBootstrapWizard::~clBootstrapWizard() { clConfig::Get().Write("DevelopmentProfile", m_developmentProfile); }
 
+void clBootstrapWizard::SetSelectedTheme(const wxString& themeName)
+{
+    m_selectedTheme = themeName;
+    auto lexer = ColoursAndFontsManager::Get().GetLexer("c++", m_selectedTheme);
+    wxColour bgColour = ColoursAndFontsManager::Get().GetBackgroundColourFromLexer(lexer);
+    if(bgColour.IsOk()) {
+        clConfig::Get().Write("UseCustomBaseColour", true);
+        clConfig::Get().Write("BaseColour", bgColour);
+    } else {
+        clConfig::Get().Write("UseCustomBaseColour", false);
+    }
+    if(lexer) {
+        lexer->Apply(m_stc24, true);
+    }
+}
+
 void clBootstrapWizard::OnThemeSelected(wxCommandEvent& event)
 {
     m_globalThemeChanged = true;
     m_stc24->SetEditable(true);
     int themeID = m_themePicker->GetSelection();
-    LexerConf::Ptr_t lexer(nullptr);
-    if(themeID == 0) {
-        // OS default
-        lexer = ColoursAndFontsManager::Get().GetLexer("c++", m_selectedTheme);
+    switch(themeID) {
+    case 0: // System Default
+    {
+        auto lexer = ColoursAndFontsManager::Get().GetLexer("c++", m_selectedTheme);
         m_selectedTheme = LIGHT_THEME;
-        if(DrawingUtils::IsDark(wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE))) { m_selectedTheme = DARK_THEME; }
-        clConfig::Get().Write("UseCustomBaseColour", false);
-    } else {
-        // Dark
-        m_selectedTheme = (themeID == 1) ? DARK_THEME : LIGHT_THEME;
-        lexer = ColoursAndFontsManager::Get().GetLexer("c++", m_selectedTheme);
-        wxColour bgColour = ColoursAndFontsManager::Get().GetBackgroundColourFromLexer(lexer);
-        if(bgColour.IsOk()) {
-            clConfig::Get().Write("UseCustomBaseColour", true);
-            clConfig::Get().Write("BaseColour", bgColour);
-        } else {
-            clConfig::Get().Write("UseCustomBaseColour", false);
+        if(DrawingUtils::IsDark(wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE))) {
+            m_selectedTheme = DARK_THEME;
         }
+        clConfig::Get().Write("UseCustomBaseColour", false);
+        if(lexer) {
+            lexer->Apply(m_stc24, true);
+        }
+    }; break;
+    case 1: // Dark
+        SetSelectedTheme(DARK_THEME);
+        break;
+    case 2: // Grey
+        SetSelectedTheme(NO_SO_LIGHT_THEME);
+        break;
+    default:
+    case 3: // Light
+        SetSelectedTheme(LIGHT_THEME);
+        break;
     }
-    if(lexer) { lexer->Apply(m_stc24, true); }
+
     m_stc24->SetKeyWords(1, "Demo std string");
     m_stc24->SetKeyWords(3, "other");
     ::clRecalculateSTCHScrollBar(m_stc24);
@@ -182,7 +238,9 @@ void clBootstrapWizard::OnScanForCompilers(wxCommandEvent& event)
             m_dvListCtrlCompilers->AppendItem(cols);
         }
 
-        if(!detector.FoundMinGWCompiler()) { CompilersDetectorManager::MSWSuggestToDownloadMinGW(true); }
+        if(!detector.FoundMinGWCompiler()) {
+            CompilersDetectorManager::MSWSuggestToDownloadMinGW(true);
+        }
 
     } else {
         // nothing found on this machine, offer to download
@@ -229,18 +287,30 @@ bool clBootstrapWizard::GetUnSelectedPlugins(wxArrayString& plugins)
         // C/C++ developer
         std::vector<wxString> cxxPlugins = GetCxxPlugins();
         std::vector<wxString> allPlugins = GetAllPlugins();
+        std::vector<wxString> commonPlugins = GetCommonPlugins();
+
+        // Add the common plugins to the CXX ones
+        cxxPlugins.insert(cxxPlugins.end(), commonPlugins.begin(), commonPlugins.end());
+
         std::vector<wxString> webPlugins;
         std::sort(cxxPlugins.begin(), cxxPlugins.end());
         std::sort(allPlugins.begin(), allPlugins.end());
         std::set_difference(allPlugins.begin(), allPlugins.end(), cxxPlugins.begin(), cxxPlugins.end(),
                             std::back_inserter(webPlugins));
-        plugins.Clear();
-        std::for_each(webPlugins.begin(), webPlugins.end(), [&](const wxString& plugin) { plugins.push_back(plugin); });
+        plugins.clear();
+        for(const wxString& plugin : webPlugins) {
+            plugins.Add(plugin);
+        }
         return true;
     } else if(profile == 3) {
         // C/C++ developer for blockchain
         std::vector<wxString> cxxPlugins = GetCxxPlugins();
         std::vector<wxString> allPlugins = GetAllPlugins();
+        std::vector<wxString> commonPlugins = GetCommonPlugins();
+
+        // Add the common plugins to the CXX ones
+        cxxPlugins.insert(cxxPlugins.end(), commonPlugins.begin(), commonPlugins.end());
+
         std::vector<wxString> webPlugins;
         std::sort(cxxPlugins.begin(), cxxPlugins.end());
         std::sort(allPlugins.begin(), allPlugins.end());

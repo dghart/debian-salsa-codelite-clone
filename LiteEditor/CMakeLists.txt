@@ -46,6 +46,8 @@ set( ADDITIONAL_LIBRARIES "" )
 if (UNIX)
     if ( IS_FREEBSD )
         set(ADDITIONAL_LIBRARIES "-lkvm")
+    elseif ( IS_NETBSD )
+        set(ADDTIONAL_LIBRARIES "-lutil")
     elseif ( UNIX AND NOT APPLE )
         set(ADDITIONAL_LIBRARIES "-ldl -lutil -lgobject-2.0")
     else ( )
@@ -86,7 +88,6 @@ if(NOT APPLE)
     ## codelite icons
     install(FILES ${CL_SRC_ROOT}/Runtime/codelite-bitmaps-dark.zip DESTINATION ${CL_PREFIX}/share/codelite)
     install(FILES ${CL_SRC_ROOT}/Runtime/codelite-bitmaps-light.zip DESTINATION ${CL_PREFIX}/share/codelite)
-    install(FILES ${CL_SRC_ROOT}/Runtime/codelite-icons.zip DESTINATION ${CL_PREFIX}/share/codelite)
 
     ## License file
     install(FILES ${CL_SRC_ROOT}/LICENSE DESTINATION ${CL_PREFIX}/share/codelite)
@@ -205,7 +206,9 @@ if(NOT APPLE)
         endforeach()
 
         file(GLOB wxfilepaths ${WX_LIBS_ALL})
-        install(FILES ${wxfilepaths} DESTINATION ${CL_PREFIX}/${CL_INSTALL_LIBDIR}/codelite)
+        file(GLOB libssh_lib_list "${LIBSSH_LIB}*")
+        message("-- will copy ${libssh_lib_list}")
+        install(FILES ${wxfilepaths} ${libssh_lib_list} DESTINATION ${CL_PREFIX}/${CL_INSTALL_LIBDIR}/codelite)
         #install(CODE "set(INSTALL_DIR \"${CL_PREFIX}/${CL_INSTALL_LIBDIR}/codelite\")")
         #install(FILES ${CL_SRC_ROOT}/Runtime/codelite-fix-rpath DESTINATION 
         #        ${CL_PREFIX}/${CL_INSTALL_LIBDIR}/codelite 

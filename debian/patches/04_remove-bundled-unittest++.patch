@@ -5,7 +5,7 @@ Forwarded: not-needed
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/LiteEditor/CMakeLists.txt
 +++ b/LiteEditor/CMakeLists.txt
-@@ -151,7 +151,6 @@ if(NOT APPLE)
+@@ -155,7 +155,6 @@ if(NOT APPLE)
      install(
          DIRECTORY ${CL_SRC_ROOT}/Runtime/images 
                    ${CL_SRC_ROOT}/Runtime/gdb_printers 
@@ -17,19 +17,19 @@ diff --git a/Runtime/templates/projects/UnitTest++/UnitTest++.project b/Runtime/
 index c3f2180db..089ac7b64 100644
 --- a/Runtime/templates/projects/UnitTest++/UnitTest++.project
 +++ b/Runtime/templates/projects/UnitTest++/UnitTest++.project
-@@ -5,6 +5,7 @@
-         <Configuration Name="Debug" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Executable">
-             <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="Debug" Command="./$(ProjectName)" CommandArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes"/>
-             <Compiler Required="yes" Options="-g">
-+                <IncludePath Value="/usr/include/unittest++"/>
-                 <IncludePath Value="."/>
-             </Compiler>
-             <Linker Required="yes" Options="">
-@@ -30,6 +31,7 @@
-         <Configuration Name="Release" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Executable">
-             <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="Release" Command="./$(ProjectName)" CommandArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes"/>
-             <Compiler Required="yes" Options="">
-+                <IncludePath Value="/usr/include/unittest++"/>
-                 <IncludePath Value="."/>
-             </Compiler>
-             <Linker Required="yes" Options="-O2">
+@@ -18,6 +18,7 @@
+     <Configuration Name="Debug" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+       <Compiler Options="-g" C_Options="-g" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+         <IncludePath Value="."/>
++        <IncludePath Value="/usr/include/unittest++"/>
+       </Compiler>
+       <Linker Options="" Required="yes">
+         <LibraryPath Value=""/>
+@@ -60,6 +61,7 @@
+     <Configuration Name="Release" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+       <Compiler Options="" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+         <IncludePath Value="."/>
++        <IncludePath Value="/usr/include/unittest++"/>
+       </Compiler>
+       <Linker Options="-O2" Required="yes">
+         <LibraryPath Value=""/>

@@ -30,6 +30,7 @@
 #include "wx/filename.h"
 #include <wx/filename.h>
 #include <wx/log.h>
+#include "asyncprocess.h"
 
 #define clRemoveFile(filename) FileUtils::RemoveFile(filename, (wxString() << __FILE__ << ":" << __LINE__))
 
@@ -247,5 +248,23 @@ public:
      * @brief convert string into std::string
      */
     static std::string ToStdString(const wxString& str);
+    
+    /**
+     * @brief create an environment list from string in the format of:
+     * ...
+     * key=value
+     * key1=value2
+     * ...
+     */
+    static clEnvList_t CreateEnvironment(const wxString& envstr);
+    
+    /**
+     * @brief Check if the file 'name' is findable on the user's system
+     * @param name the name of the file to locate
+     * @param exepath will contain its filepath if successfully located
+     * @param hint extra paths to search
+     * @return true if a filepath was found
+     */
+    static bool FindExe(const wxString& name, wxFileName& exepath, const wxArrayString& hint = wxArrayString());
 };
 #endif // FILEUTILS_H

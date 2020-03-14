@@ -7,6 +7,7 @@
 #ifndef _CODELITE_LANGUAGESERVER_UI_BASE_CLASSES_H
 #define _CODELITE_LANGUAGESERVER_UI_BASE_CLASSES_H
 
+// clang-format off
 #include <wx/settings.h>
 #include <wx/xrc/xmlres.h>
 #include <wx/xrc/xh_bmp.h>
@@ -21,7 +22,7 @@
 #include <wx/button.h>
 #include <wx/panel.h>
 #include <wx/textctrl.h>
-#include <wx/filepicker.h>
+#include <wx/stc/stc.h>
 #include <wx/combobox.h>
 #include <wx/arrstr.h>
 #include <wx/slider.h>
@@ -41,6 +42,8 @@
 #define WXC_FROM_DIP(x) x
 #endif
 
+// clang-format on
+
 class LanguageServerSettingsDlgBase : public wxDialog
 {
 protected:
@@ -48,6 +51,7 @@ protected:
     wxStaticLine* m_staticLine102;
     wxStaticText* m_staticText105;
     wxNotebook* m_notebook;
+    wxButton* m_buttonScan;
     wxButton* m_buttonNew;
     wxButton* m_buttonDelete;
     wxStdDialogButtonSizer* m_stdBtnSizer4;
@@ -55,6 +59,7 @@ protected:
     wxButton* m_button8;
 
 protected:
+    virtual void OnScan(wxCommandEvent& event) { event.Skip(); }
     virtual void OnAddServer(wxCommandEvent& event) { event.Skip(); }
     virtual void OnDeleteLSP(wxCommandEvent& event) { event.Skip(); }
     virtual void OnDeleteLSPUI(wxUpdateUIEvent& event) { event.Skip(); }
@@ -65,6 +70,7 @@ public:
     wxStaticLine* GetStaticLine102() { return m_staticLine102; }
     wxStaticText* GetStaticText105() { return m_staticText105; }
     wxNotebook* GetNotebook() { return m_notebook; }
+    wxButton* GetButtonScan() { return m_buttonScan; }
     wxButton* GetButtonNew() { return m_buttonNew; }
     wxButton* GetButtonDelete() { return m_buttonDelete; }
     LanguageServerSettingsDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY,
@@ -81,11 +87,10 @@ protected:
     wxStaticText* m_staticText453;
     wxTextCtrl* m_textCtrlName;
     wxStaticText* m_staticText495;
-    wxFilePickerCtrl* m_filePickerExe;
-    wxStaticText* m_staticText537;
-    wxTextCtrl* m_textCtrlArgs;
+    wxStyledTextCtrl* m_stcCommand;
     wxStaticText* m_staticText579;
-    wxDirPickerCtrl* m_dirPickerWorkingDir;
+    wxTextCtrl* m_textCtrlWD;
+    wxButton* m_button1153;
     wxStaticText* m_staticText6311;
     wxTextCtrl* m_textCtrlLanguages;
     wxButton* m_button115;
@@ -96,6 +101,8 @@ protected:
     wxCheckBox* m_checkBoxDiagnostics;
 
 protected:
+    virtual void OnCommandUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnBrowseWD(wxCommandEvent& event) { event.Skip(); }
     virtual void OnSuggestLanguages(wxCommandEvent& event) { event.Skip(); }
 
 public:
@@ -103,11 +110,10 @@ public:
     wxStaticText* GetStaticText453() { return m_staticText453; }
     wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
     wxStaticText* GetStaticText495() { return m_staticText495; }
-    wxFilePickerCtrl* GetFilePickerExe() { return m_filePickerExe; }
-    wxStaticText* GetStaticText537() { return m_staticText537; }
-    wxTextCtrl* GetTextCtrlArgs() { return m_textCtrlArgs; }
+    wxStyledTextCtrl* GetStcCommand() { return m_stcCommand; }
     wxStaticText* GetStaticText579() { return m_staticText579; }
-    wxDirPickerCtrl* GetDirPickerWorkingDir() { return m_dirPickerWorkingDir; }
+    wxTextCtrl* GetTextCtrlWD() { return m_textCtrlWD; }
+    wxButton* GetButton1153() { return m_button1153; }
     wxStaticText* GetStaticText6311() { return m_staticText6311; }
     wxTextCtrl* GetTextCtrlLanguages() { return m_textCtrlLanguages; }
     wxButton* GetButton115() { return m_button115; }

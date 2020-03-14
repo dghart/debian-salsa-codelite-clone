@@ -94,8 +94,7 @@ class WXDLLIMPEXP_SDK clTabCtrl : public wxPanel
 
     wxDateTime m_dragStartTime;
     wxPoint m_dragStartPos;
-    eButtonState m_xButtonState = eButtonState::kNormal;
-
+    
 protected:
     void DoChangeSelection(size_t index);
 
@@ -289,13 +288,14 @@ public:
     /**
      * @brief append page to the notebook
      */
-    void AddPage(wxWindow* page, const wxString& label, bool selected = false, const wxBitmap& bmp = wxNullBitmap);
+    void AddPage(wxWindow* page, const wxString& label, bool selected = false, const wxBitmap& bmp = wxNullBitmap,
+                 const wxString& shortLabel = wxEmptyString);
 
     /**
      * @brief insert page at a specified position
      */
     bool InsertPage(size_t index, wxWindow* page, const wxString& label, bool selected = false,
-                    const wxBitmap& bmp = wxNullBitmap);
+                    const wxBitmap& bmp = wxNullBitmap, const wxString& shortLabel = wxEmptyString);
 
     /**
      * @brief return the currently selected page or null

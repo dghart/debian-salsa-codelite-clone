@@ -35,7 +35,9 @@ private:
     wxDateTime m_dragStartTime;
     wxPoint m_dragStartPos;
     bool m_dragging = false;
-
+    bool m_neverShowHScrollbar = false;
+    bool m_neverShowVScrollbar = false;
+    
 protected:
 #if CL_USE_NATIVE_SCROLLBAR
     virtual void OnVScroll(wxScrollEvent& event);
@@ -62,11 +64,10 @@ protected:
     bool ShouldShowScrollBar() const;
     void DoInitialize();
 
-    
     /**
      * @brief return true row from a position
      */
-    virtual wxTreeItemId GetRow(const wxPoint& pt) const { return wxTreeItemId(); }
+    virtual wxTreeItemId GetRow(const wxPoint& WXUNUSED(pt)) const { return wxTreeItemId(); }
 
 public:
     clScrolledPanel(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
@@ -158,6 +159,11 @@ public:
 
     // Process idle events. Override this in the subclass
     virtual void ProcessIdle() {}
+    
+    /**
+     * @brief should we show the scrollbar?
+     */
+    void SetNeverShowScrollBar(wxOrientation d, bool b);
 };
 
 #endif // CLSCROLLEDPANEL_H

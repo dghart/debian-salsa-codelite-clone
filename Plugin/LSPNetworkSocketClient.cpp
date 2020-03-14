@@ -1,6 +1,7 @@
 #include "LSPNetworkSocketClient.h"
-#include "file_logger.h"
+#include "cl_exception.h"
 #include "dirsaver.h"
+#include "file_logger.h"
 
 LSPNetworkSocketClient::LSPNetworkSocketClient() {}
 
@@ -16,7 +17,11 @@ void LSPNetworkSocketClient::Close()
 
 static wxString& wrap_with_quotes(wxString& str)
 {
-    if(str.Contains(" ")) { str.Prepend("\"").Append("\""); }
+    if(str.Contains(" ")) {
+        // since we are going to convert this into a string, we need to escape all backslashes
+        str.Replace("\\", "\\\\");
+        str.Prepend("\"").Append("\"");
+    }
     return str;
 }
 
@@ -41,18 +46,17 @@ void LSPNetworkSocketClient::Open(const LSPStartupInfo& info)
 {
     m_startupInfo = info;
     // Start the process
-    wxString cmd = BuildCommand(m_startupInfo.GetLspServerCommand());
-    m_lspServer = ::CreateAsyncProcess(this, cmd, IProcessCreateDefault, m_startupInfo.GetWorkingDirectory());
-    if(!m_lspServer) {
-        clCommandEvent evt(wxEVT_LSP_NET_ERROR);
-        evt.SetString(wxString() << "Failed to execute: " << cmd);
-        AddPendingEvent(evt);
-        return;
+    if(m_startupInfo.GetFlags() & LSPStartupInfo::kAutoStart) {
+        wxString cmd = BuildCommand(m_startupInfo.GetLspServerCommand());
+        m_lspServer = ::CreateAsyncProcess(this, cmd, IProcessCreateDefault, m_startupInfo.GetWorkingDirectory());
+        if(!m_lspServer) { throw clException(wxString() << "Failed to execute process: " << cmd); }
+
+        m_lspServer->Detach(); // we dont want events
+        m_pid = m_lspServer->GetPid();
+    } else {
+        m_pid = wxNOT_FOUND;
     }
-
-    m_lspServer->Detach(); // we dont want events
-    m_pid = m_lspServer->GetPid();
-
+    
     // Now that the process is up, connect to the server
     m_socket.reset(new clAsyncSocket(m_startupInfo.GetConnectioString(), kAsyncSocketBuffer | kAsyncSocketClient));
     m_socket->Bind(wxEVT_ASYNC_SOCKET_CONNECTED, &LSPNetworkSocketClient::OnSocketConnected, this);
