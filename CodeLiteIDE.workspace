@@ -56,7 +56,7 @@
     <Project Name="wxcrafter" Path="wxcrafter/wxcrafter.project" Active="No"/>
     <Project Name="wxcLib" Path="wxcrafter/wxcLib/wxcLib.project" Active="No"/>
     <Project Name="LanguageServer" Path="LanguageServer/LanguageServer.project" Active="No"/>
-    <Project Name="EOSWiki" Path="EOSWiki/EOSWiki.project"/>
+    <Project Name="EOSWiki" Path="EOSWiki/EOSWiki.project" Active="No"/>
   </VirtualDirectory>
   <VirtualDirectory Name="Core">
     <Project Name="CodeLiteIDE" Path="LiteEditor/CodeLiteIDE.project" Active="Yes"/>
@@ -83,12 +83,26 @@
     </VirtualDirectory>
   </VirtualDirectory>
   <Project Name="codelite_vim" Path="codelite_vim/codelite_vim.project" Active="No"/>
+  <VirtualDirectory Name="Utils">
+    <Project Name="codelite_launcher" Path="codelite_launcher/codelite_launcher.project" Active="No"/>
+    <Project Name="codelite_make" Path="codelite_make/codelite_make.project" Active="No"/>
+    <Project Name="codelite_terminal" Path="codelite_terminal/codelite_terminal.project" Active="No"/>
+    <Project Name="le_exec" Path="le_exec/le_exec.project" Active="No"/>
+    <Project Name="makedir" Path="TestDir/makedir.project" Active="No"/>
+    <Project Name="codelite_indexer" Path="sdk/codelite_indexer/codelite_indexer.project" Active="No"/>
+    <Project Name="codelitegcc" Path="codelitegcc/codelitegcc.project" Active="No"/>
+    <Project Name="wx-config" Path="sdk/wxconfig/wx-config.project" Active="No"/>
+    <Project Name="codelite_cppcheck" Path="sdk/codelite_cppcheck/codelite_cppcheck.project" Active="No"/>
+    <Project Name="codelite_echo" Path="codelite_echo/codelite_echo.project" Active="No"/>
+  </VirtualDirectory>
   <BuildMatrix>
     <WorkspaceConfiguration Name="Win_x86_Release" Selected="no">
-      <Environment/>
+      <Environment>WXWIN=C:\src\wxWidgets32
+WXCFG=gcc_dll\mswu</Environment>
       <Project Name="abbreviation" ConfigName="Win_x86_Release"/>
       <Project Name="AutoSave" ConfigName="Win_x86_Release"/>
       <Project Name="CallGraph" ConfigName="Win_x86_Release"/>
+      <Project Name="CCTest" ConfigName="Debug"/>
       <Project Name="CMakePlugin" ConfigName="Win_x86_Release"/>
       <Project Name="CodeFormatter" ConfigName="Win_x86_Release"/>
       <Project Name="codelite_vim" ConfigName="Win_x86_Release"/>
@@ -98,24 +112,28 @@
       <Project Name="Copyright" ConfigName="Win_x86_Release"/>
       <Project Name="CppChecker" ConfigName="Win_x86_Release"/>
       <Project Name="Cscope" ConfigName="Win_x86_Release"/>
+      <Project Name="CxxParserTests" ConfigName="Debug"/>
       <Project Name="DatabaseExplorer" ConfigName="Win_x86_Release"/>
       <Project Name="databaselayer_sqlite" ConfigName="Win_x86_Release"/>
       <Project Name="DebuggerGDB" ConfigName="Win_x86_Release"/>
-      <Project Name="EditorConfigPlugin" ConfigName="Win_x64_Release"/>
+      <Project Name="Docker" ConfigName="Win_x86_Release"/>
+      <Project Name="EditorConfigPlugin" ConfigName="Win_x86_Release"/>
+      <Project Name="EOSWiki" ConfigName="Win_x86_Release"/>
       <Project Name="ExternalTools" ConfigName="Win_x86_Release"/>
       <Project Name="git" ConfigName="Win_x86_Release"/>
       <Project Name="Gizmos" ConfigName="Win_x86_Release"/>
       <Project Name="HelpPlugin" ConfigName="Win_x86_Release"/>
       <Project Name="hunspell" ConfigName="Release"/>
       <Project Name="Interfaces" ConfigName="Common"/>
+      <Project Name="LanguageServer" ConfigName="Win_x86_Release"/>
       <Project Name="libCodeLite" ConfigName="Win_x86_Release"/>
-      <Project Name="LLDBApp" ConfigName="Win_x64_Debug"/>
+      <Project Name="LLDBApp" ConfigName="Win_x86_Release"/>
       <Project Name="LLDBDebugger" ConfigName="Win_x86_Release"/>
-      <Project Name="LLDBProtocol" ConfigName="Win_x64_Debug"/>
+      <Project Name="LLDBProtocol" ConfigName="Win_x86_Release"/>
       <Project Name="MacBundler" ConfigName="Win_x86_Release"/>
       <Project Name="MemCheck" ConfigName="DebugUnicode"/>
       <Project Name="Outline" ConfigName="Win_x86_Release"/>
-      <Project Name="PCH" ConfigName="Release"/>
+      <Project Name="PCH" ConfigName="Win_x86_Release"/>
       <Project Name="PHPLint" ConfigName="Win_x86_Release"/>
       <Project Name="PHPParser" ConfigName="Release"/>
       <Project Name="PHPParserUnitTests" ConfigName="Release"/>
@@ -123,29 +141,34 @@
       <Project Name="PHPRefactoring" ConfigName="Win_x86_Release"/>
       <Project Name="plugin_sdk" ConfigName="Win_x86_Release"/>
       <Project Name="QMakePlugin" ConfigName="Win_x86_Release"/>
+      <Project Name="SampleWorksapce" ConfigName="Debug"/>
       <Project Name="SFTP" ConfigName="Win_x86_Release"/>
+      <Project Name="SmartCompletion" ConfigName="Win_x86_Release"/>
       <Project Name="snipwiz" ConfigName="Win_x86_Release"/>
       <Project Name="SpellCheck" ConfigName="Win_x86_Release"/>
-      <Project Name="sqlite3" ConfigName="Common"/>
+      <Project Name="sqlite3" ConfigName="Win_x86_Release"/>
       <Project Name="Subversion2" ConfigName="Win_x86_Release"/>
       <Project Name="Tail" ConfigName="Win_x86_Release"/>
       <Project Name="Tweaks" ConfigName="Win_x86_Release"/>
       <Project Name="UnitTestPP" ConfigName="Win_x86_Release"/>
       <Project Name="WebTools" ConfigName="Win_x86_Release"/>
       <Project Name="WordCompletion" ConfigName="Win_x86_Release"/>
+      <Project Name="wxcLib" ConfigName="Release"/>
+      <Project Name="wxcrafter" ConfigName="Win_x86_Release"/>
       <Project Name="wxFormBuilder" ConfigName="Win_x86_Release"/>
       <Project Name="wxshapeframework" ConfigName="Win_x86_Release"/>
       <Project Name="wxsqlite3" ConfigName="Win_x86_Release"/>
       <Project Name="ZoomNavigator" ConfigName="Win_x86_Release"/>
-      <Project Name="CxxParserTests" ConfigName="Debug"/>
-      <Project Name="CCTest" ConfigName="Debug"/>
-      <Project Name="SampleWorksapce" ConfigName="Debug"/>
-      <Project Name="SmartCompletion" ConfigName="Win_x64_Debug"/>
-      <Project Name="Docker" ConfigName="Win_x64_Debug"/>
-      <Project Name="wxcrafter" ConfigName="Win_x86_Release"/>
-      <Project Name="wxcLib" ConfigName="Release"/>
-      <Project Name="LanguageServer" ConfigName="Win_x64_Debug"/>
-      <Project Name="EOSWiki" ConfigName="Win_x64_Debug"/>
+      <Project Name="codelite_launcher" ConfigName="Win_x86_Release"/>
+      <Project Name="codelite_make" ConfigName="Win_x86_Release"/>
+      <Project Name="codelite_terminal" ConfigName="Win_x86_Release"/>
+      <Project Name="le_exec" ConfigName="Win_x86_Release"/>
+      <Project Name="makedir" ConfigName="Win_x86_Release"/>
+      <Project Name="codelite_indexer" ConfigName="Win_x86_Release"/>
+      <Project Name="codelitegcc" ConfigName="Win_x86_Release"/>
+      <Project Name="wx-config" ConfigName="Win_x86_Release"/>
+      <Project Name="codelite_cppcheck" ConfigName="Win_x86_Release"/>
+      <Project Name="codelite_echo" ConfigName="Win_x86_Release"/>
     </WorkspaceConfiguration>
     <WorkspaceConfiguration Name="CMake_Release" Selected="no">
       <Environment/>
@@ -210,6 +233,16 @@
       <Project Name="wxcLib" ConfigName="Release"/>
       <Project Name="LanguageServer" ConfigName="Win_x64_Debug"/>
       <Project Name="EOSWiki" ConfigName="Win_x64_Debug"/>
+      <Project Name="codelite_launcher" ConfigName="Debug"/>
+      <Project Name="codelite_make" ConfigName="Debug"/>
+      <Project Name="codelite_terminal" ConfigName="Debug"/>
+      <Project Name="le_exec" ConfigName="Debug"/>
+      <Project Name="makedir" ConfigName="DebugUnicode"/>
+      <Project Name="codelite_indexer" ConfigName="Debug_Unix"/>
+      <Project Name="codelitegcc" ConfigName="Debug"/>
+      <Project Name="wx-config" ConfigName="Debug"/>
+      <Project Name="codelite_cppcheck" ConfigName="Debug"/>
+      <Project Name="codelite_echo" ConfigName="Debug"/>
     </WorkspaceConfiguration>
     <WorkspaceConfiguration Name="CMake_Debug" Selected="no">
       <Environment/>
@@ -273,6 +306,16 @@
       <Project Name="wxshapeframework" ConfigName="Win_x86_Release"/>
       <Project Name="wxsqlite3" ConfigName="Win_x86_Release"/>
       <Project Name="EOSWiki" ConfigName="Win_x64_Debug"/>
+      <Project Name="codelite_launcher" ConfigName="Debug"/>
+      <Project Name="codelite_make" ConfigName="Debug"/>
+      <Project Name="codelite_terminal" ConfigName="Debug"/>
+      <Project Name="le_exec" ConfigName="Debug"/>
+      <Project Name="makedir" ConfigName="DebugUnicode"/>
+      <Project Name="codelite_indexer" ConfigName="Debug_Unix"/>
+      <Project Name="codelitegcc" ConfigName="Debug"/>
+      <Project Name="wx-config" ConfigName="Debug"/>
+      <Project Name="codelite_cppcheck" ConfigName="Debug"/>
+      <Project Name="codelite_echo" ConfigName="Debug"/>
     </WorkspaceConfiguration>
     <WorkspaceConfiguration Name="OSX_Debug" Selected="no">
       <Environment/>
@@ -337,6 +380,16 @@
       <Project Name="wxcLib" ConfigName="Release"/>
       <Project Name="LanguageServer" ConfigName="Win_x64_Debug"/>
       <Project Name="EOSWiki" ConfigName="Win_x64_Debug"/>
+      <Project Name="codelite_launcher" ConfigName="Debug"/>
+      <Project Name="codelite_make" ConfigName="Debug"/>
+      <Project Name="codelite_terminal" ConfigName="Debug"/>
+      <Project Name="le_exec" ConfigName="Debug"/>
+      <Project Name="makedir" ConfigName="DebugUnicode"/>
+      <Project Name="codelite_indexer" ConfigName="Debug_Unix"/>
+      <Project Name="codelitegcc" ConfigName="Debug"/>
+      <Project Name="wx-config" ConfigName="Debug"/>
+      <Project Name="codelite_cppcheck" ConfigName="Debug"/>
+      <Project Name="codelite_echo" ConfigName="Debug"/>
     </WorkspaceConfiguration>
     <WorkspaceConfiguration Name="OSX_Release" Selected="no">
       <Environment/>
@@ -401,9 +454,20 @@
       <Project Name="wxcLib" ConfigName="Release"/>
       <Project Name="LanguageServer" ConfigName="Win_x64_Debug"/>
       <Project Name="EOSWiki" ConfigName="Win_x64_Debug"/>
+      <Project Name="codelite_launcher" ConfigName="Debug"/>
+      <Project Name="codelite_make" ConfigName="Debug"/>
+      <Project Name="codelite_terminal" ConfigName="Debug"/>
+      <Project Name="le_exec" ConfigName="Debug"/>
+      <Project Name="makedir" ConfigName="DebugUnicode"/>
+      <Project Name="codelite_indexer" ConfigName="Debug_Unix"/>
+      <Project Name="codelitegcc" ConfigName="Debug"/>
+      <Project Name="wx-config" ConfigName="Debug"/>
+      <Project Name="codelite_cppcheck" ConfigName="Debug"/>
+      <Project Name="codelite_echo" ConfigName="Debug"/>
     </WorkspaceConfiguration>
     <WorkspaceConfiguration Name="Win_x64_Release" Selected="yes">
-      <Environment/>
+      <Environment>WXWIN=C:\src\wxWidgets
+WXCFG=gcc_dll\mswu</Environment>
       <Project Name="AutoSave" ConfigName="Win_x64_Release"/>
       <Project Name="CCTest" ConfigName="Debug"/>
       <Project Name="CMakePlugin" ConfigName="Win_x64_Release"/>
@@ -464,14 +528,27 @@
       <Project Name="wxcLib" ConfigName="Win_x64_Release"/>
       <Project Name="LanguageServer" ConfigName="Win_x64_Release"/>
       <Project Name="EOSWiki" ConfigName="Win_x64_Release"/>
+      <Project Name="codelite_launcher" ConfigName="Win_x64_Release"/>
+      <Project Name="codelite_make" ConfigName="Win_x64_Release"/>
+      <Project Name="codelite_terminal" ConfigName="Win_x64_Release"/>
+      <Project Name="le_exec" ConfigName="Win_x64_Release"/>
+      <Project Name="makedir" ConfigName="Win_x64_Release"/>
+      <Project Name="codelite_indexer" ConfigName="Win_x64_Release"/>
+      <Project Name="codelitegcc" ConfigName="Win_x64_Release"/>
+      <Project Name="wx-config" ConfigName="Win_x64_Release"/>
+      <Project Name="codelite_cppcheck" ConfigName="Win_x64_Release"/>
+      <Project Name="codelite_echo" ConfigName="Win_x64_Release"/>
     </WorkspaceConfiguration>
     <WorkspaceConfiguration Name="Win_x64_Debug" Selected="no">
-      <Environment/>
+      <Environment>WXWIN=C:\src\wxWidgets
+WXCFG=gcc_dll\mswu</Environment>
+      <Project Name="abbreviation" ConfigName="Win_x64_Debug"/>
       <Project Name="AutoSave" ConfigName="Win_x64_Debug"/>
+      <Project Name="CallGraph" ConfigName="Win_x64_Debug"/>
       <Project Name="CCTest" ConfigName="Debug"/>
       <Project Name="CMakePlugin" ConfigName="Win_x64_Debug"/>
-      <Project Name="CallGraph" ConfigName="Win_x64_Debug"/>
       <Project Name="CodeFormatter" ConfigName="Win_x64_Debug"/>
+      <Project Name="codelite_vim" ConfigName="Win_x64_Debug"/>
       <Project Name="CodeLiteDiff" ConfigName="Win_x64_Debug"/>
       <Project Name="CodeLiteIDE" ConfigName="Win_x64_Debug"/>
       <Project Name="ContinuousBuild" ConfigName="Win_x64_Debug"/>
@@ -480,12 +557,19 @@
       <Project Name="Cscope" ConfigName="Win_x64_Debug"/>
       <Project Name="CxxParserTests" ConfigName="Win_x64_Debug"/>
       <Project Name="DatabaseExplorer" ConfigName="Win_x64_Debug"/>
+      <Project Name="databaselayer_sqlite" ConfigName="Win_x64_Debug"/>
       <Project Name="DebuggerGDB" ConfigName="Win_x64_Debug"/>
+      <Project Name="Docker" ConfigName="Win_x64_Debug"/>
       <Project Name="EditorConfigPlugin" ConfigName="Win_x64_Debug"/>
+      <Project Name="EOSWiki" ConfigName="Win_x64_Debug"/>
       <Project Name="ExternalTools" ConfigName="Win_x64_Debug"/>
+      <Project Name="git" ConfigName="Win_x64_Debug"/>
       <Project Name="Gizmos" ConfigName="Win_x64_Debug"/>
       <Project Name="HelpPlugin" ConfigName="Win_x64_Debug"/>
+      <Project Name="hunspell" ConfigName="Win_x64_Debug"/>
       <Project Name="Interfaces" ConfigName="Common"/>
+      <Project Name="LanguageServer" ConfigName="Win_x64_Debug"/>
+      <Project Name="libCodeLite" ConfigName="Win_x64_Debug"/>
       <Project Name="LLDBApp" ConfigName="Win_x64_Debug"/>
       <Project Name="LLDBDebugger" ConfigName="Win_x64_Debug"/>
       <Project Name="LLDBProtocol" ConfigName="Win_x64_Debug"/>
@@ -498,37 +582,38 @@
       <Project Name="PHPParserUnitTests" ConfigName="Win_x64_Debug"/>
       <Project Name="PHPPlugin" ConfigName="Win_x64_Debug"/>
       <Project Name="PHPRefactoring" ConfigName="Win_x64_Debug"/>
+      <Project Name="plugin_sdk" ConfigName="Win_x64_Debug"/>
       <Project Name="QMakePlugin" ConfigName="Win_x64_Debug"/>
-      <Project Name="SFTP" ConfigName="Win_x64_Debug"/>
       <Project Name="SampleWorksapce" ConfigName="Debug"/>
+      <Project Name="SFTP" ConfigName="Win_x64_Debug"/>
       <Project Name="SmartCompletion" ConfigName="Win_x64_Debug"/>
+      <Project Name="snipwiz" ConfigName="Win_x64_Debug"/>
       <Project Name="SpellCheck" ConfigName="Win_x64_Debug"/>
+      <Project Name="sqlite3" ConfigName="Win_x64_Debug"/>
       <Project Name="Subversion2" ConfigName="Win_x64_Debug"/>
       <Project Name="Tail" ConfigName="Win_x64_Debug"/>
       <Project Name="Tweaks" ConfigName="Win_x64_Debug"/>
       <Project Name="UnitTestPP" ConfigName="Win_x64_Debug"/>
       <Project Name="WebTools" ConfigName="Win_x64_Debug"/>
       <Project Name="WordCompletion" ConfigName="Win_x64_Debug"/>
-      <Project Name="ZoomNavigator" ConfigName="Win_x64_Debug"/>
-      <Project Name="abbreviation" ConfigName="Win_x64_Debug"/>
-      <Project Name="codelite_vim" ConfigName="Win_x64_Debug"/>
-      <Project Name="databaselayer_sqlite" ConfigName="Win_x64_Debug"/>
-      <Project Name="git" ConfigName="Win_x64_Debug"/>
-      <Project Name="hunspell" ConfigName="Win_x64_Debug"/>
-      <Project Name="libCodeLite" ConfigName="Win_x64_Debug"/>
-      <Project Name="plugin_sdk" ConfigName="Win_x64_Debug"/>
-      <Project Name="snipwiz" ConfigName="Win_x64_Debug"/>
-      <Project Name="sqlite3" ConfigName="Win_x64_Release"/>
+      <Project Name="wxcLib" ConfigName="Win_x64_Debug"/>
+      <Project Name="wxcrafter" ConfigName="Win_x64_Debug"/>
       <Project Name="wxFormBuilder" ConfigName="Win_x64_Debug"/>
       <Project Name="wxshapeframework" ConfigName="Win_x64_Debug"/>
       <Project Name="wxsqlite3" ConfigName="Win_x64_Debug"/>
-      <Project Name="Docker" ConfigName="Win_x64_Debug"/>
-      <Project Name="wxcrafter" ConfigName="Win_x64_Debug"/>
-      <Project Name="wxcLib" ConfigName="Win_x64_Debug"/>
-      <Project Name="LanguageServer" ConfigName="Win_x64_Debug"/>
-      <Project Name="EOSWiki" ConfigName="Win_x64_Debug"/>
+      <Project Name="ZoomNavigator" ConfigName="Win_x64_Debug"/>
+      <Project Name="codelite_launcher" ConfigName="Debug"/>
+      <Project Name="codelite_make" ConfigName="Debug"/>
+      <Project Name="codelite_terminal" ConfigName="Debug"/>
+      <Project Name="le_exec" ConfigName="Debug"/>
+      <Project Name="makedir" ConfigName="DebugUnicode"/>
+      <Project Name="codelite_indexer" ConfigName="Debug_Unix"/>
+      <Project Name="codelitegcc" ConfigName="Debug"/>
+      <Project Name="wx-config" ConfigName="Debug"/>
+      <Project Name="codelite_cppcheck" ConfigName="Debug"/>
+      <Project Name="codelite_echo" ConfigName="Debug"/>
     </WorkspaceConfiguration>
-    <WorkspaceConfiguration Name="CMake_Debug_GTK3" Selected="yes">
+    <WorkspaceConfiguration Name="CMake_Debug_GTK3" Selected="no">
       <Environment/>
       <Project Name="AutoSave" ConfigName="Win_x64_Release"/>
       <Project Name="CCTest" ConfigName="Debug"/>
@@ -590,8 +675,18 @@
       <Project Name="wxcLib" ConfigName="Release"/>
       <Project Name="LanguageServer" ConfigName="Win_x64_Debug"/>
       <Project Name="EOSWiki" ConfigName="Win_x64_Debug"/>
+      <Project Name="codelite_launcher" ConfigName="Debug"/>
+      <Project Name="codelite_make" ConfigName="Debug"/>
+      <Project Name="codelite_terminal" ConfigName="Debug"/>
+      <Project Name="le_exec" ConfigName="Debug"/>
+      <Project Name="makedir" ConfigName="DebugUnicode"/>
+      <Project Name="codelite_indexer" ConfigName="Debug_Unix"/>
+      <Project Name="codelitegcc" ConfigName="Debug"/>
+      <Project Name="wx-config" ConfigName="Debug"/>
+      <Project Name="codelite_cppcheck" ConfigName="Debug"/>
+      <Project Name="codelite_echo" ConfigName="Debug"/>
     </WorkspaceConfiguration>
-    <WorkspaceConfiguration Name="CMake_Release_GTK3" Selected="yes">
+    <WorkspaceConfiguration Name="CMake_Release_GTK3" Selected="no">
       <Environment/>
       <Project Name="AutoSave" ConfigName="Win_x64_Release"/>
       <Project Name="CCTest" ConfigName="Debug"/>
@@ -653,8 +748,18 @@
       <Project Name="wxcLib" ConfigName="Release"/>
       <Project Name="LanguageServer" ConfigName="Win_x64_Debug"/>
       <Project Name="EOSWiki" ConfigName="Win_x64_Debug"/>
+      <Project Name="codelite_launcher" ConfigName="Debug"/>
+      <Project Name="codelite_make" ConfigName="Debug"/>
+      <Project Name="codelite_terminal" ConfigName="Debug"/>
+      <Project Name="le_exec" ConfigName="Debug"/>
+      <Project Name="makedir" ConfigName="DebugUnicode"/>
+      <Project Name="codelite_indexer" ConfigName="Debug_Unix"/>
+      <Project Name="codelitegcc" ConfigName="Debug"/>
+      <Project Name="wx-config" ConfigName="Debug"/>
+      <Project Name="codelite_cppcheck" ConfigName="Debug"/>
+      <Project Name="codelite_echo" ConfigName="Debug"/>
     </WorkspaceConfiguration>
-    <WorkspaceConfiguration Name="Win_x64_Release_PHP" Selected="yes">
+    <WorkspaceConfiguration Name="Win_x64_Release_PHP" Selected="no">
       <Environment/>
       <Project Name="AutoSave" ConfigName="Win_x64_Release"/>
       <Project Name="CCTest" ConfigName="Debug"/>
@@ -716,8 +821,18 @@
       <Project Name="wxcLib" ConfigName="Release"/>
       <Project Name="LanguageServer" ConfigName="Win_x64_Debug"/>
       <Project Name="EOSWiki" ConfigName="Win_x64_Debug"/>
+      <Project Name="codelite_launcher" ConfigName="Debug"/>
+      <Project Name="codelite_make" ConfigName="Debug"/>
+      <Project Name="codelite_terminal" ConfigName="Debug"/>
+      <Project Name="le_exec" ConfigName="Debug"/>
+      <Project Name="makedir" ConfigName="DebugUnicode"/>
+      <Project Name="codelite_indexer" ConfigName="Debug_Unix"/>
+      <Project Name="codelitegcc" ConfigName="Debug"/>
+      <Project Name="wx-config" ConfigName="Debug"/>
+      <Project Name="codelite_cppcheck" ConfigName="Debug"/>
+      <Project Name="codelite_echo" ConfigName="Debug"/>
     </WorkspaceConfiguration>
-    <WorkspaceConfiguration Name="Win_x64_Debug_No_Plugins" Selected="yes">
+    <WorkspaceConfiguration Name="Win_x64_Debug_No_Plugins" Selected="no">
       <Environment/>
       <Project Name="AutoSave" ConfigName="Win_x64_Debug"/>
       <Project Name="CCTest" ConfigName="Debug"/>
@@ -779,6 +894,16 @@
       <Project Name="wxcLib" ConfigName="Release"/>
       <Project Name="LanguageServer" ConfigName="Win_x64_Debug"/>
       <Project Name="EOSWiki" ConfigName="Win_x64_Debug"/>
+      <Project Name="codelite_launcher" ConfigName="Debug"/>
+      <Project Name="codelite_make" ConfigName="Debug"/>
+      <Project Name="codelite_terminal" ConfigName="Debug"/>
+      <Project Name="le_exec" ConfigName="Debug"/>
+      <Project Name="makedir" ConfigName="DebugUnicode"/>
+      <Project Name="codelite_indexer" ConfigName="Debug_Unix"/>
+      <Project Name="codelitegcc" ConfigName="Debug"/>
+      <Project Name="wx-config" ConfigName="Debug"/>
+      <Project Name="codelite_cppcheck" ConfigName="Debug"/>
+      <Project Name="codelite_echo" ConfigName="Debug"/>
     </WorkspaceConfiguration>
   </BuildMatrix>
 </CodeLite_Workspace>

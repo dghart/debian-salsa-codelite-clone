@@ -38,6 +38,7 @@ AddFunctionsImpDlg::AddFunctionsImpDlg(wxWindow* parent, const TagEntryPtrVector
     m_tags = tags;
     // Clear the impl array
     m_implArr.Clear();
+    m_implArr.reserve(tags.size());
     for(size_t i = 0; i < m_tags.size(); ++i) {
         wxVector<wxVariant> cols;
         cols.push_back(::MakeCheckboxVariant(m_tags.at(i)->GetDisplayName(), true, functionIndex));
@@ -53,8 +54,7 @@ AddFunctionsImpDlg::AddFunctionsImpDlg(wxWindow* parent, const TagEntryPtrVector
         m_dvListCtrl->AppendItem(cols, (wxUIntPtr)&m_implArr.Item(i));
     }
     m_filePicker->SetPath(targetFile);
-    SetName("AddFunctionsImpDlg");
-    WindowAttrManager::Load(this);
+    ::clSetDialogBestSizeAndPosition(this);
 }
 
 AddFunctionsImpDlg::~AddFunctionsImpDlg() {}

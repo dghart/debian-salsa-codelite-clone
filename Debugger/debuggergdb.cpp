@@ -22,24 +22,24 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#include "debuggergdb.h"
-#include <wx/msgdlg.h>
-#include "processreaderthread.h"
-#include "event_notifier.h"
 #include "asyncprocess.h"
-#include <wx/ffile.h>
-#include "exelocator.h"
-#include "environmentconfig.h"
-#include "dirkeeper.h"
 #include "dbgcmd.h"
-#include "wx/regex.h"
+#include "debuggergdb.h"
 #include "debuggerobserver.h"
-#include "wx/filename.h"
-#include "procutils.h"
-#include "wx/tokenzr.h"
-#include <algorithm>
+#include "dirkeeper.h"
+#include "environmentconfig.h"
+#include "event_notifier.h"
+#include "exelocator.h"
 #include "file_logger.h"
 #include "globals.h"
+#include "processreaderthread.h"
+#include "procutils.h"
+#include "wx/filename.h"
+#include "wx/regex.h"
+#include "wx/tokenzr.h"
+#include <algorithm>
+#include <wx/ffile.h>
+#include <wx/msgdlg.h>
 
 #ifdef __WXMSW__
 #include "windows.h"
@@ -67,8 +67,8 @@ static BOOL SigHandler(DWORD CtrlType)
 
 #endif
 
-#include <sys/types.h>
 #include <signal.h>
+#include <sys/types.h>
 
 #if 0
 #define DBG_LOG 1
@@ -596,7 +596,7 @@ bool DbgGdb::QueryFileLine()
     return true;
 }
 
-bool DbgGdb::QueryLocals() { return WriteCommand(wxT("-stack-list-variables 2"), new DbgCmdHandlerLocals(m_observer)); }
+bool DbgGdb::QueryLocals() { return WriteCommand(wxT("-stack-list-variables --skip-unavailable 2"), new DbgCmdHandlerLocals(m_observer)); }
 
 bool DbgGdb::ExecuteCmd(const wxString& cmd)
 {
@@ -764,7 +764,7 @@ void DbgGdb::Poke()
             DbgCmdHandlerAsyncCmd cmd(m_observer, this);
             cmd.ProcessOutput(curline);
         } else {
-            // Unknow format, just log it
+            // Unknown format, just log it
             if(m_info.enableDebugLog && !FilterMessage(curline)) { m_observer->UpdateAddLine(curline); }
         }
     }
@@ -1118,7 +1118,8 @@ DbgCmdCLIHandler* DbgGdb::GetCliHandler() { return m_cliHandler; }
 bool DbgGdb::ListChildren(const wxString& name, int userReason)
 {
     wxString cmd;
-    cmd << wxT("-var-list-children ") << name;
+    cmd << "-var-list-children " << name;
+    if(m_info.maxDisplayElements > 0) { cmd << " " << 0 << " " << m_info.maxDisplayElements; }
     return WriteCommand(cmd, new DbgCmdListChildren(m_observer, name, userReason));
 }
 
@@ -1153,19 +1154,20 @@ bool DbgGdb::EvaluateVariableObject(const wxString& name, int userReason)
 void DbgGdb::OnDataRead(clProcessEvent& e)
 {
     // Data arrived from the debugger
-    wxString bufferRead;
-    bufferRead << e.GetOutput();
+    const wxString& bufferRead = e.GetOutput();
 
     if(!m_gdbProcess || !m_gdbProcess->IsAlive()) return;
 
-    CL_DEBUG("GDB>> %s", bufferRead);
-    wxArrayString lines = wxStringTokenize(bufferRead, wxT("\n"), wxTOKEN_STRTOK);
-    if(lines.IsEmpty()) return;
+    clDEBUG() << "GDB>>" << bufferRead;
+    wxArrayString lines = wxStringTokenize(bufferRead, "\n", wxTOKEN_STRTOK);
+    if(lines.IsEmpty()) { return; }
 
     // Prepend the partially saved line from previous iteration to the first line
     // of this iteration
-    lines.Item(0).Prepend(m_gdbOutputIncompleteLine);
-    m_gdbOutputIncompleteLine.Clear();
+    if(!m_gdbOutputIncompleteLine.empty()) {
+        lines.Item(0).Prepend(m_gdbOutputIncompleteLine);
+        m_gdbOutputIncompleteLine.Clear();
+    }
 
     // If the last line is in-complete, remove it from the array and keep it for next iteration
     if(!bufferRead.EndsWith(wxT("\n"))) {
@@ -1173,8 +1175,8 @@ void DbgGdb::OnDataRead(clProcessEvent& e)
         lines.RemoveAt(lines.GetCount() - 1);
     }
 
-    for(size_t i = 0; i < lines.GetCount(); i++) {
-        wxString line = lines.Item(i);
+    for(size_t i = 0; i < lines.GetCount(); ++i) {
+        wxString& line = lines.Item(i);
 
         line.Replace(wxT("(gdb)"), wxT(""));
         line.Trim().Trim(false);

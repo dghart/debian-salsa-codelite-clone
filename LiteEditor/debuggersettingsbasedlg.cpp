@@ -48,7 +48,9 @@ DebuggerSettingsBaseDlg::DebuggerSettingsBaseDlg(wxWindow* parent, wxWindowID id
 
     SetName(wxT("DebuggerSettingsBaseDlg"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent();
     } else {
@@ -123,7 +125,9 @@ DbgPageStartupCmdsBase::DbgPageStartupCmdsBase(wxWindow* parent, wxWindowID id, 
 
     SetName(wxT("DbgPageStartupCmdsBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
 }
 
 DbgPageStartupCmdsBase::~DbgPageStartupCmdsBase() {}
@@ -179,7 +183,9 @@ PreDefinedTypesPageBase::PreDefinedTypesPageBase(wxWindow* parent, wxWindowID id
 
     SetName(wxT("PreDefinedTypesPageBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_listCtrl1->Connect(wxEVT_COMMAND_LIST_ITEM_ACTIVATED,
                          wxListEventHandler(PreDefinedTypesPageBase::OnItemActivated), NULL, this);
@@ -237,7 +243,8 @@ NewPreDefinedSetBaseDlg::NewPreDefinedSetBaseDlg(wxWindow* parent, wxWindowID id
 
     fgSizer2->Add(m_staticText3, 0, wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
 
-    m_textCtrlName = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+    m_textCtrlName = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(400, -1)), 0);
+    m_textCtrlName->SetFocus();
 #if wxVERSION_NUMBER >= 3000
     m_textCtrlName->SetHint(wxT(""));
 #endif
@@ -280,7 +287,9 @@ NewPreDefinedSetBaseDlg::NewPreDefinedSetBaseDlg(wxWindow* parent, wxWindowID id
 
     SetName(wxT("NewPreDefinedSetBaseDlg"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
@@ -410,11 +419,11 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
     boxSizer86->Add(m_raiseOnBpHit, 0, wxALL, WXC_FROM_DIP(5));
 
     m_checkBoxRunAsSuperuser =
-        new wxCheckBox(m_panelGeneral, wxID_ANY, _("On platforms that supports it, run gdb as superuser"),
+        new wxCheckBox(m_panelGeneral, wxID_ANY, _("On platforms that support it, run gdb as superuser"),
                        wxDefaultPosition, wxDLG_UNIT(m_panelGeneral, wxSize(-1, -1)), 0);
     m_checkBoxRunAsSuperuser->SetValue(false);
     m_checkBoxRunAsSuperuser->SetToolTip(
-        _("On platforms that supports it, run gdb as superuser.\nThis is done by running gdb with 'sudo'"));
+        _("On platforms that support it, run gdb as superuser.\nThis is done by running gdb with 'sudo'"));
 
     boxSizer86->Add(m_checkBoxRunAsSuperuser, 0, wxALL, WXC_FROM_DIP(5));
 
@@ -434,7 +443,7 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
     m_showTooltipsRequiresControl =
         new wxCheckBox(m_panelTooltip, wxID_ANY, _("Use CTRL key to evaluate expressions under the cursor"),
                        wxDefaultPosition, wxDLG_UNIT(m_panelTooltip, wxSize(-1, -1)), 0);
-    m_showTooltipsRequiresControl->SetValue(true);
+    m_showTooltipsRequiresControl->SetValue(false);
     m_showTooltipsRequiresControl->SetToolTip(
         _("When enabled, codelite will evaluate the expression under the cursor only if the CTRL key is down. "
           "\nOtherwise, it will evaluate it automatically"));
@@ -454,31 +463,51 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
     wxBoxSizer* boxSizer85 = new wxBoxSizer(wxVERTICAL);
     m_panelDisplay->SetSizer(boxSizer85);
 
+    wxFlexGridSizer* flexGridSizer102 = new wxFlexGridSizer(0, 2, 0, 0);
+    flexGridSizer102->SetFlexibleDirection(wxBOTH);
+    flexGridSizer102->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
+    flexGridSizer102->AddGrowableCol(1);
+
+    boxSizer85->Add(flexGridSizer102, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+    m_staticText2 = new wxStaticText(m_panelDisplay, wxID_ANY, _("Max string size:"), wxDefaultPosition,
+                                     wxDLG_UNIT(m_panelDisplay, wxSize(-1, -1)), 0);
+    m_staticText2->SetToolTip(_("For no limit, set it to 0"));
+
+    flexGridSizer102->Add(m_staticText2, 0, wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+
+    m_spinCtrlStringSize = new wxSpinCtrl(m_panelDisplay, wxID_ANY, wxT("200"), wxDefaultPosition,
+                                          wxDLG_UNIT(m_panelDisplay, wxSize(-1, -1)), wxSP_ARROW_KEYS);
+    m_spinCtrlStringSize->SetToolTip(_("For no limit, set it to 0"));
+    m_spinCtrlStringSize->SetRange(0, 10000);
+    m_spinCtrlStringSize->SetValue(200);
+
+    flexGridSizer102->Add(m_spinCtrlStringSize, 0, wxALL | wxEXPAND | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+
+    m_staticText104 = new wxStaticText(m_panelDisplay, wxID_ANY, _("Max number of elements:"), wxDefaultPosition,
+                                       wxDLG_UNIT(m_panelDisplay, wxSize(-1, -1)), 0);
+
+    flexGridSizer102->Add(m_staticText104, 0, wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+
+    m_spinCtrlMaxElements = new wxSpinCtrl(m_panelDisplay, wxID_ANY, wxT("100"), wxDefaultPosition,
+                                           wxDLG_UNIT(m_panelDisplay, wxSize(-1, -1)), wxSP_ARROW_KEYS);
+    m_spinCtrlMaxElements->SetToolTip(_("For no limit, set it to 0"));
+    m_spinCtrlMaxElements->SetRange(0, 1000);
+    m_spinCtrlMaxElements->SetValue(100);
+
+    flexGridSizer102->Add(m_spinCtrlMaxElements, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
     wxFlexGridSizer* fgSizer21 = new wxFlexGridSizer(0, 2, 0, 0);
     fgSizer21->SetFlexibleDirection(wxBOTH);
     fgSizer21->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
 
     boxSizer85->Add(fgSizer21, 0, wxEXPAND, WXC_FROM_DIP(5));
 
-    m_staticText2 = new wxStaticText(m_panelDisplay, wxID_ANY, _("Number of elements to display for arrays / strings:"),
-                                     wxDefaultPosition, wxDLG_UNIT(m_panelDisplay, wxSize(-1, -1)), 0);
-    m_staticText2->SetToolTip(_("For no limit, set it to 0"));
-
-    fgSizer21->Add(m_staticText2, 0, wxALL | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
-
-    m_spinCtrlNumElements = new wxSpinCtrl(m_panelDisplay, wxID_ANY, wxT("200"), wxDefaultPosition,
-                                           wxDLG_UNIT(m_panelDisplay, wxSize(-1, -1)), wxSP_ARROW_KEYS);
-    m_spinCtrlNumElements->SetToolTip(_("For no limit, set it to 0"));
-    m_spinCtrlNumElements->SetRange(0, 10000);
-    m_spinCtrlNumElements->SetValue(200);
-
-    fgSizer21->Add(m_spinCtrlNumElements, 0, wxALL | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
-
     m_checkBoxExpandLocals = new wxCheckBox(m_panelDisplay, wxID_ANY, _("Use 'PreDefined types for the 'Locals' view"),
                                             wxDefaultPosition, wxDLG_UNIT(m_panelDisplay, wxSize(-1, -1)), 0);
     m_checkBoxExpandLocals->SetValue(false);
 
-    fgSizer21->Add(m_checkBoxExpandLocals, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+    fgSizer21->Add(m_checkBoxExpandLocals, 0, wxALL | wxEXPAND | wxALIGN_LEFT, WXC_FROM_DIP(5));
 
     fgSizer21->Add(0, 0, 1, wxEXPAND, WXC_FROM_DIP(5));
 
@@ -486,7 +515,7 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
                                             wxDefaultPosition, wxDLG_UNIT(m_panelDisplay, wxSize(-1, -1)), 0);
     m_checkBoxCharArrAsPtr->SetValue(false);
 
-    fgSizer21->Add(m_checkBoxCharArrAsPtr, 0, wxALL | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+    fgSizer21->Add(m_checkBoxCharArrAsPtr, 0, wxALL | wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
 
     fgSizer21->Add(0, 0, 1, wxEXPAND, WXC_FROM_DIP(5));
 
@@ -496,7 +525,7 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
     m_checkBoxUsePrettyPrinting->SetToolTip(
         _("If ticked, examining the contents of e.g. std::string, wxString, wxArrayString will be much easier"));
 
-    fgSizer21->Add(m_checkBoxUsePrettyPrinting, 0, wxALL, WXC_FROM_DIP(5));
+    fgSizer21->Add(m_checkBoxUsePrettyPrinting, 0, wxALL | wxALIGN_LEFT, WXC_FROM_DIP(5));
 
     fgSizer21->Add(0, 0, 0, wxALL, WXC_FROM_DIP(5));
 
@@ -507,11 +536,13 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
         _("When displaying a pointer to an object, identify the actual (derived) type of the object rather than the "
           "declared type, using the virtual function table."));
 
-    fgSizer21->Add(m_checkBoxPrintObjectOn, 0, wxALL, WXC_FROM_DIP(5));
+    fgSizer21->Add(m_checkBoxPrintObjectOn, 0, wxALL | wxALIGN_LEFT, WXC_FROM_DIP(5));
 
     SetName(wxT("DbgPageGeneralBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_buttonBrowse->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(DbgPageGeneralBase::OnBrowse), NULL,
                             this);
@@ -629,7 +660,9 @@ DbgPageMiscBase::DbgPageMiscBase(wxWindow* parent, wxWindowID id, const wxPoint&
 
     SetName(wxT("DbgPageMiscBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_checkBoxDebugAssert->Connect(wxEVT_COMMAND_CHECKBOX_CLICKED,
                                    wxCommandEventHandler(DbgPageMiscBase::OnDebugAssert), NULL, this);
@@ -700,7 +733,9 @@ DbgPagePreDefTypesBase::DbgPagePreDefTypesBase(wxWindow* parent, wxWindowID id, 
 
     SetName(wxT("DbgPagePreDefTypesBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_buttonNewSet->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(DbgPagePreDefTypesBase::OnNewSet), NULL,
                             this);
@@ -830,7 +865,9 @@ DebuggerDisassemblyTabBase::DebuggerDisassemblyTabBase(wxWindow* parent, wxWindo
 
     SetName(wxT("DebuggerDisassemblyTabBase"));
     SetSize(wxDLG_UNIT(this, wxSize(500, 300)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_stc->Connect(wxEVT_STC_MARGINCLICK, wxStyledTextEventHandler(DebuggerDisassemblyTabBase::OnMarginClicked), NULL,
                    this);
@@ -867,7 +904,9 @@ LocalsTableBase::LocalsTableBase(wxWindow* parent, wxWindowID id, const wxPoint&
 
     SetName(wxT("LocalsTableBase"));
     SetSize(wxDLG_UNIT(this, wxSize(500, 300)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_listTable->Connect(wxEVT_COMMAND_TREE_BEGIN_LABEL_EDIT, wxTreeEventHandler(LocalsTableBase::OnListEditLabelBegin),
                          NULL, this);

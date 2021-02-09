@@ -23,27 +23,28 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include <wx/tokenzr.h>
+#include "AddOptionsDialog.h"
+#include "ColoursAndFontsManager.h"
+#include "clSingleChoiceDialog.h"
+#include "cl_config.h"
+#include "ctags_manager.h"
+#include "globals.h"
+#include "ieditor.h"
+#include "includepathlocator.h"
+#include "lexer_configuration.h"
+#include "macros.h"
 #include "pluginmanager.h"
 #include "pp_include.h"
 #include "pptable.h"
-#include "ieditor.h"
 #include "tags_options_dlg.h"
-#include "ctags_manager.h"
 #include "windowattrmanager.h"
-#include "macros.h"
 #include "wx/tokenzr.h"
-#include "add_option_dialog.h"
-#include "globals.h"
-#include "includepathlocator.h"
+#include <ICompilerLocator.h>
 #include <build_settings_config.h>
 #include <compiler.h>
-#include <ICompilerLocator.h>
+#include <wx/dirdlg.h>
 #include <wx/msgdlg.h>
-#include "clSingleChoiceDialog.h"
-#include "ColoursAndFontsManager.h"
-#include "lexer_configuration.h"
-
+#include <wx/tokenzr.h>
 //---------------------------------------------------------
 
 CodeCompletionSettingsDialog::CodeCompletionSettingsDialog(wxWindow* parent, const TagsOptionsData& data)
@@ -66,6 +67,7 @@ CodeCompletionSettingsDialog::CodeCompletionSettingsDialog(wxWindow* parent, con
     WindowAttrManager::Load(this);
 
     // Set default values
+    bool genJsonFile = clConfig::Get().Read("GenerateCompileCommands", false);
 
     //------------------------------------------------------------------
     // Display and behavior
@@ -81,6 +83,7 @@ CodeCompletionSettingsDialog::CodeCompletionSettingsDialog(wxWindow* parent, con
     m_checkBoxKeepFunctionSignature->SetValue(m_data.GetFlags() & CC_KEEP_FUNCTION_SIGNATURE_UNFORMATTED);
     m_spinCtrlNumberOfCCItems->ChangeValue(::wxIntToString(m_data.GetCcNumberOfDisplayItems()));
     m_textCtrlFileSpec->ChangeValue(m_data.GetFileSpec());
+    this->m_checkBoxGenCompileCommandsJSON->SetValue(genJsonFile);
 
     //------------------------------------------------------------------
     // Colouring
@@ -107,6 +110,7 @@ CodeCompletionSettingsDialog::CodeCompletionSettingsDialog(wxWindow* parent, con
     m_textPrep->SetValue(m_data.GetTokens());
     m_textTypes->SetValue(m_data.GetTypes());
     m_textCtrlFilesList->SetValue(m_data.GetMacrosFiles());
+    ::clSetDialogBestSizeAndPosition(this);
 }
 
 CodeCompletionSettingsDialog::~CodeCompletionSettingsDialog() {}
@@ -133,6 +137,7 @@ void CodeCompletionSettingsDialog::CopyData()
     SetFlag(CC_KEEP_FUNCTION_SIGNATURE_UNFORMATTED, m_checkBoxKeepFunctionSignature->IsChecked());
     m_data.SetCcNumberOfDisplayItems(::wxStringToInt(m_spinCtrlNumberOfCCItems->GetValue(), 100));
     m_data.SetFileSpec(m_textCtrlFileSpec->GetValue());
+    clConfig::Get().Write("GenerateCompileCommands", this->m_checkBoxGenCompileCommandsJSON->IsChecked());
 
     //----------------------------------------------------
     // Colouring
@@ -189,7 +194,8 @@ void CodeCompletionSettingsDialog::Parse()
 
     for(size_t i = 0; i < files.size(); i++) {
         wxString file = files[i].Trim().Trim(false);
-        if(file.IsEmpty()) continue;
+        if(file.IsEmpty())
+            continue;
 
         for(size_t xx = 0; xx < searchPaths.size(); xx++) {
             wxString fullpath;
@@ -226,7 +232,9 @@ void CodeCompletionSettingsDialog::OnAddExcludePath(wxCommandEvent& event)
         wxArrayString currPaths = wxStringTokenize(currPathsStr, wxT("\n\r"), wxTOKEN_STRTOK);
         if(currPaths.Index(new_path) == wxNOT_FOUND) {
             currPathsStr.Trim().Trim(false);
-            if(currPathsStr.IsEmpty() == false) { currPathsStr << wxT("\n"); }
+            if(currPathsStr.IsEmpty() == false) {
+                currPathsStr << wxT("\n");
+            }
             currPathsStr << new_path;
             m_textCtrlCtagsExcludePaths->ChangeValue(currPathsStr);
         }
@@ -244,7 +252,9 @@ void CodeCompletionSettingsDialog::OnAddSearchPath(wxCommandEvent& event)
         if(currPaths.Index(new_path) == wxNOT_FOUND) {
 
             currPathsStr.Trim().Trim(false);
-            if(currPathsStr.IsEmpty() == false) { currPathsStr << wxT("\n"); }
+            if(currPathsStr.IsEmpty() == false) {
+                currPathsStr << wxT("\n");
+            }
             currPathsStr << new_path;
 
             m_textCtrlCtagsSearchPaths->ChangeValue(currPathsStr);
@@ -300,13 +310,15 @@ void CodeCompletionSettingsDialog::DoSuggest(wxStyledTextCtrl* textCtrl)
         clSingleChoiceDialog dlg(this, compilerNames, 0);
         dlg.SetTitle(_("Select the compiler to use:"));
 
-        if(dlg.ShowModal() != wxID_OK) return;
+        if(dlg.ShowModal() != wxID_OK)
+            return;
         selection = dlg.GetSelection();
     } else if(compilerNames.size() == 1) {
         selection = compilerNames.Item(0);
     }
 
-    if(selection.IsEmpty()) return;
+    if(selection.IsEmpty())
+        return;
 
     CompilerPtr comp = BuildSettingsConfigST::Get()->GetCompiler(selection);
     CHECK_PTR_RET(comp);

@@ -60,6 +60,11 @@ LanguageServerSettingsDlgBase::LanguageServerSettingsDlgBase(wxWindow* parent, w
 
     boxSizer106->Add(boxSizer108, 0, wxEXPAND, WXC_FROM_DIP(5));
 
+    m_buttonScan = new wxButton(this, wxID_FIND, _("Scan..."), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+    m_buttonScan->SetToolTip(_("Scan for installed Language Servers insalled"));
+
+    boxSizer108->Add(m_buttonScan, 0, wxALL, WXC_FROM_DIP(5));
+
     m_buttonNew = new wxButton(this, wxID_NEW, _("Add..."), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
     m_buttonNew->SetToolTip(_("Add new Language Server"));
 
@@ -91,6 +96,8 @@ LanguageServerSettingsDlgBase::LanguageServerSettingsDlgBase(wxWindow* parent, w
         CentreOnScreen(wxBOTH);
     }
     // Connect events
+    m_buttonScan->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(LanguageServerSettingsDlgBase::OnScan),
+                          NULL, this);
     m_buttonNew->Connect(wxEVT_COMMAND_BUTTON_CLICKED,
                          wxCommandEventHandler(LanguageServerSettingsDlgBase::OnAddServer), NULL, this);
     m_buttonDelete->Connect(wxEVT_COMMAND_BUTTON_CLICKED,
@@ -102,6 +109,8 @@ LanguageServerSettingsDlgBase::LanguageServerSettingsDlgBase(wxWindow* parent, w
 
 LanguageServerSettingsDlgBase::~LanguageServerSettingsDlgBase()
 {
+    m_buttonScan->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(LanguageServerSettingsDlgBase::OnScan),
+                             NULL, this);
     m_buttonNew->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED,
                             wxCommandEventHandler(LanguageServerSettingsDlgBase::OnAddServer), NULL, this);
     m_buttonDelete->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED,
@@ -125,14 +134,11 @@ LanguageServerPageBase::LanguageServerPageBase(wxWindow* parent, wxWindowID id, 
     wxBoxSizer* boxSizer31 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(boxSizer31);
 
-    wxBoxSizer* boxSizer97 = new wxBoxSizer(wxHORIZONTAL);
-
-    boxSizer31->Add(boxSizer97, 0, wxALL | wxALIGN_RIGHT, WXC_FROM_DIP(5));
-
     wxFlexGridSizer* flexGridSizer432 = new wxFlexGridSizer(0, 2, 0, 0);
     flexGridSizer432->SetFlexibleDirection(wxBOTH);
     flexGridSizer432->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
     flexGridSizer432->AddGrowableCol(1);
+    flexGridSizer432->AddGrowableRow(2);
 
     boxSizer31->Add(flexGridSizer432, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
@@ -159,29 +165,48 @@ LanguageServerPageBase::LanguageServerPageBase(wxWindow* parent, wxWindowID id, 
     flexGridSizer432->Add(m_textCtrlName, 0, wxALL | wxEXPAND | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
 
     m_staticText495 =
-        new wxStaticText(this, wxID_ANY, _("Executable:"), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+        new wxStaticText(this, wxID_ANY, _("Command:"), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
     m_staticText495->SetToolTip(_("The language server executable"));
 
-    flexGridSizer432->Add(m_staticText495, 0, wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+    flexGridSizer432->Add(m_staticText495, 0, wxALL | wxALIGN_RIGHT | wxALIGN_TOP, WXC_FROM_DIP(5));
 
-    m_filePickerExe =
-        new wxFilePickerCtrl(this, wxID_ANY, wxEmptyString, _("Select a file"), wxT("*"), wxDefaultPosition,
-                             wxDLG_UNIT(this, wxSize(-1, -1)), wxFLP_DEFAULT_STYLE | wxFLP_USE_TEXTCTRL | wxFLP_SMALL);
+    m_stcCommand = new wxStyledTextCtrl(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, 40)), 0);
+    // Configure the fold margin
+    m_stcCommand->SetMarginType(4, wxSTC_MARGIN_SYMBOL);
+    m_stcCommand->SetMarginMask(4, wxSTC_MASK_FOLDERS);
+    m_stcCommand->SetMarginSensitive(4, true);
+    m_stcCommand->SetMarginWidth(4, 0);
 
-    flexGridSizer432->Add(m_filePickerExe, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+    // Configure the tracker margin
+    m_stcCommand->SetMarginWidth(1, 0);
 
-    m_staticText537 =
-        new wxStaticText(this, wxID_ANY, _("Arguments:"), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
-    m_staticText537->SetToolTip(_("Set here any arguments to pass to the language server executable"));
+    // Configure the symbol margin
+    m_stcCommand->SetMarginType(2, wxSTC_MARGIN_SYMBOL);
+    m_stcCommand->SetMarginMask(2, ~(wxSTC_MASK_FOLDERS));
+    m_stcCommand->SetMarginWidth(2, 0);
+    m_stcCommand->SetMarginSensitive(2, true);
 
-    flexGridSizer432->Add(m_staticText537, 0, wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+    // Configure the line numbers margin
+    m_stcCommand->SetMarginType(0, wxSTC_MARGIN_NUMBER);
+    m_stcCommand->SetMarginWidth(0, 0);
 
-    m_textCtrlArgs = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
-#if wxVERSION_NUMBER >= 3000
-    m_textCtrlArgs->SetHint(wxT(""));
-#endif
+    // Configure the line symbol margin
+    m_stcCommand->SetMarginType(3, wxSTC_MARGIN_FORE);
+    m_stcCommand->SetMarginMask(3, 0);
+    m_stcCommand->SetMarginWidth(3, 0);
+    // Select the lexer
+    m_stcCommand->SetLexer(wxSTC_LEX_NULL);
+    // Set default font / styles
+    m_stcCommand->StyleClearAll();
+    m_stcCommand->SetWrapMode(2);
+    m_stcCommand->SetIndentationGuides(0);
+    m_stcCommand->SetKeyWords(0, wxT(""));
+    m_stcCommand->SetKeyWords(1, wxT(""));
+    m_stcCommand->SetKeyWords(2, wxT(""));
+    m_stcCommand->SetKeyWords(3, wxT(""));
+    m_stcCommand->SetKeyWords(4, wxT(""));
 
-    flexGridSizer432->Add(m_textCtrlArgs, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+    flexGridSizer432->Add(m_stcCommand, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
     m_staticText579 = new wxStaticText(this, wxID_ANY, _("Working directory:"), wxDefaultPosition,
                                        wxDLG_UNIT(this, wxSize(-1, -1)), 0);
@@ -189,11 +214,22 @@ LanguageServerPageBase::LanguageServerPageBase(wxWindow* parent, wxWindowID id, 
 
     flexGridSizer432->Add(m_staticText579, 0, wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
 
-    m_dirPickerWorkingDir = new wxDirPickerCtrl(this, wxID_ANY, wxEmptyString, _("Select a folder"), wxDefaultPosition,
-                                                wxDLG_UNIT(this, wxSize(-1, -1)),
-                                                wxDIRP_SMALL | wxDIRP_DEFAULT_STYLE | wxDIRP_USE_TEXTCTRL);
+    wxBoxSizer* boxSizer1131 = new wxBoxSizer(wxHORIZONTAL);
 
-    flexGridSizer432->Add(m_dirPickerWorkingDir, 0, wxALL | wxEXPAND | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+    flexGridSizer432->Add(boxSizer1131, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
+    m_textCtrlWD = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+#if wxVERSION_NUMBER >= 3000
+    m_textCtrlWD->SetHint(wxT(""));
+#endif
+
+    boxSizer1131->Add(m_textCtrlWD, 1, wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+
+    m_button1153 =
+        new wxButton(this, wxID_ANY, _("..."), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), wxBU_EXACTFIT);
+    m_button1153->SetToolTip(_("Browse..."));
+
+    boxSizer1131->Add(m_button1153, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
 
     m_staticText6311 =
         new wxStaticText(this, wxID_ANY, _("Languages:"), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
@@ -230,6 +266,8 @@ LanguageServerPageBase::LanguageServerPageBase(wxWindow* parent, wxWindowID id, 
     m_comboBoxConnectionArr.Add(wxT("stdio"));
     m_comboBoxConnection = new wxComboBox(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
                                           m_comboBoxConnectionArr, 0);
+    m_comboBoxConnection->SetToolTip(
+        _("If the language server is using TCP\nType the connection string in the format of:\n\ntcp://host:port"));
 #if wxVERSION_NUMBER >= 3000
     m_comboBoxConnection->SetHint(wxT(""));
 #endif
@@ -264,12 +302,18 @@ LanguageServerPageBase::LanguageServerPageBase(wxWindow* parent, wxWindowID id, 
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
     if(GetSizer()) { GetSizer()->Fit(this); }
     // Connect events
+    m_stcCommand->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(LanguageServerPageBase::OnCommandUI), NULL, this);
+    m_button1153->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(LanguageServerPageBase::OnBrowseWD), NULL,
+                          this);
     m_button115->Connect(wxEVT_COMMAND_BUTTON_CLICKED,
                          wxCommandEventHandler(LanguageServerPageBase::OnSuggestLanguages), NULL, this);
 }
 
 LanguageServerPageBase::~LanguageServerPageBase()
 {
+    m_stcCommand->Disconnect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(LanguageServerPageBase::OnCommandUI), NULL, this);
+    m_button1153->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(LanguageServerPageBase::OnBrowseWD),
+                             NULL, this);
     m_button115->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED,
                             wxCommandEventHandler(LanguageServerPageBase::OnSuggestLanguages), NULL, this);
 }

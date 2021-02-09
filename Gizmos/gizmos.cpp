@@ -23,6 +23,7 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 #include "PluginWizard.h"
+#include "clFileSystemWorkspace.hpp"
 #include "cl_command_event.h"
 #include "cl_standard_paths.h"
 #include "codelite_events.h"
@@ -175,21 +176,19 @@ void WizardsPlugin::CreateToolBar(clToolBar* toolbar)
 #endif
     m_mgr->GetTheApp()->Connect(XRCID("gizmos_options"), wxEVT_UPDATE_UI,
                                 wxUpdateUIEventHandler(WizardsPlugin::OnGizmosUI), NULL, (wxEvtHandler*)this);
-
     m_mgr->GetTheApp()->Connect(ID_MI_NEW_CODELITE_PLUGIN, wxEVT_COMMAND_MENU_SELECTED,
                                 wxCommandEventHandler(WizardsPlugin::OnNewPlugin), NULL, (wxEvtHandler*)this);
     m_mgr->GetTheApp()->Connect(ID_MI_NEW_CODELITE_PLUGIN, wxEVT_UPDATE_UI,
                                 wxUpdateUIEventHandler(WizardsPlugin::OnNewPluginUI), NULL, (wxEvtHandler*)this);
-
     m_mgr->GetTheApp()->Connect(ID_MI_NEW_NEW_CLASS, wxEVT_COMMAND_MENU_SELECTED,
                                 wxCommandEventHandler(WizardsPlugin::OnNewClass), NULL, (wxEvtHandler*)this);
     m_mgr->GetTheApp()->Connect(ID_MI_NEW_NEW_CLASS, wxEVT_UPDATE_UI,
                                 wxUpdateUIEventHandler(WizardsPlugin::OnNewClassUI), NULL, (wxEvtHandler*)this);
-
     m_mgr->GetTheApp()->Connect(ID_MI_NEW_WX_PROJECT, wxEVT_COMMAND_MENU_SELECTED,
                                 wxCommandEventHandler(WizardsPlugin::OnNewWxProject), NULL, (wxEvtHandler*)this);
     m_mgr->GetTheApp()->Connect(ID_MI_NEW_WX_PROJECT, wxEVT_UPDATE_UI,
                                 wxUpdateUIEventHandler(WizardsPlugin::OnNewWxProjectUI), NULL, (wxEvtHandler*)this);
+    EventNotifier::Get()->Bind(wxEVT_CONTEXT_MENU_FOLDER, &WizardsPlugin::OnFolderContentMenu, this);
 }
 
 void WizardsPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
@@ -229,6 +228,7 @@ void WizardsPlugin::UnPlug()
                                    wxCommandEventHandler(WizardsPlugin::OnGizmos), NULL, (wxEvtHandler*)this);
     m_mgr->GetTheApp()->Disconnect(XRCID("gizmos_options"), wxEVT_UPDATE_UI,
                                    wxUpdateUIEventHandler(WizardsPlugin::OnGizmosUI), NULL, (wxEvtHandler*)this);
+    EventNotifier::Get()->Unbind(wxEVT_CONTEXT_MENU_FOLDER, &WizardsPlugin::OnFolderContentMenu, this);
 }
 
 void WizardsPlugin::OnNewPlugin(wxCommandEvent& e)
@@ -384,7 +384,7 @@ void WizardsPlugin::OnNewClassUI(wxUpdateUIEvent& e)
 {
     CHECK_CL_SHUTDOWN();
     // we enable the button only when workspace is opened
-    e.Enable(m_mgr->IsWorkspaceOpen());
+    e.Enable(m_mgr->IsWorkspaceOpen() || clFileSystemWorkspace::Get().IsOpen());
 }
 
 void WizardsPlugin::OnNewClass(wxCommandEvent& e)
@@ -395,15 +395,13 @@ void WizardsPlugin::OnNewClass(wxCommandEvent& e)
 
 void WizardsPlugin::DoCreateNewClass()
 {
-    NewClassDlg* dlg = new NewClassDlg(EventNotifier::Get()->TopFrame(), m_mgr);
-    if(dlg->ShowModal() == wxID_OK) {
+    NewClassDlg dlg(EventNotifier::Get()->TopFrame(), m_mgr);
+    if(dlg.ShowModal() == wxID_OK) {
         // do something with the information here
         NewClassInfo info;
-        dlg->GetNewClassInfo(info);
-
+        dlg.GetNewClassInfo(info);
         CreateClass(info);
     }
-    dlg->Destroy();
 }
 
 void WizardsPlugin::CreateClass(NewClassInfo& info)
@@ -459,17 +457,14 @@ void WizardsPlugin::CreateClass(NewClassInfo& info)
         closeMethod = wxT(";\n");
 
     // Add include for base classes
-    if(info.parents.empty() == false) {
-        for(size_t i = 0; i < info.parents.size(); i++) {
+    if(!info.parents.name.empty()) {
+        const ClassParentInfo& pi = info.parents;
 
-            const ClassParentInfo& pi = info.parents.at(i);
-
-            // Include the header name only (no paths)
-            wxFileName includeFileName(pi.fileName);
-            if(!pi.fileName.IsEmpty()) {
-                header << wxT("#include \"") << includeFileName.GetFullName() << wxT("\" // Base class: ") << pi.name
-                       << wxT("\n");
-            }
+        // Include the header name only (no paths)
+        wxFileName includeFileName(pi.fileName);
+        if(!pi.fileName.IsEmpty()) {
+            header << wxT("#include \"") << includeFileName.GetFullName() << wxT("\" // Base class: ") << pi.name
+                   << wxT("\n");
         }
         header << wxT("\n");
     }
@@ -479,16 +474,12 @@ void WizardsPlugin::CreateClass(NewClassInfo& info)
 
     header << wxT("class ") << info.name;
 
-    if(info.parents.empty() == false) {
+    if(!info.parents.name.empty()) {
         header << wxT(" : ");
-        for(size_t i = 0; i < info.parents.size(); i++) {
-            ClassParentInfo pi = info.parents.at(i);
-            header << pi.access << wxT(" ") << pi.name << wxT(", ");
-        }
-        header = header.BeforeLast(wxT(','));
+        const ClassParentInfo& pi = info.parents;
+        header << pi.access << wxT(" ") << pi.name;
     }
     header << wxT("\n{\n");
-
     if(info.isSingleton) { header << separator << wxT("static ") << info.name << wxT("* ms_instance;\n\n"); }
 
     if(info.isAssingable == false) {
@@ -607,17 +598,24 @@ void WizardsPlugin::CreateClass(NewClassInfo& info)
         paths.Add(srcFile);
     }
 
-    // We have a .cpp and an .h file, and there may well be a :src and an :include folder available
-    // So try to place the files appropriately. If that fails, dump both in the selected folder
-    bool smartAddFiles = EditorConfigST::Get()->GetOptions()->GetOptions() & OptionsConfig::Opt_SmartAddFiles;
-    if(!smartAddFiles || !m_mgr->AddFilesToVirtualFolderIntelligently(info.virtualDirectory, paths))
-        m_mgr->AddFilesToVirtualFolder(info.virtualDirectory, paths);
-
-    // Open the newly created classes in codelite
-    for(size_t i = 0; i < paths.GetCount(); i++) {
-        m_mgr->OpenFile(paths.Item(i));
+    if(clCxxWorkspaceST::Get()->IsOpen()) {
+        // We have a .cpp and an .h file, and there may well be a :src and an :include folder available
+        // So try to place the files appropriately. If that fails, dump both in the selected folder
+        bool smartAddFiles = EditorConfigST::Get()->GetOptions()->GetOptions() & OptionsConfig::Opt_SmartAddFiles;
+        if(!smartAddFiles || !m_mgr->AddFilesToVirtualFolderIntelligently(info.virtualDirectory, paths))
+            m_mgr->AddFilesToVirtualFolder(info.virtualDirectory, paths);
     }
 
+    // Open the newly created classes in codelite
+    for(const auto& file : paths) {
+        m_mgr->OpenFile(file);
+    }
+    
+    // Notify about files created on the file system
+    clFileSystemEvent eventFilesCreated(wxEVT_FILE_CREATED);
+    eventFilesCreated.GetPaths().swap(paths);
+    EventNotifier::Get()->QueueEvent(eventFilesCreated.Clone());
+    
     // Notify codelite to parse the files
     wxCommandEvent parseEvent(wxEVT_COMMAND_MENU_SELECTED, XRCID("retag_workspace"));
     EventNotifier::Get()->TopFrame()->GetEventHandler()->AddPendingEvent(parseEvent);
@@ -861,9 +859,8 @@ wxString WizardsPlugin::DoGetVirtualFuncImpl(const NewClassInfo& info)
     std::vector<TagEntryPtr> tmp_tags;
     std::vector<TagEntryPtr> no_dup_tags;
     std::vector<TagEntryPtr> tags;
-    for(std::vector<TagEntryPtr>::size_type i = 0; i < info.parents.size(); i++) {
-        ClassParentInfo pi = info.parents.at(i);
-
+    if(!info.parents.name.empty()) {
+        const ClassParentInfo& pi = info.parents;
         // Load all prototypes / functions of the parent scope
         m_mgr->GetTagsManager()->TagsByScope(pi.name, wxT("prototype"), tmp_tags, false);
         m_mgr->GetTagsManager()->TagsByScope(pi.name, wxT("function"), tmp_tags, false);
@@ -904,8 +901,8 @@ wxString WizardsPlugin::DoGetVirtualFuncDecl(const NewClassInfo& info, const wxS
     std::vector<TagEntryPtr> tmp_tags;
     std::vector<TagEntryPtr> no_dup_tags;
     std::vector<TagEntryPtr> tags;
-    for(std::vector<TagEntryPtr>::size_type i = 0; i < info.parents.size(); i++) {
-        ClassParentInfo pi = info.parents.at(i);
+    if(!info.parents.name.empty()) {
+        const ClassParentInfo& pi = info.parents;
 
         // Load all prototypes / functions of the parent scope
         m_mgr->GetTagsManager()->TagsByScope(pi.name, wxT("prototype"), tmp_tags, false);
@@ -1030,3 +1027,11 @@ void WizardsPlugin::OnGizmosAUI(wxAuiToolBarEvent& e)
     }
 }
 #endif
+void WizardsPlugin::OnFolderContentMenu(clContextMenuEvent& event)
+{
+    event.Skip();
+    if(clFileSystemWorkspace::Get().IsOpen() || clCxxWorkspaceST::Get()->IsOpen()) {
+        auto menu = event.GetMenu();
+        menu->Append(ID_MI_NEW_NEW_CLASS, _("New C++ Class"));
+    }
+}

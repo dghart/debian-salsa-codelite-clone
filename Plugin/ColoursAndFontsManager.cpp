@@ -29,7 +29,7 @@
 
 // Upgrade macros
 #define LEXERS_VERSION_STRING "LexersVersion"
-#define LEXERS_VERSION 5
+#define LEXERS_VERSION 6
 
 wxDEFINE_EVENT(wxEVT_UPGRADE_LEXERS_START, clCommandEvent);
 wxDEFINE_EVENT(wxEVT_UPGRADE_LEXERS_END, clCommandEvent);
@@ -701,6 +701,13 @@ void ColoursAndFontsManager::UpdateLexerColours(LexerConf::Ptr_t lexer, bool for
         indentGuides.SetFgColour(defaultProp.GetBgColour());
         indentGuides.SetBgColour(defaultProp.GetBgColour());
     }
+    
+    if(force || m_lexersVersion < 6) {
+        StyleProperty& caret = lexer->GetProperty(CARET_ATTR_ID);
+        if(lexer->IsDark()) {
+            caret.SetFgColour("rgb(255, 128, 0)");
+        }
+    }
 }
 
 void ColoursAndFontsManager::SetTheme(const wxString& themeName)
@@ -1031,10 +1038,17 @@ wxColour ColoursAndFontsManager::GetBackgroundColourFromLexer(LexerConf::Ptr_t l
     wxColour bgColour;
     if(lexer->IsDark()) {
         bgColour = lexer->GetProperty(0).GetBgColour();
-        bgColour = bgColour.ChangeLightness(105);
+        bgColour = bgColour.ChangeLightness(110);
     } else {
         bgColour = lexer->GetProperty(0).GetBgColour();
         bgColour = bgColour.ChangeLightness(95);
     }
     return bgColour;
+}
+
+bool ColoursAndFontsManager::IsDarkTheme() const
+{
+    LexerConf::Ptr_t lexer = GetLexer("text");
+    if(!lexer) { return false; }
+    return lexer->IsDark();
 }

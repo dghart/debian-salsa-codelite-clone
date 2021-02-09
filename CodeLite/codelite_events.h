@@ -180,6 +180,12 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CMD_STOP_EXECUTED_PROGRAM, clExec
 // it is mainly used for displaying the 'Stop' button in the toolbar as active/disabled
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CMD_IS_PROGRAM_RUNNING, clExecuteEvent);
 
+// Execution of a program started
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_PROGRAM_STARTED, clExecuteEvent);
+
+// Program terminated event
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_PROGRAM_TERMINATED, clExecuteEvent);
+
 // ----------------------------------------------------------------------
 // Build Events
 // ----------------------------------------------------------------------
@@ -281,6 +287,14 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUGGER_REFRESH_PANE, clDebugEve
 
 // Instruct the debugger to update the memory
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUGGER_SET_MEMORY, clDebugEvent);
+
+// Quick debug dialog is showing. The handler can set some parameters
+// such as the debugger to use, exe to debug etc
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_QUICK_DEBUG_DLG_SHOWING, clDebugEvent);
+
+// Quick debug dialog is dismissed. Use this event to persist any setting the user might have
+// updated in the UI
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_QUICK_DEBUG_DLG_DISMISSED_OK, clDebugEvent);
 
 //-------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------
@@ -851,5 +865,22 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_MARKER_CHANGED, clCommandEvent);
 // User click a button in the info bar
 // Use: event.GetInt() to get the button ID clicked
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_INFO_BAR_BUTTON, clCommandEvent);
+
+// User clicked on the drop down menu of the build button
+// A plugin can change the content of the drop down menu and bind then to his custom actions
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_BUILD_CUSTOM_TARGETS_MENU_SHOWING, clContextMenuEvent);
+
+// Source control plugin just pushed changes to the remote server
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SOURCE_CONTROL_PUSHED, clSourceControlEvent);
+
+// Source control plugin just commit locally (this event is only fired where commit->push) exists
+// SVN plugin does not fire this event
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SOURCE_CONTROL_COMMIT_LOCALLY, clSourceControlEvent);
+
+// Some files were reset/reverted their changes
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SOURCE_CONTROL_RESET_FILES, clSourceControlEvent);
+
+// Source control just updated the local files by issuing a pull command (or svn update etc)
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SOURCE_CONTROL_PULLED, clSourceControlEvent);
 
 #endif // CODELITE_EVENTS_H

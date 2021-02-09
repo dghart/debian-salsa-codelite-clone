@@ -31,6 +31,7 @@
 #include "autoversion.h"
 #include "clInitializeDialog.h"
 #include "clKeyboardManager.h"
+#include "clSystemSettings.h"
 #include "cl_config.h"
 #include "cl_registry.h"
 #include "conffilelocator.h"
@@ -41,6 +42,7 @@
 #include "evnvarlist.h"
 #include "exelocator.h"
 #include "file_logger.h"
+#include "fileexplorer.h"
 #include "fileextmanager.h"
 #include "frame.h"
 #include "globals.h"
@@ -51,15 +53,13 @@
 #include "procutils.h"
 #include "singleinstancethreadjob.h"
 #include "stack_walker.h"
+#include "workspace_pane.h"
 #include "wx_xml_compatibility.h"
 #include "xmlutils.h"
 #include <CompilerLocatorMinGW.h>
 #include <wx/imagjpeg.h>
 #include <wx/persist.h>
 #include <wx/regex.h>
-#include "fileexplorer.h"
-#include "workspace_pane.h"
-#include "clSystemSettings.h"
 
 //#define __PERFORMANCE
 #include "performance.h"
@@ -293,7 +293,7 @@ bool CodeLiteApp::OnInit()
 
 #endif
     wxSocketBase::Initialize();
-    
+
     // Redirect all error messages to stderr
     wxLog::SetActiveTarget(new wxLogStderr());
 
@@ -478,7 +478,10 @@ bool CodeLiteApp::OnInit()
         homeDir = ::wxGetCwd();
 #endif
     }
-    wxFileName fnHomdDir(homeDir + wxT("/"));
+    wxFileName fnHomdDir(homeDir, "");
+
+    //    // Set the standard path with the new data dir
+    //    clStandardPaths::Get().SetDataDir(fnHomdDir.GetPath());
 
     // try to locate the menu/rc.xrc file
     wxFileName fn(homeDir + wxT("/rc"), wxT("menu.xrc"));
@@ -533,9 +536,9 @@ bool CodeLiteApp::OnInit()
         wxFileName::Mkdir(clStandardPaths::Get().GetUserDataDir(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
     }
 #endif
-    
+
     clSystemSettings::Get(); // Initialise the custom settings _before_ we start constructing the main frame
-    
+
     Manager* mgr = ManagerST::Get();
     EditorConfig* cfg = EditorConfigST::Get();
     cfg->SetInstallDir(mgr->GetInstallDir());
@@ -652,7 +655,7 @@ bool CodeLiteApp::OnInit()
     // Merge the user settings with any new settings
     ColoursAndFontsManager::Get().ImportLexersFile(wxFileName(clStandardPaths::Get().GetLexersDir(), "lexers.json"),
                                                    false);
-    
+
     // Create the main application window
     clMainFrame::Initialize((parser.GetParamCount() == 0) && !IsStartedInDebuggerMode());
     m_pMainFrame = clMainFrame::Get();
@@ -691,9 +694,22 @@ bool CodeLiteApp::OnInit()
 
 int CodeLiteApp::OnExit()
 {
-    CL_DEBUG(wxT("Bye"));
+    clDEBUG() << "Bye";
     EditorConfigST::Free();
     ConfFileLocator::Release();
+
+    // flush any saved changes to the configuration file
+    clConfig::Get().Save();
+
+    if(IsRestartCodeLite()) {
+        // Execute new CodeLite instance
+        clSYSTEM() << "Restarting CodeLite:" << GetRestartCommand();
+        if(!this->m_restartWD.empty()) { ::wxSetWorkingDirectory(this->m_restartWD); }
+        wxExecute(GetRestartCommand(), wxEXEC_ASYNC | wxEXEC_MAKE_GROUP_LEADER);
+    }
+
+    // Delete the temp folder
+    wxFileName::Rmdir(clStandardPaths::Get().GetTempDir(), wxPATH_RMDIR_RECURSIVE);
     return 0;
 }
 

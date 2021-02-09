@@ -45,20 +45,24 @@
 #define SHELL_WRAPPER wxT("")
 #else
 
-#if defined(__WXMAC__) || defined(__FreeBSD__)
+#if defined(__WXMAC__) || defined(__FreeBSD__) || defined(__NetBSD__)
 #include <sys/wait.h>
 #else
 #include <wait.h>
 #endif
 
 #include <signal.h>
-#define SHELL_PREFIX wxT("/bin/sh -c ")
+#define SHELL_PREFIX wxT("/bin/bash -c ")
 #define SHELL_WRAPPER wxT("'")
 #endif
 
 #if defined(__WXGTK__)
 #ifdef __FreeBSD__
 #include <libutil.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+#elif __NetBSD__
+#include <util.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #else
@@ -96,8 +100,8 @@ wxTerminal::wxTerminal(wxWindow* parent)
         m_textCtrl->MarkerSetBackground(MARKER_ID, lexer->GetProperty(0).GetBgColour());
     }
 
-    wxTheApp->Bind(wxEVT_MENU, &wxTerminal::OnCut, this, wxID_COPY);
-    wxTheApp->Bind(wxEVT_MENU, &wxTerminal::OnCopy, this, wxID_CUT);
+    wxTheApp->Bind(wxEVT_MENU, &wxTerminal::OnCut, this, wxID_CUT);
+    wxTheApp->Bind(wxEVT_MENU, &wxTerminal::OnCopy, this, wxID_COPY);
     wxTheApp->Bind(wxEVT_MENU, &wxTerminal::OnSelectAll, this, wxID_SELECTALL);
 
     Bind(wxEVT_ASYNC_PROCESS_OUTPUT, &wxTerminal::OnReadProcessOutput, this);
@@ -116,8 +120,8 @@ wxTerminal::~wxTerminal()
     Unbind(wxEVT_IDLE, &wxTerminal::OnIdle, this);
     Unbind(wxEVT_ASYNC_PROCESS_OUTPUT, &wxTerminal::OnReadProcessOutput, this);
     Unbind(wxEVT_ASYNC_PROCESS_TERMINATED, &wxTerminal::OnProcessEnd, this);
-    wxTheApp->Unbind(wxEVT_MENU, &wxTerminal::OnCut, this, wxID_COPY);
-    wxTheApp->Unbind(wxEVT_MENU, &wxTerminal::OnCopy, this, wxID_CUT);
+    wxTheApp->Unbind(wxEVT_MENU, &wxTerminal::OnCut, this, wxID_CUT);
+    wxTheApp->Unbind(wxEVT_MENU, &wxTerminal::OnCopy, this, wxID_COPY);
     wxTheApp->Unbind(wxEVT_MENU, &wxTerminal::OnSelectAll, this, wxID_SELECTALL);
 }
 

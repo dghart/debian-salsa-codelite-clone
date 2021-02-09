@@ -37,6 +37,7 @@
 #include <set>
 #include <map>
 #include "plugindata.h"
+#include "debugger.h"
 
 class clToolBar;
 class clEditorBar;
@@ -108,7 +109,7 @@ public:
     void ReloadWorkspace();
     IPlugin* GetPlugin(const wxString& pluginName);
     wxEvtHandler* GetOutputWindow();
-    bool SaveAll();
+    bool SaveAll(bool prompt = true);
     wxString GetInstallDirectory() const;
     bool CreateVirtualDirectory(const wxString& parentPath, const wxString& vdName);
     OptionsConfigPtr GetEditorSettings();
@@ -169,7 +170,13 @@ public:
     clWorkspaceView* GetWorkspaceView();
     bool IsToolBarShown() const;
     void ShowToolBar(bool show = true);
-
+    void ShowBuildMenu(clToolBar* toolbar, wxWindowID buttonId) override;
+    
+    /**
+     * @brief return list of all breakpoints
+     */
+    void GetBreakpoints(std::vector<BreakpointInfo>& bpList);
+    
     /**
      * @brief display message to the user using the info bar
      */

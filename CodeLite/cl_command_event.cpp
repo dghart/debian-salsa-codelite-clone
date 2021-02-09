@@ -29,6 +29,8 @@ clCommandEvent::clCommandEvent(wxEventType commandType, int winid)
     : wxCommandEvent(commandType, winid)
     , m_answer(false)
     , m_allowed(true)
+    , m_lineNumber(0)
+    , m_selected(false)
 {
 }
 
@@ -454,7 +456,7 @@ clEditorConfigEvent& clEditorConfigEvent::operator=(const clEditorConfigEvent& s
 }
 
 // --------------------------------------------------------------
-// Compiler event
+// Goto Event
 // --------------------------------------------------------------
 clGotoEvent::clGotoEvent(wxEventType commandType, int winid)
     : clCommandEvent(commandType, winid)
@@ -471,5 +473,27 @@ clGotoEvent& clGotoEvent::operator=(const clGotoEvent& src)
     clCommandEvent::operator=(src);
     m_entries = src.m_entries;
     m_entry = src.m_entry;
+    return *this;
+}
+
+// --------------------------------------------------------------
+// Source control event
+// --------------------------------------------------------------
+clSourceControlEvent::clSourceControlEvent(wxEventType commandType, int winid)
+    : clCommandEvent(commandType, winid)
+{
+}
+
+clSourceControlEvent::clSourceControlEvent(const clSourceControlEvent& event) { *this = event; }
+
+clSourceControlEvent::~clSourceControlEvent() {}
+
+wxEvent* clSourceControlEvent::Clone() const { return new clSourceControlEvent(*this); }
+
+clSourceControlEvent& clSourceControlEvent::operator=(const clSourceControlEvent& src)
+{
+    if(this == &src) { return *this; }
+    clCommandEvent::operator=(src);
+    m_sourceControlName = src.m_sourceControlName;
     return *this;
 }

@@ -103,7 +103,10 @@ private:
     void OnNavigationBarMenuShowing(clContextMenuEvent& e);
     void OnNavigationBarMenuSelectionMade(clCommandEvent& e);
     void OnSettingsChanged(wxCommandEvent& e);
-
+    /**
+     * @brief return proper tab label for a given filename
+     */
+    wxString CreateLabel(const wxFileName& fn, bool modified) const;
     /**
      * @brief open file and set an alternate content
      */
@@ -155,6 +158,7 @@ public:
     FileHistory& GetRecentlyOpenedFilesClass() { return m_recentFiles; }
     void ShowQuickBarForPlugins();
     void ShowQuickBar(bool s);
+    void ShowQuickBarToolBar(bool s);
     void ShowQuickBar(const wxString& findWhat, bool showReplace);
     void ShowTabBar(bool b);
     void ShowNavBar(bool s = true);
@@ -240,6 +244,7 @@ public:
 
     wxString GetPageTitle(wxWindow* win) const;
     void SetPageTitle(wxWindow* page, const wxString& name);
+    void SetPageTitle(wxWindow* page, const wxFileName& filename, bool modified);
     long GetBookStyle();
 
     void ApplySettingsChanges();

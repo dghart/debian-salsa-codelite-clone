@@ -10,7 +10,7 @@
 clBitmap::clBitmap() {}
 
 clBitmap::clBitmap(const wxImage& img, double scale)
-#if wxVERSION_NUMBER >= 3100 
+#if wxVERSION_NUMBER >= 3100
     : wxBitmap(img, -1, scale)
 #else
     : wxBitmap(img, -1)
@@ -50,15 +50,53 @@ bool clBitmap::ShouldLoadHiResImages()
     if(!once) {
         once = true;
 #ifdef __WXGTK__
-        GdkScreen *screen = gdk_screen_get_default();
+        // try the environment variable approach first
+        wxString dpiscale = "1.0";
+        if(wxGetEnv("GDK_DPI_SCALE", &dpiscale)) {
+            double scale = 1.0;
+            if(dpiscale.ToDouble(&scale)) {
+                shouldLoad = (scale >= 1.5);
+                return shouldLoad;
+            }
+        }
+
+        // Try the GTK way
+        GdkScreen* screen = gdk_screen_get_default();
         if(screen) {
             double res = gdk_screen_get_resolution(screen);
-            shouldLoad = ((res / 96.) >= 1.5); 
+            shouldLoad = ((res / 96.) >= 1.5);
         }
+
 #else
         shouldLoad = ((wxScreenDC().GetPPI().y / 96.) >= 1.5);
 #endif
     }
     return shouldLoad;
 }
+
+bool clBitmap::LoadPNGFromMemory(const wxString& name, wxMemoryInputStream& mis,
+                                 std::function<bool(const wxString&, void**, size_t&)> fnGetHiResVersion)
+{
+    void* pData = NULL;
+    size_t nLen = 0;
+
+    // we will load the @2x version on demand
+    if(name.Contains("@2x")) { return false; }
+
+    if(ShouldLoadHiResImages()) {
+        wxString hiresName = name + "@2x";
+        if(fnGetHiResVersion(hiresName, &pData, nLen)) {
+            wxMemoryInputStream m(pData, nLen);
+            wxImage img(m, wxBITMAP_TYPE_PNG);
+            if(img.IsOk()) {
+                *this = clBitmap(img, 2.0);
+                return IsOk();
+            }
+        }
+    }
+    wxImage img(mis, wxBITMAP_TYPE_PNG);
+    *this = clBitmap(img, 1.0);
+    return IsOk();
+}
+
 #endif // LIBCODELITE_WITH_UI

@@ -37,8 +37,8 @@ OpenResourceDialogBase::OpenResourceDialogBase(wxWindow* parent, wxWindowID id, 
 
     mainSizer->Add(m_textCtrlResourceName, 0, wxEXPAND, WXC_FROM_DIP(5));
 
-    m_dataview = new clThemedListCtrl(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, 200)),
-                                      wxDV_ROW_LINES | wxDV_SINGLE);
+    m_dataview = new clThemedListCtrl(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
+                                      wxDV_ROW_LINES | wxDV_MULTIPLE);
 
     mainSizer->Add(m_dataview, 1, wxEXPAND, WXC_FROM_DIP(5));
 
@@ -86,19 +86,14 @@ OpenResourceDialogBase::OpenResourceDialogBase(wxWindow* parent, wxWindowID id, 
 
     SetName(wxT("OpenResourceDialogBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
         CentreOnScreen(wxBOTH);
     }
-#if wxVERSION_NUMBER >= 2900
-    if(!wxPersistenceManager::Get().Find(this)) {
-        wxPersistenceManager::Get().RegisterAndRestore(this);
-    } else {
-        wxPersistenceManager::Get().Restore(this);
-    }
-#endif
     // Connect events
     m_textCtrlResourceName->Connect(wxEVT_KEY_DOWN, wxKeyEventHandler(OpenResourceDialogBase::OnKeyDown), NULL, this);
     m_textCtrlResourceName->Connect(wxEVT_COMMAND_TEXT_UPDATED, wxCommandEventHandler(OpenResourceDialogBase::OnText),

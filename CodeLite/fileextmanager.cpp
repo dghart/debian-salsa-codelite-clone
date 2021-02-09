@@ -166,10 +166,12 @@ void FileExtManager::Init()
         m_map["yml"] = TypeYAML;
         m_map["db"] = TypeDatabase;
         m_map["tags"] = TypeDatabase;
+        m_map["lua"] = TypeLua;
+        m_map["rs"] = TypeRust;
 
         // Initialize regexes:
         m_matchers.push_back(Matcher("#[ \t]*![ \t]*/bin/bash", TypeScript));
-        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/bin/sh", TypeScript));
+        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/bin/bash", TypeScript));
         m_matchers.push_back(Matcher("#[ \t]*![ \t]*/usr/bin/sh", TypeScript));
         m_matchers.push_back(Matcher("#[ \t]*![ \t]*/usr/bin/bash", TypeScript));
         m_matchers.push_back(Matcher("#[ \t]*![ \t]*/bin/python", TypePython));
@@ -241,8 +243,12 @@ FileExtManager::FileType FileExtManager::GetType(const wxString& filename, FileE
                     return TypeWorkspaceNodeJS;
                 } else if(root.toElement().hasNamedObject("Docker")) {
                     return TypeWorkspaceDocker;
-                } else {
+                } else if(root.toElement().namedObject("workspace_type").toString() == "File System Workspace") {
+                    return TypeWorkspaceFileSystem;
+                } else if(root.toElement().namedObject("metadata").namedObject("type").toString() == "php") {
                     return TypeWorkspacePHP;
+                } else {
+                    return TypeWorkspace;
                 }
             }
         } else {
@@ -301,4 +307,16 @@ FileExtManager::FileType FileExtManager::GetTypeFromExtension(const wxFileName& 
     std::unordered_map<wxString, FileExtManager::FileType>::iterator iter = m_map.find(filename.GetExt().Lower());
     if(iter == m_map.end()) return TypeOther;
     return iter->second;
+}
+
+bool FileExtManager::IsSymlinkFile(const wxString& filename)
+{
+    return wxFileName::Exists(filename, wxFILE_EXISTS_NO_FOLLOW | wxFILE_EXISTS_SYMLINK) &&
+           wxFileName::FileExists(filename);
+}
+
+bool FileExtManager::IsSymlinkFolder(const wxString& filename)
+{
+    return wxFileName::Exists(filename, wxFILE_EXISTS_NO_FOLLOW | wxFILE_EXISTS_SYMLINK) &&
+           wxFileName::DirExists(filename);
 }

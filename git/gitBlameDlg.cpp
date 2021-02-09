@@ -108,7 +108,6 @@ GitBlameDlg::GitBlameDlg(wxWindow* parent, GitPlugin* plugin)
     , m_sashPositionV(0)
     , m_sashPositionH(0)
 {
-    WindowAttrManager::Load(this);
     m_editEventsHandler.Reset(new clEditEventsHandler(m_stcBlame));
 
     clConfig conf("git.conf");
@@ -121,7 +120,6 @@ GitBlameDlg::GitBlameDlg(wxWindow* parent, GitPlugin* plugin)
     m_sashPositionMain = data.GetGitBlameDlgMainSashPos();
     m_sashPositionV = data.GetGitBlameDlgVSashPos();
     m_sashPositionH = data.GetGitBlameDlgHSashPos();
-    ;
 
     if(m_splitterMain->IsSplit()) {
         m_splitterMain->SetSashPosition(m_sashPositionMain);
@@ -143,7 +141,8 @@ GitBlameDlg::GitBlameDlg(wxWindow* parent, GitPlugin* plugin)
 
     Bind(wxEVT_ASYNC_PROCESS_OUTPUT, &GitBlameDlg::OnProcessOutput, this);
     Bind(wxEVT_ASYNC_PROCESS_TERMINATED, &GitBlameDlg::OnProcessTerminated, this);
-    ::clSetTLWindowBestSizeAndPosition(this);
+    Bind(wxEVT_CHAR_HOOK, &GitBlameDlg::OnCharHook, this);
+    ::clSetDialogBestSizeAndPosition(this);
 }
 
 GitBlameDlg::~GitBlameDlg()
@@ -171,6 +170,11 @@ GitBlameDlg::~GitBlameDlg()
 }
 
 void GitBlameDlg::OnCloseDialog(wxCommandEvent& event)
+{
+    DoCloseDialog();
+}
+
+void GitBlameDlg::DoCloseDialog()
 {
     m_stcBlame->ClearAll();
     m_choiceHistory->Clear();
@@ -467,4 +471,16 @@ void GitBlameDlg::UpdateLogControls(const wxString& commit)
         wxString command = wxString::Format(wxT("%s --no-pager show %s"), m_gitPath, commit);
         m_process = CreateAsyncProcess(this, command, IProcessCreateDefault, m_plugin->GetRepositoryDirectory());
     }
+}
+
+void GitBlameDlg::Show()
+{
+    ::clSetDialogBestSizeAndPosition(this);
+    wxDialog::Show();
+}
+
+void GitBlameDlg::OnCharHook(wxKeyEvent& event)
+{
+    event.Skip();
+    if (event.GetKeyCode() == WXK_ESCAPE ) {  DoCloseDialog(); }
 }

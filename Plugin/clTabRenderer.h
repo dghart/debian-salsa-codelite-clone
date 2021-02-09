@@ -20,12 +20,14 @@
 #include "clTabRenderer.h"
 #include "cl_defs.h"
 #include "drawingutils.h"
+#include "wxStringHash.h"
 #include <vector>
 #include <wx/arrstr.h>
 #include <wx/bitmap.h>
 #include <wx/colour.h>
 #include <wx/dc.h>
 #include <wx/sharedptr.h>
+#include <wx/window.h>
 
 #define CHEVRON_SIZE 20
 
@@ -52,16 +54,16 @@ enum NotebookStyle {
     kNotebook_EnableNavigationEvent = (1 << 8),
     /// Place tabs at the bottom
     kNotebook_BottomTabs = (1 << 9),
-    
+
     /// Allow DnD between different book controls
     kNotebook_AllowForeignDnD = (1 << 10),
-    
+
     /// Place the tabs on the right
     kNotebook_RightTabs = (1 << 11),
-    
+
     /// Place th tabs on the left
     kNotebook_LeftTabs = (1 << 12),
-    
+
     /// The notebook colours are changing based on the current editor theme
     kNotebook_DynamicColours = (1 << 13),
 
@@ -133,6 +135,7 @@ class WXDLLIMPEXP_SDK clTabInfo
 public:
     clTabCtrl* m_tabCtrl;
     wxString m_label;
+    wxString m_shortLabel;
     wxString m_tooltip;
     wxWindow* m_window;
     wxRect m_rect;
@@ -147,10 +150,12 @@ public:
     int m_height;
     int m_vTabsWidth;
     int m_textWidth;
+    eButtonState m_xButtonState = eButtonState::kNormal;
 
 public:
     void CalculateOffsets(size_t style);
     void CalculateOffsets(size_t style, wxDC& dc);
+    const wxString& GetBestLabel(size_t style) const;
 
 public:
     typedef wxSharedPtr<clTabInfo> Ptr_t;
@@ -168,6 +173,8 @@ public:
     void SetRect(const wxRect& rect) { this->m_rect = rect; }
     const wxBitmap& GetBitmap() const { return m_bitmap; }
     const wxString& GetLabel() const { return m_label; }
+    const wxString& GetShortLabel() const { return m_shortLabel; }
+    void SetShortLabel(const wxString& shortLabel) { this->m_shortLabel = shortLabel; }
     const wxRect& GetRect() const { return m_rect; }
     wxRect& GetRect() { return m_rect; }
     wxRect GetCloseButtonRect() const;
@@ -198,14 +205,17 @@ public:
     int xSpacer;
     int ySpacer;
     wxString m_name;
+    static std::unordered_map<wxString, clTabRenderer*> ms_Renderes;
 
 protected:
     void ClearActiveTabExtraLine(clTabInfo::Ptr_t activeTab, wxDC& dc, const clTabColours& colours, size_t style);
     void DrawMarker(wxDC& dc, const clTabInfo& tabInfo, const clTabColours& colours, size_t style);
     void DrawMarkerLine(wxDC& dc, const wxPoint& p1, const wxPoint& p2, wxDirection direction);
-    
+    static void RegisterRenderer(clTabRenderer* renderer);
+    static clTabRenderer* Create(const wxWindow* parent, const wxString& name);
+
 public:
-    clTabRenderer(const wxString& name);
+    clTabRenderer(const wxString& name, const wxWindow* parent);
     virtual ~clTabRenderer() {}
     virtual void Draw(wxWindow* parent, wxDC& dc, wxDC& fontDC, const clTabInfo& tabInfo, const clTabColours& colours,
                       size_t style, eButtonState buttonState) = 0;
@@ -236,7 +246,7 @@ public:
      * @brief draw cheveron button
      */
     static void DrawChevron(wxWindow* win, wxDC& dc, const wxRect& rect, const clTabColours& colours);
-    
+
     static int GetXButtonSize();
     /**
      * @brief Adjust colours per renderer
@@ -249,7 +259,7 @@ public:
     /**
      * @brief allocate new renderer based on CodeLite's settings
      */
-    static clTabRenderer::Ptr_t CreateRenderer(size_t tabStyle);
+    static clTabRenderer::Ptr_t CreateRenderer(const wxWindow* win, size_t tabStyle);
     /**
      * @brief return list of availale renderers
      */
@@ -262,5 +272,6 @@ public:
     static int GetMarkerWidth();
     void SetName(const wxString& name) { this->m_name = name; }
     const wxString& GetName() const { return m_name; }
+    virtual clTabRenderer* New(const wxWindow* parent) const = 0;
 };
 #endif // CLTABRENDERER_H

@@ -27,28 +27,18 @@
 #define CLTREECTRLPANEL_H
 
 #include "bitmap_loader.h"
+#include "clFileSystemEvent.h"
 #include "clFileViwerTreeCtrl.h"
 #include "cl_command_event.h"
 #include "cl_config.h"
 #include "wxcrafter_plugin.h"
 #include <imanager.h>
+#include "clEnhancedToolBar.hpp"
 
 class clToolBar;
 class clTreeCtrlPanelDefaultPage;
 class WXDLLIMPEXP_SDK clTreeCtrlPanel : public clTreeCtrlPanelBase
 {
-protected:
-    virtual void OnLinkEditor(wxCommandEvent& event);
-    virtual void OnLinkEditorUI(wxUpdateUIEvent& event);
-    BitmapLoader* m_bmpLoader;
-    clConfig* m_config;
-    wxString m_viewName;
-    clTreeCtrlPanelDefaultPage* m_defaultView;
-    wxString m_newfileTemplate;
-    size_t m_newfileTemplateHighlightLen;
-    int m_options;
-    clToolBar* m_toolbar;
-
 public:
     enum {
         kShowHiddenFiles = (1 << 0),
@@ -58,8 +48,22 @@ public:
     };
 
 protected:
+    BitmapLoader* m_bmpLoader = nullptr;
+    clConfig* m_config = nullptr;
+    wxString m_viewName;
+    clTreeCtrlPanelDefaultPage* m_defaultView = nullptr;
+    wxString m_newfileTemplate;
+    size_t m_newfileTemplateHighlightLen = 0;
+    int m_options = (kShowHiddenFiles | kShowHiddenFolders | kLinkToEditor);
+    clEnhancedToolBar* m_toolbar = nullptr;
+    wxString m_excludeFilePatterns;
+
+protected:
     void ToggleView();
     void RefreshNonTopLevelFolder(const wxTreeItemId& item);
+    virtual void OnLinkEditor(wxCommandEvent& event);
+    virtual void OnLinkEditorUI(wxUpdateUIEvent& event);
+    void OnFilesCreated(clFileSystemEvent& event);
 
 public:
     clTreeCtrlPanel(wxWindow* parent);
@@ -68,7 +72,7 @@ public:
     /**
      * @brief getter for the toolbar
      */
-    clToolBar* GetToolBar() { return m_toolbar; }
+    clEnhancedToolBar* GetToolBar() { return m_toolbar; }
 
     /**
      * @brief set the tree options
@@ -89,6 +93,17 @@ public:
      * @brief clear the view (i.e. close all top level folders)
      */
     void Clear();
+
+    /**
+     * @brief set exclude file pattern. Excluded files will not be shown in the tree
+     * @param excludeFilePatterns
+     */
+    void SetExcludeFilePatterns(const wxString& excludeFilePatterns)
+    {
+        this->m_excludeFilePatterns = excludeFilePatterns;
+    }
+
+    const wxString& GetExcludeFilePatterns() const { return m_excludeFilePatterns; }
 
     /**
      * @brief return the configuration tool used for storing information about
@@ -123,12 +138,12 @@ public:
      * @brief return true if a folder is opened in this view
      */
     bool IsFolderOpened() const;
-    
+
     /**
-     * @brief refresh the entire tree, unconditionally 
+     * @brief refresh the entire tree, unconditionally
      */
     void RefreshTree();
-    
+
 protected:
     void UpdateItemDeleted(const wxTreeItemId& item);
     void GetTopLevelFolders(wxArrayString& paths, wxArrayTreeItemIds& items) const;
