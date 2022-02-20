@@ -10,17 +10,13 @@ LLVM_LIBDIR = $(shell llvm-config --libdir)
 
 CONFIG_EXTRA = \
     -DCMAKE_INSTALL_LIBDIR=lib \
-    -DLIBCLANG_T=$(LLVM_LIBDIR)/libclang.so \
-    -DLIBCLANG_INCLUDE_T=$(LLVM_INCDIR)
     -DLIBLLDB_T=$(LLVM_LIBDIR)/liblldb.so \
     -DLIBLLDB_INCLUDE_T=$(LLVM_INCDIR)
 
-# Disable clang / lldb on arches where they're not available (yet)
-#  Remember to update debian/control when changing these
-ARCH_LLDB := amd64 arm64 armel armhf i386 mips mipsel
-ARCH_CLANG := amd64 arm64 armel armhf i386 mips mips64el mipsel powerpc ppc64 ppc64el sparc64 s390x
+# Disable lldb on arches where they're not available (yet),
+# remember to update debian/control when changing these.
+ARCH_LLDB := arm64 armel armhf i386 mips mipsel
 
-CONFIG_EXTRA += $(if $(filter $(DEB_HOST_ARCH),$(ARCH_CLANG)),,-DENABLE_CLANG=0)
 CONFIG_EXTRA += $(if $(filter $(DEB_HOST_ARCH),$(ARCH_LLDB)),,-DENABLE_LLDB=0)
 
 %:
