@@ -4,7 +4,7 @@ Author: David Hart <david@codelite.org>
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/Plugin/clFileSystemWorkspace.cpp
 +++ b/Plugin/clFileSystemWorkspace.cpp
-@@ -734,7 +734,7 @@ void clFileSystemWorkspace::DoBuild(const wxString& target)
+@@ -734,7 +734,7 @@
  
      wxString cmd = GetTargetCommand(target);
      if(cmd.IsEmpty()) {

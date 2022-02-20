@@ -11,7 +11,7 @@ Forwarded: not-needed
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/CodeLite/CMakeLists.txt
 +++ b/CodeLite/CMakeLists.txt
-@@ -100,6 +100,7 @@ FILE(GLOB SRCS "*.cpp" "../sdk/codelite_
+@@ -112,6 +112,7 @@
  
  # Define the output
  add_library(libcodelite SHARED ${SRCS})
@@ -21,7 +21,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
                           ${LINKER_OPTIONS} 
 --- a/Plugin/CMakeLists.txt
 +++ b/Plugin/CMakeLists.txt
-@@ -87,6 +87,7 @@ FILE(GLOB SRCS "*.cpp")
+@@ -89,6 +89,7 @@
  
  # Define the output
  add_library(plugin SHARED ${SRCS})
@@ -31,7 +31,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  elseif (GTK3_FOUND)
 --- a/sdk/databaselayer/CMakeLists.txt
 +++ b/sdk/databaselayer/CMakeLists.txt
-@@ -59,7 +59,7 @@ if ( WITH_MYSQL )
+@@ -71,7 +71,7 @@
  endif ( WITH_MYSQL )
  
  # Define the output
@@ -42,7 +42,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  if(APPLE)
 --- a/sdk/wxshapeframework/CMakeLists.txt
 +++ b/sdk/wxshapeframework/CMakeLists.txt
-@@ -36,7 +36,7 @@ endif()
+@@ -36,7 +36,7 @@
  FILE(GLOB SRCS "src/*.cpp" "src/wxxmlserializer/*.cpp")
  
  # Define the output

@@ -2,51 +2,9 @@ Description: Move most helper binaries to /usr/lib/codelite
 Author: James Cowgill <jcowgill@debian.org>
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
-diff --git a/CodeLite/cl_standard_paths.cpp b/CodeLite/cl_standard_paths.cpp
-index 59ad2f93d..8527c0c02 100644
---- a/CodeLite/cl_standard_paths.cpp
-+++ b/CodeLite/cl_standard_paths.cpp
-@@ -113,8 +113,7 @@ wxString clStandardPaths::GetDataDir() const
- 
- wxString clStandardPaths::GetBinFolder() const
- {
--    wxFileName fnExe(wxStandardPaths::Get().GetExecutablePath());
--    return fnExe.GetPath();
-+    return wxStandardPaths::Get().GetPluginsDir();
- }
- 
- wxString clStandardPaths::GetBinaryFullPath(const wxString& toolname) const
-diff --git a/CodeLite/macros.h b/CodeLite/macros.h
-index 5d00f1e7c..40fee5268 100644
---- a/CodeLite/macros.h
-+++ b/CodeLite/macros.h
-@@ -109,7 +109,7 @@
- #ifdef __WXGTK__
- #define TERMINAL_CMD                                               \
-     wxString::Format(wxT("%s/codelite_xterm '$(TITLE)' '$(CMD)'"), \
--                     wxFileName(clStandardPaths::Get().GetExecutablePath()).GetPath().c_str())
-+                     clStandardPaths::Get().GetBinFolder().c_str())
- #elif defined(__WXMAC__)
- #define TERMINAL_CMD wxString::Format(wxT("%s/OpenTerm '$(CMD)'"), clStandardPaths::Get().GetDataDir().c_str())
- #else
-diff --git a/LiteEditor/app.cpp b/LiteEditor/app.cpp
-index e71aae353..cf025a025 100644
---- a/LiteEditor/app.cpp
-+++ b/LiteEditor/app.cpp
-@@ -679,8 +679,7 @@ bool CodeLiteApp::OnInit()
- #endif
-     wxString oldpath;
-     wxGetEnv(wxT("PATH"), &oldpath);
--    wxFileName execfpath(clStandardPaths::Get().GetExecutablePath());
--    wxSetEnv(wxT("PATH"), oldpath + pathsep + execfpath.GetPath());
-+    wxSetEnv(wxT("PATH"), oldpath + pathsep + clStandardPaths::Get().GetBinFolder());
-     wxString newpath;
-     wxGetEnv(wxT("PATH"), &newpath);
- 
-index 0fa2542d3..f286556e3 100644
 --- a/Plugin/pipedprocess.cpp
 +++ b/Plugin/pipedprocess.cpp
-@@ -55,8 +55,7 @@ void PipedProcess::Terminate()
+@@ -55,8 +55,7 @@
  {
  #ifdef __WXGTK__
  	wxString cmd;
@@ -56,3 +14,38 @@ index 0fa2542d3..f286556e3 100644
  	cmd << wxT("/bin/bash -f ") << script.GetFullPath() << wxT(" ") << GetPid();
  	wxExecute(cmd, wxEXEC_ASYNC);
  #else
+--- a/CodeLite/cl_standard_paths.cpp
++++ b/CodeLite/cl_standard_paths.cpp
+@@ -115,8 +115,7 @@
+ 
+ wxString clStandardPaths::GetBinFolder() const
+ {
+-    wxFileName fnExe(wxStandardPaths::Get().GetExecutablePath());
+-    return fnExe.GetPath();
++    return wxStandardPaths::Get().GetPluginsDir();
+ }
+ 
+ wxString clStandardPaths::GetBinaryFullPath(const wxString& toolname) const
+--- a/CodeLite/macros.h
++++ b/CodeLite/macros.h
+@@ -110,7 +110,7 @@
+ #ifdef __WXGTK__
+ #define TERMINAL_CMD                                               \
+     wxString::Format(wxT("%s/codelite_xterm '$(TITLE)' '$(CMD)'"), \
+-                     wxFileName(clStandardPaths::Get().GetExecutablePath()).GetPath().c_str())
++                     clStandardPaths::Get().GetBinFolder().c_str())
+ #elif defined(__WXMAC__)
+ #define TERMINAL_CMD wxString::Format(wxT("%s/OpenTerm '$(CMD)'"), clStandardPaths::Get().GetDataDir().c_str())
+ #else
+--- a/LiteEditor/app.cpp
++++ b/LiteEditor/app.cpp
+@@ -640,8 +640,7 @@
+ #endif
+     wxString oldpath;
+     wxGetEnv(wxT("PATH"), &oldpath);
+-    wxFileName execfpath(clStandardPaths::Get().GetExecutablePath());
+-    wxSetEnv(wxT("PATH"), oldpath + pathsep + execfpath.GetPath());
++    wxSetEnv(wxT("PATH"), oldpath + pathsep + clStandardPaths::Get().GetBinFolder());
+     wxString newpath;
+     wxGetEnv(wxT("PATH"), &newpath);
+ 

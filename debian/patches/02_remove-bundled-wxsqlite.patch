@@ -5,7 +5,7 @@ Forwarded: not-needed
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -543,7 +543,6 @@ if(APPLE)
+@@ -603,7 +603,6 @@
      add_subdirectory(sqlite3)
  endif()
  
@@ -13,7 +13,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  add_subdirectory(sdk/wxshapeframework)
  add_subdirectory(sdk/databaselayer)
  add_subdirectory(CodeLite)
-@@ -646,9 +645,7 @@ if(APPLE)
+@@ -700,9 +699,7 @@
      add_dependencies(wxsqlite3 sqlite3lib)
  endif()
  
@@ -26,7 +26,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  if(NOT SDK_ONLY)
 --- a/CodeLite/CMakeLists.txt
 +++ b/CodeLite/CMakeLists.txt
-@@ -116,7 +116,7 @@ if (UNIX AND NOT APPLE )
+@@ -118,7 +118,7 @@
                           ${wxWidgets_LIBRARIES} 
                           -L"${CL_LIBPATH}" 
                           ${SQLITE3_LIBRARY}
@@ -35,7 +35,6 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
                           ${LIBSSH_LIB} 
                           ${ADDITIONAL_LIBRARIES}
                           ${LIBUCHARDET_LIB})
-
 --- a/wxcrafter/CMakeLists.txt
 +++ b/wxcrafter/CMakeLists.txt
 @@ -43,7 +43,6 @@

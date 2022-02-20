@@ -5,7 +5,7 @@ Forwarded: not-needed
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/LiteEditor/CMakeLists.txt
 +++ b/LiteEditor/CMakeLists.txt
-@@ -155,7 +155,6 @@ if(NOT APPLE)
+@@ -155,7 +155,6 @@
      install(
          DIRECTORY ${CL_SRC_ROOT}/Runtime/images 
                    ${CL_SRC_ROOT}/Runtime/gdb_printers 
@@ -13,8 +13,6 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
                    ${CL_SRC_ROOT}/Runtime/lexers 
                    ${CL_SRC_ROOT}/Runtime/templates 
                    ${CL_SRC_ROOT}/Runtime/rc
-diff --git a/Runtime/templates/projects/UnitTest++/UnitTest++.project b/Runtime/templates/projects/UnitTest++/UnitTest++.project
-index c3f2180db..089ac7b64 100644
 --- a/Runtime/templates/projects/UnitTest++/UnitTest++.project
 +++ b/Runtime/templates/projects/UnitTest++/UnitTest++.project
 @@ -18,6 +18,7 @@

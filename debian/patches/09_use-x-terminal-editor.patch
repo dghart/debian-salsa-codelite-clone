@@ -4,20 +4,9 @@ Author: Alessio Treglia <alessio@debian.org>
 Forwarded: not-needed
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
---- a/LiteEditor/manager.cpp
-+++ b/LiteEditor/manager.cpp
-@@ -1959,7 +1959,7 @@ void Manager::DbgStart(long attachPid)
-     wxString terminal;
-     wxArrayString tokens;
-     wxArrayString configuredTerminal;
--    terminal = wxT("xterm");
-+    terminal = wxT("x-terminal-emulator");
-     if(!EditorConfigST::Get()->GetOptions()->GetProgramConsoleCommand().IsEmpty()) {
-         tokens =
-             wxStringTokenize(EditorConfigST::Get()->GetOptions()->GetProgramConsoleCommand(), wxT(" "), wxTOKEN_STRTOK);
 --- a/LiteEditor/app.cpp
 +++ b/LiteEditor/app.cpp
-@@ -201,7 +201,9 @@ static void WaitForDebugger(int signo)
+@@ -203,7 +203,9 @@
          char command[256];
          memset(command, 0, sizeof(command));
  
@@ -28,3 +17,14 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
              sprintf(command, "gnome-terminal -t 'gdb' -e 'gdb -p %d'", getpid());
          } else if(ExeLocator::Locate(wxT("konsole"), where)) {
              sprintf(command, "konsole -T 'gdb' -e 'gdb -p %d'", getpid());
+--- a/LiteEditor/manager.cpp
++++ b/LiteEditor/manager.cpp
+@@ -2005,7 +2005,7 @@
+     wxString terminal;
+     wxArrayString tokens;
+     wxArrayString configuredTerminal;
+-    terminal = wxT("xterm");
++    terminal = wxT("x-terminal-emulator");
+     if(!EditorConfigST::Get()->GetOptions()->GetProgramConsoleCommand().IsEmpty()) {
+         tokens =
+             wxStringTokenize(EditorConfigST::Get()->GetOptions()->GetProgramConsoleCommand(), wxT(" "), wxTOKEN_STRTOK);

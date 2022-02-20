@@ -10,7 +10,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  #
  # Helper to open files in codelite, so we don't need to fire up an expensive codelite process
  #
-@@ -12,7 +12,7 @@ import subprocess
+@@ -12,7 +12,7 @@
  import sys
  
  if len(sys.argv) == 1:
@@ -19,7 +19,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
      exit(1)
  
  filenames_to_open = sys.argv[1:]
-@@ -46,7 +46,7 @@ with pidof_subprocess.stdout as txt:
+@@ -46,7 +46,7 @@
              found_codelite = True
  pidof_subprocess.terminate()
  if found_codelite:

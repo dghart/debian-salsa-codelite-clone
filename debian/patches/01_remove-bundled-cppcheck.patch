@@ -3,11 +3,9 @@ Author: James Cowgill <jcowgill@debian.org>
 Forwarded: not-needed
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
-Index: codelite-13.0/CMakeLists.txt
-===================================================================
---- codelite-13.0.orig/CMakeLists.txt
-+++ codelite-13.0/CMakeLists.txt
-@@ -622,7 +622,6 @@ if(NOT SDK_ONLY)
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -682,7 +682,6 @@
      add_subdirectory(codelite_make)
      add_subdirectory(codelite_terminal)
      add_subdirectory(sdk/codelite_indexer)

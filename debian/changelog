@@ -1,3 +1,10 @@
+codelite (14.0+dfsg-2) UNRELEASED; urgency=medium
+
+  * QA upload.
+  * Refresh patches using quilt.
+
+ -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Sun, 20 Feb 2022 18:18:21 +0100
+
 codelite (14.0+dfsg-1) unstable; urgency=medium
 
   * QA upload.

@@ -1,9 +1,7 @@
 Description: Turn off automatic new-version checking.
-diff --git a/LiteEditor/editorsettingsmiscpanel.cpp b/LiteEditor/editorsettingsmiscpanel.cpp
-index 23df8dc9e..8dd812c55 100644
 --- a/LiteEditor/editorsettingsmiscpanel.cpp
 +++ b/LiteEditor/editorsettingsmiscpanel.cpp
-@@ -93,7 +93,7 @@ EditorSettingsMiscPanel::EditorSettingsMiscPanel(wxWindow* parent)
+@@ -77,7 +77,7 @@
      m_fileEncoding->SetSelection(iCurrSelId);
  
      m_singleAppInstance->SetValue(clConfig::Get().Read(kConfigSingleInstance, false));
@@ -12,11 +10,9 @@ index 23df8dc9e..8dd812c55 100644
      m_maxItemsFindReplace->ChangeValue(::wxIntToString(clConfig::Get().Read(kConfigMaxItemsInFindReplaceDialog, 15)));
      m_spinCtrlMaxOpenTabs->ChangeValue(::wxIntToString(clConfig::Get().Read(kConfigMaxOpenedTabs, 15)));
      m_choice4->SetStringSelection(
-diff --git a/LiteEditor/frame.cpp b/LiteEditor/frame.cpp
-index 9e33922c1..27ae73179 100644
 --- a/LiteEditor/frame.cpp
 +++ b/LiteEditor/frame.cpp
-@@ -2563,11 +2563,6 @@ void clMainFrame::OnTimer(wxTimerEvent& event)
+@@ -2561,11 +2561,6 @@
      clLogMessage("Using " + wxStyledTextCtrl::GetLibraryVersionInfo().ToString());
      if(::clIsCygwinEnvironment()) { clLogMessage("Running under Cygwin environment"); }
  
