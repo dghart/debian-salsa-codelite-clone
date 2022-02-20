@@ -4,13 +4,8 @@ include /usr/share/dpkg/architecture.mk
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
-LLVM_INCDIR = $(shell llvm-config --includedir)
-LLVM_LIBDIR = $(shell llvm-config --libdir)
-
 CONFIG_EXTRA = \
-    -DCMAKE_INSTALL_LIBDIR=lib \
-    -DLIBLLDB_T=$(LLVM_LIBDIR)/liblldb.so \
-    -DLIBLLDB_INCLUDE_T=$(LLVM_INCDIR)
+    -DCMAKE_INSTALL_LIBDIR=lib
 
 # Disable lldb on arches where they're not available (yet),
 # remember to update debian/control when changing these.
