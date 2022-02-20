@@ -14,6 +14,8 @@ codelite (14.0+dfsg-2) UNRELEASED; urgency=medium
   * Remove renamed and unused lintian tag for codelit.
   * d/watch: Bump to version 4.
   * Remove duplicated debhelper dependency.
+  * Add upstream metadata:: Bug-Database, Bug-Submit, Repository
+    and Repository-Browse.
 
  -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Sun, 20 Feb 2022 18:18:21 +0100
 
