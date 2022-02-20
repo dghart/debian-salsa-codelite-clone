@@ -12,6 +12,7 @@ codelite (14.0+dfsg-2) UNRELEASED; urgency=medium
     - No longer needed to specify include and library path for LLVM.
   * Update architectures to build with liblldb-dev.
   * Remove renamed and unused lintian tag for codelit.
+  * d/watch: Bump to version 4.
 
  -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Sun, 20 Feb 2022 18:18:21 +0100
 
