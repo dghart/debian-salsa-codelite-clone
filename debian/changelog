@@ -8,6 +8,7 @@ codelite (14.0+dfsg-2) UNRELEASED; urgency=medium
     - Remove CMake options regarding clang, the options are
       no longer recognised.
     - Remove '--as-needed' flag, used by default.
+  * Update architectures to build with liblldb-dev.
 
  -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Sun, 20 Feb 2022 18:18:21 +0100
 

@@ -14,7 +14,7 @@ CONFIG_EXTRA = \
 
 # Disable lldb on arches where they're not available (yet),
 # remember to update debian/control when changing these.
-ARCH_LLDB := arm64 armel armhf i386 mips mipsel
+ARCH_LLDB := amd64 arm64 armel armhf i386 ppc64el s390x
 
 CONFIG_EXTRA += $(if $(filter $(DEB_HOST_ARCH),$(ARCH_LLDB)),,-DENABLE_LLDB=0)
 
