@@ -6,7 +6,6 @@ usr/bin/codelite-cc             usr/lib/codelite
 usr/bin/codelite-echo           usr/lib/codelite
 usr/bin/codelite-terminal       usr/lib/codelite
 usr/bin/codelite_exec           usr/lib/codelite
-usr/bin/codelite_indexer        usr/lib/codelite
 usr/bin/codelite_kill_children  usr/lib/codelite
 usr/bin/codelite_xterm          usr/lib/codelite
 usr/lib/codelite/liblibcodelite.so.0
@@ -14,7 +13,6 @@ usr/lib/codelite/libplugin.so.0
 usr/lib/codelite/debuggers
 usr/share/applications
 usr/share/codelite/codelite-*.zip
-usr/share/codelite/jsctags.zip
 usr/share/codelite/config
 usr/share/codelite/gdb_printers
 usr/share/codelite/images

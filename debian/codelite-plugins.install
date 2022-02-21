@@ -1,9 +1,7 @@
 usr/lib/codelite/AutoSave.so
 usr/lib/codelite/CMakePlugin.so
-usr/lib/codelite/CallGraph.so
 usr/lib/codelite/CodeFormatter.so
 usr/lib/codelite/CodeLiteDiff.so
-usr/lib/codelite/ContinuousBuild.so
 usr/lib/codelite/Copyright.so
 usr/lib/codelite/DatabaseExplorer.so
 usr/lib/codelite/Docker.so
