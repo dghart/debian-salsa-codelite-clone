@@ -52,13 +52,16 @@ Depends:
  ${misc:Depends},
  codelite (= ${binary:Version})
 Recommends:
+ clangd,
+ clang-format,
  cppcheck (>= 1.54),
  libunittest++-dev,
  nodejs,
  qt5-qmake,
  valgrind,
  websocketpp-dev,
- libasio-dev
+ libasio-dev,
+ universal-ctags,
 Description: Powerful and lightweight IDE - plugins
  CodeLite is a powerful and lightweight IDE specializing in C, C++, PHP and
  Javascript. Its features include:
