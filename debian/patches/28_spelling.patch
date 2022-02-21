@@ -1,10 +1,17 @@
-Description: Fix spelling mistake reported by lintian
+From: David Hart <david@codelite.org>
+Date: Mon, 21 Feb 2022 20:37:26 +0100
+Subject: Fix spelling mistake reported by lintian
+
 Author: David Hart <david@codelite.org>
 ---
-This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+ Plugin/clFileSystemWorkspace.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Plugin/clFileSystemWorkspace.cpp b/Plugin/clFileSystemWorkspace.cpp
+index 9604980..c374149 100644
 --- a/Plugin/clFileSystemWorkspace.cpp
 +++ b/Plugin/clFileSystemWorkspace.cpp
-@@ -734,7 +734,7 @@
+@@ -734,7 +734,7 @@ void clFileSystemWorkspace::DoBuild(const wxString& target)
  
      wxString cmd = GetTargetCommand(target);
      if(cmd.IsEmpty()) {

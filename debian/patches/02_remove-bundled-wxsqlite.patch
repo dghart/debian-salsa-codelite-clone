@@ -1,11 +1,21 @@
-Description: Remove bundled wxsqlite3 from CMakeLists.txt files
-Author: James Cowgill <jcowgill@debian.org>
+From: James Cowgill <jcowgill@debian.org>
+Date: Mon, 21 Feb 2022 20:37:25 +0100
+Subject: Remove bundled wxsqlite3 from CMakeLists.txt files
+
+Forwarded: not-needed
+
 Forwarded: not-needed
 ---
-This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+ CMakeLists.txt           | 5 +----
+ CodeLite/CMakeLists.txt  | 2 +-
+ wxcrafter/CMakeLists.txt | 3 +--
+ 3 files changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a873661..15b0c0d 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -603,7 +603,6 @@
+@@ -603,7 +603,6 @@ if(APPLE)
      add_subdirectory(sqlite3)
  endif()
  
@@ -13,7 +23,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  add_subdirectory(sdk/wxshapeframework)
  add_subdirectory(sdk/databaselayer)
  add_subdirectory(CodeLite)
-@@ -700,9 +699,7 @@
+@@ -700,9 +699,7 @@ if(APPLE)
      add_dependencies(wxsqlite3 sqlite3lib)
  endif()
  
@@ -24,9 +34,11 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  add_dependencies(plugin libcodelite)
  
  if(NOT SDK_ONLY)
+diff --git a/CodeLite/CMakeLists.txt b/CodeLite/CMakeLists.txt
+index 077f3d1..af33cf4 100644
 --- a/CodeLite/CMakeLists.txt
 +++ b/CodeLite/CMakeLists.txt
-@@ -118,7 +118,7 @@
+@@ -118,7 +118,7 @@ if (UNIX AND NOT APPLE )
                           ${wxWidgets_LIBRARIES} 
                           -L"${CL_LIBPATH}" 
                           ${SQLITE3_LIBRARY}
@@ -35,9 +47,11 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
                           ${LIBSSH_LIB} 
                           ${ADDITIONAL_LIBRARIES}
                           ${LIBUCHARDET_LIB})
+diff --git a/wxcrafter/CMakeLists.txt b/wxcrafter/CMakeLists.txt
+index e3e7605..5e00965 100644
 --- a/wxcrafter/CMakeLists.txt
 +++ b/wxcrafter/CMakeLists.txt
-@@ -43,7 +43,6 @@
+@@ -43,7 +43,6 @@ include( "${wxWidgets_USE_FILE}" )
  
  # Include paths
  include_directories("${CL_SRC_ROOT}/Plugin" 
@@ -45,7 +59,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
                      "${CL_SRC_ROOT}/CodeLite" 
                      "${CL_SRC_ROOT}/PCH" 
                      "${CL_SRC_ROOT}/Interfaces")
-@@ -105,7 +104,7 @@
+@@ -105,7 +104,7 @@ if ( NOT WXC_APP )
  
  if (NOT OFFICIAL_CL_BUILD)
      target_link_libraries(${PLUGIN_NAME} ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES} 

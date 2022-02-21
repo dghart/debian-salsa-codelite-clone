@@ -1,22 +1,19 @@
-Description: Move most helper binaries to /usr/lib/codelite
-Author: James Cowgill <jcowgill@debian.org>
+From: James Cowgill <jcowgill@debian.org>
+Date: Mon, 21 Feb 2022 20:37:25 +0100
+Subject: Move most helper binaries to /usr/lib/codelite
+
 ---
-This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
---- a/Plugin/pipedprocess.cpp
-+++ b/Plugin/pipedprocess.cpp
-@@ -55,8 +55,7 @@
- {
- #ifdef __WXGTK__
- 	wxString cmd;
--	wxFileName exePath(clStandardPaths::Get().GetExecutablePath());
--	wxFileName script(exePath.GetPath(), wxT("codelite_kill_children"));
-+	wxFileName script(clStandardPaths::Get().GetBinaryFullPath("codelite_kill_children"));
- 	cmd << wxT("/bin/bash -f ") << script.GetFullPath() << wxT(" ") << GetPid();
- 	wxExecute(cmd, wxEXEC_ASYNC);
- #else
+ CodeLite/cl_standard_paths.cpp | 3 +--
+ CodeLite/macros.h              | 2 +-
+ LiteEditor/app.cpp             | 3 +--
+ Plugin/pipedprocess.cpp        | 3 +--
+ 4 files changed, 4 insertions(+), 7 deletions(-)
+
+diff --git a/CodeLite/cl_standard_paths.cpp b/CodeLite/cl_standard_paths.cpp
+index 0f49a08..bd669ef 100644
 --- a/CodeLite/cl_standard_paths.cpp
 +++ b/CodeLite/cl_standard_paths.cpp
-@@ -115,8 +115,7 @@
+@@ -115,8 +115,7 @@ wxString clStandardPaths::GetDataDir() const
  
  wxString clStandardPaths::GetBinFolder() const
  {
@@ -26,6 +23,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  }
  
  wxString clStandardPaths::GetBinaryFullPath(const wxString& toolname) const
+diff --git a/CodeLite/macros.h b/CodeLite/macros.h
+index efd8961..e794f99 100644
 --- a/CodeLite/macros.h
 +++ b/CodeLite/macros.h
 @@ -110,7 +110,7 @@
@@ -37,9 +36,11 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  #elif defined(__WXMAC__)
  #define TERMINAL_CMD wxString::Format(wxT("%s/OpenTerm '$(CMD)'"), clStandardPaths::Get().GetDataDir().c_str())
  #else
+diff --git a/LiteEditor/app.cpp b/LiteEditor/app.cpp
+index 93752f3..ca0a2ce 100644
 --- a/LiteEditor/app.cpp
 +++ b/LiteEditor/app.cpp
-@@ -640,8 +640,7 @@
+@@ -640,8 +640,7 @@ bool CodeLiteApp::OnInit()
  #endif
      wxString oldpath;
      wxGetEnv(wxT("PATH"), &oldpath);
@@ -49,3 +50,17 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
      wxString newpath;
      wxGetEnv(wxT("PATH"), &newpath);
  
+diff --git a/Plugin/pipedprocess.cpp b/Plugin/pipedprocess.cpp
+index 0fa2542..f286556 100644
+--- a/Plugin/pipedprocess.cpp
++++ b/Plugin/pipedprocess.cpp
+@@ -55,8 +55,7 @@ void PipedProcess::Terminate()
+ {
+ #ifdef __WXGTK__
+ 	wxString cmd;
+-	wxFileName exePath(clStandardPaths::Get().GetExecutablePath());
+-	wxFileName script(exePath.GetPath(), wxT("codelite_kill_children"));
++	wxFileName script(clStandardPaths::Get().GetBinaryFullPath("codelite_kill_children"));
+ 	cmd << wxT("/bin/bash -f ") << script.GetFullPath() << wxT(" ") << GetPid();
+ 	wxExecute(cmd, wxEXEC_ASYNC);
+ #else

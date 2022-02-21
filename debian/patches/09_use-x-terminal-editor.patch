@@ -1,12 +1,18 @@
-Description: Use x-terminal-emulator in preference to xterm
-Author: James Cowgill <jcowgill@debian.org>
-Author: Alessio Treglia <alessio@debian.org>
+From: James Cowgill <jcowgill@debian.org>
+Date: Mon, 21 Feb 2022 20:37:25 +0100
+Subject: Use x-terminal-emulator in preference to xterm
+
 Forwarded: not-needed
 ---
-This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+ LiteEditor/app.cpp     | 4 +++-
+ LiteEditor/manager.cpp | 2 +-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/LiteEditor/app.cpp b/LiteEditor/app.cpp
+index 5df2024..93752f3 100644
 --- a/LiteEditor/app.cpp
 +++ b/LiteEditor/app.cpp
-@@ -203,7 +203,9 @@
+@@ -203,7 +203,9 @@ static void WaitForDebugger(int signo)
          char command[256];
          memset(command, 0, sizeof(command));
  
@@ -17,9 +23,11 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
              sprintf(command, "gnome-terminal -t 'gdb' -e 'gdb -p %d'", getpid());
          } else if(ExeLocator::Locate(wxT("konsole"), where)) {
              sprintf(command, "konsole -T 'gdb' -e 'gdb -p %d'", getpid());
+diff --git a/LiteEditor/manager.cpp b/LiteEditor/manager.cpp
+index 7d480ba..f22869c 100644
 --- a/LiteEditor/manager.cpp
 +++ b/LiteEditor/manager.cpp
-@@ -2005,7 +2005,7 @@
+@@ -2005,7 +2005,7 @@ void Manager::DbgStart(long attachPid)
      wxString terminal;
      wxArrayString tokens;
      wxArrayString configuredTerminal;

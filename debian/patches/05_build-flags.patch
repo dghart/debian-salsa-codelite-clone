@@ -1,13 +1,21 @@
-Description: Remove build options not necessary for Debian
- Do not duplicate all the Debian build flags.
- Stripping is done by dh_strip separately.
-Author: James Cowgill <jcowgill@debian.org>
+From: James Cowgill <jcowgill@debian.org>
+Date: Mon, 21 Feb 2022 20:37:25 +0100
+Subject: Remove build options not necessary for Debian
+
+Forwarded: not-needed
+
+Do not duplicate all the Debian build flags.
+Stripping is done by dh_strip separately.
 Forwarded: not-needed
 ---
-This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+ CMakeLists.txt | 17 -----------------
+ 1 file changed, 17 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 15b0c0d..ab1fb25 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -386,20 +386,6 @@
+@@ -386,20 +386,6 @@ else ()
      set ( DEBUG_BUILD 0 )
      set(CMAKE_INSTALL_DO_STRIP TRUE)
      message("-- CMAKE_INSTALL_DO_STRIP is " ${CMAKE_INSTALL_DO_STRIP})
@@ -28,7 +36,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
      set( CL_PCH_FILE "${CL_SRC_ROOT}/PCH/precompiled_header_release.h")
      set( CL_PCH_TARGET "precompiled_header_release.h.gch")
-@@ -420,9 +406,6 @@
+@@ -420,9 +406,6 @@ else ()
      message("-- Shared Objects will be written into ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
  
      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")        ## Optimize

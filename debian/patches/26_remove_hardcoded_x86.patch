@@ -1,10 +1,17 @@
-Description: Remove hardcoding of CMAKE_LIBRARY_ARCHITECTURE to x86
+From: James Cowgill <jcowgill@debian.org>
+Date: Mon, 21 Feb 2022 20:37:26 +0100
+Subject: Remove hardcoding of CMAKE_LIBRARY_ARCHITECTURE to x86
+
 Author: James Cowgill <jcowgill@debian.org>
 ---
-This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+ CMakeLists.txt | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ab1fb25..61591bd 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -81,11 +81,6 @@
+@@ -81,11 +81,6 @@ endif()
  if( UNIX AND NOT APPLE)
      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--disable-new-dtags")
      set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--disable-new-dtags")
