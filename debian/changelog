@@ -12,6 +12,7 @@ codelite (16.0.0+dfsg-1) UNRELEASED; urgency=medium
   * Remove four library and binaries no longer shipped.
   * Drop dpkg-dev as build-dependency.
   * Remove old break/replace, no longer needed.
+  * Update Standards-Version to 4.6.0.
 
  -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Fri, 06 May 2022 23:48:11 +0200
 

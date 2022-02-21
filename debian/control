@@ -16,7 +16,7 @@ Build-Depends:
  libwebsocketpp-dev,
  libasio-dev,
  pkg-config
-Standards-Version: 4.5.0
+Standards-Version: 4.6.0
 Rules-Requires-Root: no
 Homepage: https://codelite.org
 Vcs-Git: https://salsa.debian.org/debian/codelite.git
