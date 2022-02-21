@@ -25,7 +25,6 @@ Vcs-Browser: https://salsa.debian.org/debian/codelite
 Package: codelite
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Breaks: codelite-plugins (<< 5.4+dfsg-1~exp1)
 Recommends:
  gdb,
  wx-common,
@@ -52,8 +51,6 @@ Depends:
  ${shlibs:Depends},
  ${misc:Depends},
  codelite (= ${binary:Version})
-Breaks: codelite (<< 5.4+dfsg-1~exp1)
-Replaces: codelite (<< 5.4+dfsg-1~exp1)
 Recommends:
  cppcheck (>= 1.54),
  libunittest++-dev,
