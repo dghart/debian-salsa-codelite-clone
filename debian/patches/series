@@ -10,4 +10,3 @@
 28_spelling.patch
 31_python3_upgrade.patch
 32_hunspell_unnest_2_nested_classes.patch
-auto-gitignore
