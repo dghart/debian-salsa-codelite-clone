@@ -1,3 +1,12 @@
+codelite (16.0.0+dfsg-1) UNRELEASED; urgency=medium
+
+  * QA upload.
+  * New upstream release.
+  * Convert patches to gbp-pq.
+  * Drop patch auto-gitignore, no longer needed.
+
+ -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Fri, 06 May 2022 23:48:11 +0200
+
 codelite (14.0+dfsg-2) unstable; urgency=medium
 
   * QA upload.
