@@ -22,6 +22,9 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "output_pane.h"
+
+#include "BuildTab.hpp"
 #include "clStrings.h"
 #include "clTabTogglerHelper.h"
 #include "detachedpanesinfo.h"
@@ -31,12 +34,10 @@
 #include "findresultstab.h"
 #include "findusagetab.h"
 #include "frame.h"
-#include "new_build_tab.h"
-#include "output_pane.h"
 #include "pluginmanager.h"
 #include "replaceinfilespanel.h"
 #include "shelltab.h"
-#include "taskpanel.h"
+
 #include <algorithm>
 #include <wx/aui/framemanager.h>
 #include <wx/dcbuffer.h>
@@ -87,16 +88,12 @@ void OutputPane::CreateGUIControls()
         style |= kNotebook_RightTabs;
 #endif
     }
-    if(EditorConfigST::Get()->GetOptions()->IsTabColourDark()) {
-        style &= ~kNotebook_LightTabs;
-        style |= kNotebook_DarkTabs;
-    }
     style |= kNotebook_UnderlineActiveTab;
-    if(EditorConfigST::Get()->GetOptions()->IsMouseScrollSwitchTabs()) { style |= kNotebook_MouseScrollSwitchTabs; }
+    if(EditorConfigST::Get()->GetOptions()->IsMouseScrollSwitchTabs()) {
+        style |= kNotebook_MouseScrollSwitchTabs;
+    }
     m_book = new Notebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, style);
     m_book->Bind(wxEVT_BOOK_FILELIST_BUTTON_CLICKED, &OutputPane::OnOutputBookFileListMenu, this);
-
-    BitmapLoader* bmpLoader = PluginManager::Get()->GetStdIcons();
 
     // Calculate the widest tab (the one with the 'Workspace' label) TODO: What happens with translations?
     mainSizer->Add(m_book, 1, wxEXPAND | wxALL | wxGROW, 0);
@@ -104,57 +101,50 @@ void OutputPane::CreateGUIControls()
     // the IManager instance
     IManager* mgr = PluginManager::Get();
 
+    auto images = m_book->GetBitmaps();
     // Build tab
-    m_buildWin = new NewBuildTab(m_book);
-#if PHP_BUILD
-    m_buildWin->Hide();
-#else
-    m_book->AddPage(m_buildWin, wxGetTranslation(BUILD_WIN), true, bmpLoader->LoadBitmap(wxT("build")));
-    m_tabs.insert(std::make_pair(wxGetTranslation(BUILD_WIN),
-                                 Tab(wxGetTranslation(BUILD_WIN), m_buildWin, bmpLoader->LoadBitmap(wxT("build")))));
-    mgr->AddOutputTab(wxGetTranslation(BUILD_WIN));
-#endif
+    //    m_buildWin = new NewBuildTab(m_book);
+    //#if PHP_BUILD
+    //    m_buildWin->Hide();
+    //#else
+    //    m_book->AddPage(m_buildWin, BUILD_WIN, true, images->Add(wxT("build")));
+    //    m_tabs.insert(std::make_pair(BUILD_WIN, Tab(BUILD_WIN, m_buildWin, wxNOT_FOUND)));
+    //    mgr->AddOutputTab(BUILD_WIN);
+    //#endif
+
+    m_build_tab = new BuildTab(m_book);
+    m_book->AddPage(m_build_tab, BUILD_WIN, true, images->Add(wxT("build")));
+    m_tabs.insert(std::make_pair(BUILD_WIN, Tab(BUILD_WIN, m_build_tab, wxNOT_FOUND)));
+    mgr->AddOutputTab(BUILD_WIN);
 
     // Find in files
-    m_findResultsTab = new FindResultsTab(m_book, wxID_ANY, wxGetTranslation(FIND_IN_FILES_WIN));
-    m_book->AddPage(m_findResultsTab, wxGetTranslation(FIND_IN_FILES_WIN), false, bmpLoader->LoadBitmap(wxT("find")));
+    m_findResultsTab = new FindResultsTab(m_book, wxID_ANY, FIND_IN_FILES_WIN);
+    m_book->AddPage(m_findResultsTab, FIND_IN_FILES_WIN, false, images->Add(wxT("find")));
     m_tabs.insert(
-        std::make_pair(wxGetTranslation(FIND_IN_FILES_WIN),
-                       Tab(wxGetTranslation(FIND_IN_FILES_WIN), m_findResultsTab, bmpLoader->LoadBitmap(wxT("find")))));
-    mgr->AddOutputTab(wxGetTranslation(FIND_IN_FILES_WIN));
+        std::make_pair(FIND_IN_FILES_WIN, Tab(FIND_IN_FILES_WIN, m_findResultsTab, images->Add(wxT("find")))));
+    mgr->AddOutputTab(FIND_IN_FILES_WIN);
 
     // Replace In Files
-    m_replaceResultsTab = new ReplaceInFilesPanel(m_book, wxID_ANY, wxGetTranslation(REPLACE_IN_FILES));
-    m_book->AddPage(m_replaceResultsTab, wxGetTranslation(REPLACE_IN_FILES), false,
-                    bmpLoader->LoadBitmap(wxT("find_and_replace")));
-    m_tabs.insert(std::make_pair(
-        REPLACE_IN_FILES, Tab(REPLACE_IN_FILES, m_replaceResultsTab, bmpLoader->LoadBitmap(wxT("find_and_replace")))));
+    m_replaceResultsTab = new ReplaceInFilesPanel(m_book, wxID_ANY, REPLACE_IN_FILES);
+    m_book->AddPage(m_replaceResultsTab, REPLACE_IN_FILES, false, images->Add(wxT("find_and_replace")));
+    m_tabs.insert(std::make_pair(REPLACE_IN_FILES,
+                                 Tab(REPLACE_IN_FILES, m_replaceResultsTab, images->Add(wxT("find_and_replace")))));
     mgr->AddOutputTab(REPLACE_IN_FILES);
 
     // Show Usage ("References")
-    m_showUsageTab = new FindUsageTab(m_book, wxGetTranslation(SHOW_USAGE));
+    m_showUsageTab = new FindUsageTab(m_book);
 #if PHP_BUILD
     m_showUsageTab->Hide();
 #else
-    m_book->AddPage(m_showUsageTab, wxGetTranslation(SHOW_USAGE), false, bmpLoader->LoadBitmap(wxT("find")));
-    m_tabs.insert(std::make_pair(wxGetTranslation(SHOW_USAGE), Tab(wxGetTranslation(SHOW_USAGE), m_showUsageTab,
-                                                                   bmpLoader->LoadBitmap(wxT("find")))));
-    mgr->AddOutputTab(wxGetTranslation(SHOW_USAGE));
+    m_book->AddPage(m_showUsageTab, SHOW_USAGE, false, images->Add(wxT("find")));
+    m_tabs.insert({ SHOW_USAGE, Tab(SHOW_USAGE, m_showUsageTab, images->Add(wxT("find"))) });
+    mgr->AddOutputTab(SHOW_USAGE);
 #endif
     // Output tab
-    m_outputWind = new OutputTab(m_book, wxID_ANY, wxGetTranslation(OUTPUT_WIN));
-    m_book->AddPage(m_outputWind, wxGetTranslation(OUTPUT_WIN), false, bmpLoader->LoadBitmap(wxT("console")));
-    m_tabs.insert(std::make_pair(wxGetTranslation(OUTPUT_WIN), Tab(wxGetTranslation(OUTPUT_WIN), m_outputWind,
-                                                                   bmpLoader->LoadBitmap(wxT("console")))));
-    mgr->AddOutputTab(wxGetTranslation(OUTPUT_WIN));
-
-    // Tasks panel
-    m_taskPanel = new TaskPanel(m_book, wxID_ANY, wxGetTranslation(TASKS));
-    m_book->AddPage(m_taskPanel, wxGetTranslation(TASKS), false, bmpLoader->LoadBitmap("tasks"));
-    m_tabs.insert(std::make_pair(wxGetTranslation(TASKS),
-                                 Tab(wxGetTranslation(TASKS), m_taskPanel, bmpLoader->LoadBitmap("tasks"))));
-    mgr->AddOutputTab(wxGetTranslation(TASKS));
-
+    m_outputWind = new OutputTab(m_book, wxID_ANY, OUTPUT_WIN);
+    m_book->AddPage(m_outputWind, OUTPUT_WIN, false, images->Add(wxT("console")));
+    m_tabs.insert(std::make_pair(OUTPUT_WIN, Tab(OUTPUT_WIN, m_outputWind, images->Add(wxT("console")))));
+    mgr->AddOutputTab(OUTPUT_WIN);
     SetMinSize(wxSize(200, 100));
     mainSizer->Layout();
 }
@@ -166,9 +156,12 @@ void OutputPane::OnEditorFocus(wxCommandEvent& e)
 
         // Optionally don't hide the various panes (sometimes it's irritating, you click to do something and...)
         int cursel(m_book->GetSelection());
-        if(cursel != wxNOT_FOUND && EditorConfigST::Get()->GetPaneStickiness(m_book->GetPageText(cursel))) { return; }
+        if(cursel != wxNOT_FOUND && EditorConfigST::Get()->GetPaneStickiness(m_book->GetPageText(cursel))) {
+            return;
+        }
 
-        if(m_buildInProgress) return;
+        if(m_buildInProgress)
+            return;
 
         wxAuiPaneInfo& info = PluginManager::Get()->GetDockingManager()->GetPane(wxT("Output View"));
         DockablePaneMenuManager::HackHidePane(true, info, PluginManager::Get()->GetDockingManager());
@@ -202,8 +195,8 @@ void OutputPane::SaveTabOrder()
 
 typedef struct {
     wxString text;
-    wxWindow* win;
-    wxBitmap bmp;
+    wxWindow* win = nullptr;
+    int bmp = wxNOT_FOUND;
 } tagTabInfo;
 
 void OutputPane::ApplySavedTabOrder() const
@@ -211,18 +204,21 @@ void OutputPane::ApplySavedTabOrder() const
 
     wxArrayString tabs;
     int index = -1;
-    if(!clConfig::Get().GetOutputTabOrder(tabs, index)) return;
+    if(!clConfig::Get().GetOutputTabOrder(tabs, index))
+        return;
 
     std::vector<tagTabInfo> vTempstore;
     for(size_t t = 0; t < tabs.GetCount(); ++t) {
         wxString title = tabs.Item(t);
-        if(title.empty()) { continue; }
+        if(title.empty()) {
+            continue;
+        }
         for(size_t n = 0; n < m_book->GetPageCount(); ++n) {
             if(title == m_book->GetPageText(n)) {
                 tagTabInfo Tab;
                 Tab.text = title;
                 Tab.win = m_book->GetPage(n);
-                Tab.bmp = m_book->GetPageBitmap(n);
+                Tab.bmp = m_book->GetPageBitmapIndex(n);
 
                 vTempstore.push_back(Tab);
                 m_book->RemovePage(n);
@@ -256,13 +252,6 @@ void OutputPane::OnSettingsChanged(wxCommandEvent& event)
 {
     event.Skip();
     m_book->SetTabDirection(EditorConfigST::Get()->GetOptions()->GetOutputTabsDirection());
-#if !USE_AUI_NOTEBOOK
-    if(EditorConfigST::Get()->GetOptions()->IsTabColourDark()) {
-        m_book->SetStyle((m_book->GetStyle() & ~kNotebook_LightTabs) | kNotebook_DarkTabs);
-    } else {
-        m_book->SetStyle((m_book->GetStyle() & ~kNotebook_DarkTabs) | kNotebook_LightTabs);
-    }
-#endif
 }
 
 void OutputPane::OnToggleTab(clCommandEvent& event)
@@ -278,21 +267,22 @@ void OutputPane::OnToggleTab(clCommandEvent& event)
         // Insert the page
         int where = clTabTogglerHelper::IsTabInNotebook(GetNotebook(), t.m_label);
         if(where == wxNOT_FOUND) {
-            GetNotebook()->AddPage(t.m_window, t.m_label, true, t.m_bmp);
+            GetNotebook()->AddPage(t.m_window, t.m_label, true, t.m_bmpIndex);
         } else {
             GetNotebook()->SetSelection(where);
         }
     } else {
         // hide the tab
         int where = GetNotebook()->GetPageIndex(t.m_label);
-        if(where != wxNOT_FOUND) { GetNotebook()->RemovePage(where); }
+        if(where != wxNOT_FOUND) {
+            GetNotebook()->RemovePage(where);
+        }
     }
 }
 
 void OutputPane::OnOutputBookFileListMenu(clContextMenuEvent& event)
 {
     wxMenu* menu = event.GetMenu();
-    menu->AppendSeparator();
 
     DetachedPanesInfo dpi;
     EditorConfigST::Get()->ReadObject("DetachedPanesList", &dpi);
@@ -305,27 +295,30 @@ void OutputPane::OnOutputBookFileListMenu(clContextMenuEvent& event)
             // Tab is visible, dont show it
             continue;
         }
-        
-        if(hiddenTabsMenu->GetMenuItemCount() == 0) {
+
+        if(menu->GetMenuItemCount() > 0 && hiddenTabsMenu->GetMenuItemCount() == 0) {
             // we are adding the first menu item
             menu->AppendSeparator();
         }
-        
+
         int tabId = wxXmlResource::GetXRCID(wxString() << "output_tab_" << label);
         wxMenuItem* item = new wxMenuItem(hiddenTabsMenu, tabId, label);
         hiddenTabsMenu->Append(item);
 
         // Output pane does not support "detach"
-        if(dpi.GetPanes().Index(label) != wxNOT_FOUND) { item->Enable(false); }
+        if(dpi.GetPanes().Index(label) != wxNOT_FOUND) {
+            item->Enable(false);
+        }
 
-        hiddenTabsMenu->Bind(wxEVT_MENU,
-                             // Use lambda by value here so we make a copy
-                             [=](wxCommandEvent& e) {
-                                 clCommandEvent eventShow(wxEVT_SHOW_OUTPUT_TAB);
-                                 eventShow.SetSelected(true).SetString(label);
-                                 EventNotifier::Get()->AddPendingEvent(eventShow);
-                             },
-                             tabId);
+        hiddenTabsMenu->Bind(
+            wxEVT_MENU,
+            // Use lambda by value here so we make a copy
+            [=](wxCommandEvent& e) {
+                clCommandEvent eventShow(wxEVT_SHOW_OUTPUT_TAB);
+                eventShow.SetSelected(true).SetString(label);
+                EventNotifier::Get()->AddPendingEvent(eventShow);
+            },
+            tabId);
     }
 
     if(hiddenTabsMenu->GetMenuItemCount() == 0) {
@@ -333,4 +326,12 @@ void OutputPane::OnOutputBookFileListMenu(clContextMenuEvent& event)
     } else {
         menu->AppendSubMenu(hiddenTabsMenu, _("Hidden Tabs"), _("Hidden Tabs"));
     }
+}
+
+void OutputPane::ShowTab(const wxString& name, bool show)
+{
+    clCommandEvent show_event(wxEVT_SHOW_OUTPUT_TAB);
+    show_event.SetString(name);
+    show_event.SetSelected(show);
+    EventNotifier::Get()->ProcessEvent(show_event);
 }

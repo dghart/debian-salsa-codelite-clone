@@ -23,14 +23,16 @@
 #include <wx/panel.h>
 #include <wx/notebook.h>
 #include <wx/imaglist.h>
-#include <wx/filepicker.h>
+#include <wx/combobox.h>
+#include <wx/arrstr.h>
+#include "clThemedComboBox.hpp"
 #include "clThemedSTC.hpp"
 #include <wx/choice.h>
-#include <wx/arrstr.h>
 #include "clThemedChoice.h"
 #include <wx/dataview.h>
 #include "clThemedListCtrl.h"
 #include <wx/checkbox.h>
+#include <wx/filepicker.h>
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -107,26 +109,38 @@ protected:
     wxNotebook* m_notebook;
     wxPanel* m_panelGeneral;
     wxStaticText* m_staticText109;
-    wxFilePickerCtrl* m_filePickerExe;
+    clThemedComboBox* m_comboBoxExecutable;
+    wxButton* m_button241;
+    wxStaticText* m_staticText191;
+    wxTextCtrl* m_textCtrlWD;
+    wxButton* m_button243;
     wxStaticText* m_staticText113;
     clThemedSTC* m_textCtrlArgs;
+    wxStaticText* m_staticText125;
+    clThemedChoice* m_choiceCompiler;
     wxStaticText* m_staticText179;
     clThemedChoice* m_choiceDebuggers;
     wxStaticText* m_staticText35;
     wxTextCtrl* m_textCtrlFileExt;
     wxStaticText* m_staticText187;
     wxTextCtrl* m_textCtrlExcludeFiles;
+    wxStaticText* m_staticText207;
+    wxTextCtrl* m_textCtrlExcludePaths;
+    wxButton* m_button213;
     wxPanel* m_panelBuild;
-    wxStaticText* m_staticText125;
-    wxChoice* m_choiceCompiler;
     clThemedListCtrl* m_dvListCtrlTargets;
     wxButton* m_buttonNew;
     wxButton* m_buttonEdit;
     wxButton* m_buttonDelete;
+    wxPanel* Debugger;
+    wxStaticText* m_staticText256;
+    wxTextCtrl* m_textCtrlDebugger;
+    wxButton* m_button262;
+    wxStaticText* m_staticText265;
+    wxStyledTextCtrl* m_stcCommands;
     wxPanel* m_panelCodeCompletion;
     wxStaticText* m_staticText26;
     wxStyledTextCtrl* m_stcCCFlags;
-    wxCheckBox* m_checkBoxCreateCompileFlags;
     wxPanel* m_panelEnv;
     wxStaticText* m_staticText119;
     wxStyledTextCtrl* m_stcEnv;
@@ -137,14 +151,19 @@ protected:
     wxStaticText* m_staticText165;
     wxTextCtrl* m_textCtrlRemoteFolder;
     wxButton* m_button169;
+    wxCheckBox* m_checkBoxRemoteBuild;
 
 protected:
+    virtual void OnBrowseExec(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnBrowseWD(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnEditExcludePaths(wxCommandEvent& event) { event.Skip(); }
     virtual void OnTargetActivated(wxDataViewEvent& event) { event.Skip(); }
     virtual void OnNewTarget(wxCommandEvent& event) { event.Skip(); }
     virtual void OnEditTarget(wxCommandEvent& event) { event.Skip(); }
     virtual void OnEditTargetUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnDelete(wxCommandEvent& event) { event.Skip(); }
     virtual void OnDeleteUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnBrowseForGDB(wxCommandEvent& event) { event.Skip(); }
     virtual void OnEnableRemoteUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnRemoteEnabledUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnSSHAccountChoice(wxCommandEvent& event) { event.Skip(); }
@@ -152,26 +171,38 @@ protected:
 
 public:
     wxStaticText* GetStaticText109() { return m_staticText109; }
-    wxFilePickerCtrl* GetFilePickerExe() { return m_filePickerExe; }
+    clThemedComboBox* GetComboBoxExecutable() { return m_comboBoxExecutable; }
+    wxButton* GetButton241() { return m_button241; }
+    wxStaticText* GetStaticText191() { return m_staticText191; }
+    wxTextCtrl* GetTextCtrlWD() { return m_textCtrlWD; }
+    wxButton* GetButton243() { return m_button243; }
     wxStaticText* GetStaticText113() { return m_staticText113; }
     clThemedSTC* GetTextCtrlArgs() { return m_textCtrlArgs; }
+    wxStaticText* GetStaticText125() { return m_staticText125; }
+    clThemedChoice* GetChoiceCompiler() { return m_choiceCompiler; }
     wxStaticText* GetStaticText179() { return m_staticText179; }
     clThemedChoice* GetChoiceDebuggers() { return m_choiceDebuggers; }
     wxStaticText* GetStaticText35() { return m_staticText35; }
     wxTextCtrl* GetTextCtrlFileExt() { return m_textCtrlFileExt; }
     wxStaticText* GetStaticText187() { return m_staticText187; }
     wxTextCtrl* GetTextCtrlExcludeFiles() { return m_textCtrlExcludeFiles; }
+    wxStaticText* GetStaticText207() { return m_staticText207; }
+    wxTextCtrl* GetTextCtrlExcludePaths() { return m_textCtrlExcludePaths; }
+    wxButton* GetButton213() { return m_button213; }
     wxPanel* GetPanelGeneral() { return m_panelGeneral; }
-    wxStaticText* GetStaticText125() { return m_staticText125; }
-    wxChoice* GetChoiceCompiler() { return m_choiceCompiler; }
     clThemedListCtrl* GetDvListCtrlTargets() { return m_dvListCtrlTargets; }
     wxButton* GetButtonNew() { return m_buttonNew; }
     wxButton* GetButtonEdit() { return m_buttonEdit; }
     wxButton* GetButtonDelete() { return m_buttonDelete; }
     wxPanel* GetPanelBuild() { return m_panelBuild; }
+    wxStaticText* GetStaticText256() { return m_staticText256; }
+    wxTextCtrl* GetTextCtrlDebugger() { return m_textCtrlDebugger; }
+    wxButton* GetButton262() { return m_button262; }
+    wxStaticText* GetStaticText265() { return m_staticText265; }
+    wxStyledTextCtrl* GetStcCommands() { return m_stcCommands; }
+    wxPanel* GetDebugger() { return Debugger; }
     wxStaticText* GetStaticText26() { return m_staticText26; }
     wxStyledTextCtrl* GetStcCCFlags() { return m_stcCCFlags; }
-    wxCheckBox* GetCheckBoxCreateCompileFlags() { return m_checkBoxCreateCompileFlags; }
     wxPanel* GetPanelCodeCompletion() { return m_panelCodeCompletion; }
     wxStaticText* GetStaticText119() { return m_staticText119; }
     wxStyledTextCtrl* GetStcEnv() { return m_stcEnv; }
@@ -182,10 +213,11 @@ public:
     wxStaticText* GetStaticText165() { return m_staticText165; }
     wxTextCtrl* GetTextCtrlRemoteFolder() { return m_textCtrlRemoteFolder; }
     wxButton* GetButton169() { return m_button169; }
+    wxCheckBox* GetCheckBoxRemoteBuild() { return m_checkBoxRemoteBuild; }
     wxPanel* GetPanelRemote() { return m_panelRemote; }
     wxNotebook* GetNotebook() { return m_notebook; }
     FSConfigPageBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
-                     const wxSize& size = wxSize(-1, -1), long style = wxTAB_TRAVERSAL);
+                     const wxSize& size = wxSize(500, -1), long style = wxTAB_TRAVERSAL);
     virtual ~FSConfigPageBase();
 };
 
@@ -214,6 +246,31 @@ public:
                                      const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
                                      long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~NewFileSystemWorkspaceDialogBase();
+};
+
+class clFSWNewConfigDlgBase : public wxDialog
+{
+protected:
+    wxStaticText* m_staticText231;
+    wxTextCtrl* m_textCtrlName;
+    wxStaticText* m_staticText235;
+    wxChoice* m_choiceCopyFrom;
+    wxStdDialogButtonSizer* m_stdBtnSizer223;
+    wxButton* m_button225;
+    wxButton* m_button227;
+
+protected:
+    virtual void OnOKUI(wxUpdateUIEvent& event) { event.Skip(); }
+
+public:
+    wxStaticText* GetStaticText231() { return m_staticText231; }
+    wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
+    wxStaticText* GetStaticText235() { return m_staticText235; }
+    wxChoice* GetChoiceCopyFrom() { return m_choiceCopyFrom; }
+    clFSWNewConfigDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("New Configurtion"),
+                          const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
+                          long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+    virtual ~clFSWNewConfigDlgBase();
 };
 
 #endif

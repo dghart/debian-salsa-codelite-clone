@@ -69,8 +69,8 @@ protected:
     void OnSetupWorkspaceMirroring(wxCommandEvent& e);
     void OnDisableWorkspaceMirroring(wxCommandEvent& e);
     void OnDisableWorkspaceMirroringUI(wxUpdateUIEvent& e);
-    void OnWorkspaceOpened(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& e);
+    void OnWorkspaceOpened(clWorkspaceEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnFileSaved(clCommandEvent& e);
     void OnFileRenamed(clFileSystemEvent& e);
     void OnFileDeleted(clFileSystemEvent& e);
@@ -97,6 +97,9 @@ protected:
     // Delete a remote file
     // e.GetRemoteFile() -> the file to be deleted
     void OnDeleteFile(clSFTPEvent& e);
+
+    // Open a remote file
+    void OnOpenFile(clSFTPEvent& e);
 
 private:
     bool IsCxxWorkspaceMirrorEnabled() const;

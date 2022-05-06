@@ -24,7 +24,7 @@ DialogWrapper::DialogWrapper()
     RegisterEvent(wxT("wxEVT_ACTIVATE_APP"), wxT("wxActivateEvent"), _("Process a wxEVT_ACTIVATE_APP event"));
 
     SetPropertyString(_("Common Settings"), "wxDialog");
-    DoSetPropertyStringValue(PROP_TITLE, wxT("My Dialog"));
+    DoSetPropertyStringValue(PROP_TITLE, _("My Dialog"));
     m_namePattern = wxT("MyDialog");
 
     AddCategory(_("Dialog Icons"));
@@ -111,7 +111,7 @@ void DialogWrapper::ToXRC(wxString& text, XRC_TYPE type) const
                                                  // wxBOTH/wxVERTICAL/wxHORIZONTAL
     }
 
-    text << XRCPrefix() << wxT("<title>") << PropertyString(PROP_TITLE) << wxT("</title>") << centred
+    text << XRCPrefix() << wxT("<title>") << wxCrafter::CDATA(PropertyString(PROP_TITLE)) << wxT("</title>") << centred
          << XRCStyle(type != wxcWidget::XRC_LIVE) // The parameter is to add the wxSTAY_ON_TOP, but not if we're 'live'
          << XRCCommonAttributes() << XRCSize();
 

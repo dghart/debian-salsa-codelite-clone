@@ -25,8 +25,8 @@
 #ifndef SEARCH_THREAD_H
 #define SEARCH_THREAD_H
 
+#include "JSON.h"
 #include "codelite_exports.h"
-#include "cppwordscanner.h"
 #include "singleton.h"
 #include "worker_thread.h"
 #include "wx/event.h"
@@ -37,7 +37,6 @@
 #include <map>
 #include <wx/regex.h>
 #include <wx/string.h>
-#include "JSON.h"
 
 class wxEvtHandler;
 class SearchResult;
@@ -163,8 +162,8 @@ class WXDLLIMPEXP_CL SearchResult : public wxObject
     size_t m_flags;
     int m_columnInChars;
     int m_lenInChars;
-    short m_matchState;
     wxString m_scope;
+    wxArrayString m_regexCaptures;
 
 public:
     // ctor-dtor, copy constructor and assignment operator
@@ -176,7 +175,8 @@ public:
 
     SearchResult& operator=(const SearchResult& rhs)
     {
-        if(this == &rhs) return *this;
+        if(this == &rhs)
+            return *this;
         m_position = rhs.m_position;
         m_column = rhs.m_column;
         m_lineNumber = rhs.m_lineNumber;
@@ -187,8 +187,8 @@ public:
         m_flags = rhs.m_flags;
         m_columnInChars = rhs.m_columnInChars;
         m_lenInChars = rhs.m_lenInChars;
-        m_matchState = rhs.m_matchState;
         m_scope = rhs.m_scope.c_str();
+        m_regexCaptures = rhs.m_regexCaptures;
         return *this;
     }
 
@@ -228,11 +228,20 @@ public:
     void SetLenInChars(const int& len) { this->m_lenInChars = len; }
     const int& GetLenInChars() const { return m_lenInChars; }
 
-    void SetMatchState(short matchState) { this->m_matchState = matchState; }
-    short GetMatchState() const { return m_matchState; }
-
     void SetScope(const wxString& scope) { this->m_scope = scope.c_str(); }
     const wxString& GetScope() const { return m_scope; }
+
+    void SetRegexCaptures(const wxArrayString& regexCaptures) { this->m_regexCaptures = regexCaptures; }
+    const wxArrayString& GetRegexCaptures() const { return m_regexCaptures; }
+    wxString GetRegexCapture(size_t backref) const
+    {
+        if(m_regexCaptures.size() > backref) {
+            return m_regexCaptures[backref];
+        } else {
+            return wxEmptyString;
+        }
+    }
+
     // return a foramtted message
     wxString GetMessage() const
     {
@@ -268,7 +277,8 @@ public:
 
     SearchSummary& operator=(const SearchSummary& rhs)
     {
-        if(this == &rhs) return *this;
+        if(this == &rhs)
+            return *this;
 
         m_fileScanned = rhs.m_fileScanned;
         m_matchesFound = rhs.m_matchesFound;
@@ -398,12 +408,11 @@ private:
 
     // Perform search on a line
     void DoSearchLine(const wxString& line, const int lineNum, const int lineOffset, const wxString& fileName,
-                      const SearchData* data, const wxString& findWhat, const wxArrayString& filters,
-                      TextStatesPtr statesPtr);
+                      const SearchData* data, const wxString& findWhat, const wxArrayString& filters);
 
     // Perform search on a line using regular expression
     void DoSearchLineRE(const wxString& line, const int lineNum, const int lineOffset, const wxString& fileName,
-                        const SearchData* data, TextStatesPtr statesPtr);
+                        const SearchData* data);
 
     // Send an event to the notified window
     void SendEvent(wxEventType type, wxEvtHandler* owner);

@@ -10,9 +10,9 @@ LSP::InitializeRequest::InitializeRequest(const wxString& rootUri)
 
 LSP::InitializeRequest::~InitializeRequest() {}
 
-JSONItem LSP::InitializeRequest::ToJSON(const wxString& name, IPathConverter::Ptr_t pathConverter) const
+JSONItem LSP::InitializeRequest::ToJSON(const wxString& name) const
 {
-    JSONItem json = Request::ToJSON(name, pathConverter);
+    JSONItem json = Request::ToJSON(name);
 
     // add the 'params'
     JSONItem params = JSONItem::createObject("params");
@@ -26,17 +26,27 @@ JSONItem LSP::InitializeRequest::ToJSON(const wxString& name, IPathConverter::Pt
     } else {
         params.addProperty("rootUri", wxFileSystem::FileNameToURL(GetRootUri()));
     }
-    JSONItem capabilities = JSONItem::createObject("capabilities");
-    params.append(capabilities);
-    JSONItem textDocument = JSONItem::createObject("textDocument");
-    capabilities.append(textDocument);
+    if(!m_initOptions.empty()) {
+        // Parse the JSON string and set it as the 'initializationOptions
+        JSON initializationOptions(m_initOptions);
+        if(initializationOptions.isOk()) {
+            cJSON* pjson = initializationOptions.release();
+            json.addProperty(wxString("initializationOptions"), (cJSON*)pjson);
+        }
+    }
+
+    auto textDocumentCapabilities = params.AddObject("capabilities").AddObject("textDocument");
+    auto docFormat =
+        textDocumentCapabilities.AddObject("completion").AddObject("completionItem").AddArray("documentationFormat");
+    docFormat.arrayAppend("plaintext");
+    auto hoverFormat = textDocumentCapabilities.AddObject("hover").AddArray("contentFormat");
+    hoverFormat.arrayAppend("markdown");
+    hoverFormat.arrayAppend("plaintext");
     return json;
 }
 
-void LSP::InitializeRequest::OnResponse(const LSP::ResponseMessage& response, wxEvtHandler* owner,
-                                        IPathConverter::Ptr_t pathConverter)
+void LSP::InitializeRequest::OnResponse(const LSP::ResponseMessage& response, wxEvtHandler* owner)
 {
     wxUnusedVar(response);
     wxUnusedVar(owner);
-    wxUnusedVar(pathConverter);
 }

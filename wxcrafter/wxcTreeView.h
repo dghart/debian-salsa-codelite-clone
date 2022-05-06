@@ -4,6 +4,16 @@
 #include "NewFormWizard.h"
 #include "wxcrafter.h"
 
+#include "wx/defs.h"
+#ifdef __WINDOWS__          // __WINDOWS__ defined by wx/defs.h
+#include "wx/msw/wrapwin.h" // includes windows.h
+
+// macro and function name crash fix
+#if defined(AddForm)
+#undef AddForm
+#endif
+#endif
+
 class EventsEditorPane;
 extern const wxEventType wxEVT_SHOW_WXCRAFTER_DESIGNER;
 
@@ -41,8 +51,8 @@ public:
     void OnOpen(wxCommandEvent& e);
     void OnProjectSaved(wxCommandEvent& e);
     void OnOpenUI(wxUpdateUIEvent& e);
-    void OnWorkspaceLoaded(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& e);
+    void OnWorkspaceLoaded(clWorkspaceEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
 
 protected:
     virtual void OnRefreshWxcpFiles(wxCommandEvent& event);

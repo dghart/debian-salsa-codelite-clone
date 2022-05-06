@@ -1,4 +1,5 @@
 #include "clRemoteBuilder.hpp"
+
 #include "cl_command_event.h"
 #include "codelite_events.h"
 #include "event_notifier.h"
@@ -6,10 +7,10 @@
 #include "globals.h"
 #include "imanager.h"
 #include "processreaderthread.h"
+
 #include <wx/msgdlg.h>
 
 #if USE_SFTP
-#include "SSHRemoteProcess.hpp"
 #include "sftp_settings.h"
 #endif
 
@@ -42,37 +43,22 @@ void clRemoteBuilder::Build(const wxString& sshAccount, const wxString& command,
                        wxICON_WARNING | wxCENTER);
         return;
     }
-    try {
-        if(m_ssh) {
-            m_ssh->Close();
-        }
-        m_ssh.reset(new clSSH());
 
-        // Establish SSH connection and launch the build
-        m_ssh->SetUsername(account.GetUsername());
-        m_ssh->SetPassword(account.GetPassword());
-        m_ssh->SetHost(account.GetHost());
-        m_ssh->SetPort(account.GetPort());
-        m_ssh->Connect();
-        m_ssh->Login();
-
-    } catch(clException& e) {
-        clERROR() << e.What();
-        ::wxMessageBox(wxString() << _("Failed to start remote build\n") << e.What(), "CodeLite",
-                       wxICON_ERROR | wxCENTRE);
+    wxFileName ssh;
+    if(!clFindExecutable("ssh", ssh)) {
+        wxMessageBox(_("Could not locate ssh executable"), "CodeLite", wxICON_WARNING | wxOK);
         return;
     }
 
-    // SSH is connected
-
     // Prepare the command
     wxString cmd;
-    cmd << "/bin/bash -c 'cd " << workingDirectory << " && " << command << "'";
+    cmd << ssh.GetFullPath() << " " << account.GetUsername() << "@" << account.GetHost() << " -p " << account.GetPort()
+        << " 'cd " << workingDirectory << " && " << command << "'";
     clGetManager()->ClearOutputTab(kOutputTab_Build);
     clGetManager()->AppendOutputTabText(
         kOutputTab_Build, wxString() << "Remote build started using ssh account: " << account.GetAccountName() << "\n");
     clGetManager()->AppendOutputTabText(kOutputTab_Build, cmd + "\n");
-    m_remoteProcess = SSHRemoteProcess::Create(this, m_ssh, cmd, false);
+    m_remoteProcess = ::CreateAsyncProcess(this, cmd);
 
     clBuildEvent eventStart(wxEVT_BUILD_STARTED);
     EventNotifier::Get()->AddPendingEvent(eventStart);
@@ -96,10 +82,6 @@ void clRemoteBuilder::OnProcessTerminated(clProcessEvent& event)
 
     clBuildEvent eventStopped(wxEVT_BUILD_ENDED);
     EventNotifier::Get()->AddPendingEvent(eventStopped);
-
-#if USE_SFTP
-    m_ssh.reset(nullptr);
-#endif
 }
 
 void clRemoteBuilder::Stop() { m_remoteProcess->Terminate(); }

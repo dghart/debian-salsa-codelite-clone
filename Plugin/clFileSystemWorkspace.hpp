@@ -3,22 +3,27 @@
 
 #include "IWorkspace.h"
 #include "asyncprocess.h"
+#include "clBacktickCache.hpp"
 #include "clConsoleBase.h"
+#include "clDebuggerBreakpointStore.hpp"
 #include "clDebuggerTerminal.h"
+#include "clFileCache.hpp"
 #include "clFileSystemEvent.h"
 #include "clFileSystemWorkspaceConfig.hpp"
 #include "clRemoteBuilder.hpp"
+#include "clShellHelper.hpp"
 #include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "compiler.h"
 #include "macros.h"
+
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include <wx/arrstr.h>
-#include "clFileCache.hpp"
 
 class clFileSystemWorkspaceView;
+
 class WXDLLIMPEXP_SDK clFileSystemWorkspace : public IWorkspace
 {
     clFileCache m_files;
@@ -34,6 +39,8 @@ class WXDLLIMPEXP_SDK clFileSystemWorkspace : public IWorkspace
     clRemoteBuilder::Ptr_t m_remoteBuilder;
     clDebuggerTerminalPOSIX m_debuggerTerminal;
     int m_execPID = wxNOT_FOUND;
+    clBacktickCache::ptr_t m_backtickCache;
+    clShellHelper m_shell_helper;
 
 protected:
     void CacheFiles(bool force = false);
@@ -44,10 +51,10 @@ protected:
     CompilerPtr GetCompiler();
 
     /**
-     * @brief return the executable to run + args
+     * @brief return the executable to run + args + working directory
      * this method also expands all macros/env variables
      */
-    void GetExecutable(wxString& exe, wxString& args);
+    void GetExecutable(wxString& exe, wxString& args, wxString& wd);
 
     //===--------------------------
     // Event handlers
@@ -66,7 +73,6 @@ protected:
     void OnAllEditorsClosed(wxCommandEvent& event);
     void OnScanCompleted(clFileSystemEvent& event);
     void OnParseWorkspace(wxCommandEvent& event);
-    void OnParseThreadScanIncludeCompleted(wxCommandEvent& event);
     void OnBuildProcessTerminated(clProcessEvent& event);
     void OnBuildProcessOutput(clProcessEvent& event);
     void OnSaveSession(clCommandEvent& event);
@@ -78,6 +84,7 @@ protected:
     void OnSourceControlPulled(clSourceControlEvent& event);
     void OnDebug(clDebugEvent& event);
     void OnFileSystemUpdated(clFileSystemEvent& event);
+    void OnReloadWorkspace(clCommandEvent& event);
 
 protected:
     bool Load(const wxFileName& file);
@@ -94,21 +101,35 @@ public:
     ///===--------------------------
     /// IWorkspace interface
     ///===--------------------------
-    virtual wxString GetActiveProjectName() const;
-    virtual wxFileName GetFileName() const;
-    virtual wxString GetFilesMask() const;
-    virtual wxFileName GetProjectFileName(const wxString& projectName) const;
-    virtual void GetProjectFiles(const wxString& projectName, wxArrayString& files) const;
-    virtual wxString GetProjectFromFile(const wxFileName& filename) const;
-    virtual void GetWorkspaceFiles(wxArrayString& files) const;
-    virtual wxArrayString GetWorkspaceProjects() const;
-    virtual bool IsBuildSupported() const;
-    virtual bool IsProjectSupported() const;
+    wxString GetActiveProjectName() const override;
+    wxFileName GetFileName() const override;
+    wxString GetFilesMask() const override;
+    void GetProjectFiles(const wxString& projectName, wxArrayString& files) const override;
+    wxString GetProjectFromFile(const wxFileName& filename) const override;
+    void GetWorkspaceFiles(wxArrayString& files) const override;
+    wxArrayString GetWorkspaceProjects() const override;
+    bool IsBuildSupported() const override;
+    bool IsProjectSupported() const override;
+    wxFileName GetProjectFileName(const wxString& projectName) const override;
+    void SetProjectActive(const wxString& project) override;
 
+    virtual wxString GetExcludeFolders() const;
     clFileSystemWorkspace(bool dummy);
     virtual ~clFileSystemWorkspace();
 
     static clFileSystemWorkspace& Get();
+
+    /**
+     * @brief open a workspace file. return true if the `filepath` is a valid
+     * File System Workspace and the open succeeded
+     */
+    bool OpenWorkspace(const wxString& filepath);
+
+    /**
+     * @brief close the workspace. Return false if the a File System Workspace
+     * was not already opened
+     */
+    bool CloseWorkspace();
 
     ///===--------------------------
     /// Specific API
@@ -116,10 +137,15 @@ public:
     clFileSystemWorkspaceView* GetView() { return m_view; }
 
     /**
+     * @brief return the backticks cache used by this workspace
+     */
+    clBacktickCache::ptr_t GetBackticksCache() { return m_backtickCache; }
+
+    /**
      * @brief create an empty workspace at a given folder
      * @param folder
      */
-    void New(const wxString& folder);
+    void New(const wxString& folder, const wxString& name = wxEmptyString);
 
     /**
      * @brief close the workspace
@@ -141,10 +167,9 @@ public:
      */
     bool IsOpen() const { return m_isLoaded; }
 
-    void UpdateParserPaths();
     const std::vector<wxFileName>& GetFiles() const { return m_files.GetFiles(); }
 
-    const wxString& GetName() const { return m_settings.GetName(); }
+    wxString GetName() const override { return m_filename.GetName(); }
     void SetName(const wxString& name) { m_settings.SetName(name); }
 
     const clFileSystemWorkspaceSettings& GetSettings() const { return m_settings; }
@@ -162,7 +187,14 @@ public:
      * Note that this method does NOT update the UI in anyways.
      */
     void FileSystemUpdated();
+
+    /**
+     * @brief create compile_flags.txt for the selected configuration
+     * and fire generation event
+     */
+    void CreateCompileFlagsFile();
 };
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_FS_SCAN_COMPLETED, clFileSystemEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_FS_NEW_WORKSPACE_FILE_CREATED, clFileSystemEvent);
 #endif // CLFILESYSTEMWORKSPACE_HPP

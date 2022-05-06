@@ -23,17 +23,19 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
+#include "databaseexplorer.h"
+
 #include "ErdPanel.h"
 #include "SqlCommandPanel.h"
 #include "clKeyboardManager.h"
-#include "databaseexplorer.h"
 #include "detachedpanesinfo.h"
 #include "dockablepane.h"
 #include "event_notifier.h"
 #include "globals.h"
 #include "imanager.h"
-#include "wx/wxsf/AutoLayout.h"
+
 #include <wx/aboutdlg.h>
+#include <wx/wxsf/AutoLayout.h>
 #include <wx/xrc/xmlres.h>
 
 //#ifdef DBL_USE_MYSQL
@@ -84,15 +86,17 @@ wxString wxbuildinfo(wxbuildinfoformat format)
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) { thePlugin = new DatabaseExplorer(manager); }
+    if(thePlugin == 0) {
+        thePlugin = new DatabaseExplorer(manager);
+    }
     return thePlugin;
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
 {
     static PluginInfo info;
-    info.SetAuthor(wxT("Peter Janků, Michal Bližňák, Tomas Bata University in Zlin, Czech Republic (www.fai.utb.cz)"));
-    info.SetName(_("DatabaseExplorer"));
+    info.SetAuthor("Peter Janků, Michal Bližňák, Tomas Bata University in Zlin, Czech Republic (www.fai.utb.cz)");
+    info.SetName("DatabaseExplorer");
     info.SetDescription(_("DatabaseExplorer for CodeLite"));
     info.SetVersion(DBE_VERSION);
     return &info;
@@ -113,7 +117,7 @@ DatabaseExplorer::DatabaseExplorer(IManager* manager)
     EventNotifier::Get()->Bind(wxEVT_SHOW_WORKSPACE_TAB, &DatabaseExplorer::OnToggleTab, this);
 
     if(IsDbViewDetached()) {
-        DockablePane* cp = new DockablePane(book->GetParent()->GetParent(), book, _("DbExplorer"), false, wxNullBitmap,
+        DockablePane* cp = new DockablePane(book->GetParent()->GetParent(), book, _("DbExplorer"), false, wxNOT_FOUND,
                                             wxSize(200, 200));
         m_dbViewerPanel = new DbViewerPanel(cp, editorBook, m_mgr);
         cp->SetChildNoReparent(m_dbViewerPanel);
@@ -121,11 +125,7 @@ DatabaseExplorer::DatabaseExplorer(IManager* manager)
     } else {
 
         m_dbViewerPanel = new DbViewerPanel(book, editorBook, m_mgr);
-        // size_t index = GetSettings().GetSvnTabIndex();
-        // if(index == Notebook::npos)
         book->AddPage(m_dbViewerPanel, _("DbExplorer"), false);
-        // else
-        //	book->InsertPage(index, m_dbViewerPanel, svnCONSOLE_TEXT, false);
     }
     m_mgr->AddWorkspaceTab(_("DbExplorer"));
 
@@ -133,17 +133,20 @@ DatabaseExplorer::DatabaseExplorer(IManager* manager)
     wxSFAutoLayout layout;
 
     wxSFLayoutHorizontalTree* pHTreeAlg =
-        wxDynamicCast(layout.GetAlgorithm(wxT("Horizontal Tree")), wxSFLayoutHorizontalTree);
-    if(pHTreeAlg) pHTreeAlg->SetHSpace(200);
+        wxDynamicCast(layout.GetAlgorithm("Horizontal Tree"), wxSFLayoutHorizontalTree);
+    if(pHTreeAlg) {
+        pHTreeAlg->SetHSpace(200);
+    }
 
-    wxSFLayoutVerticalTree* pVTreeAlg =
-        wxDynamicCast(layout.GetAlgorithm(wxT("Vertical Tree")), wxSFLayoutVerticalTree);
-    if(pVTreeAlg) pVTreeAlg->SetVSpace(75);
+    wxSFLayoutVerticalTree* pVTreeAlg = wxDynamicCast(layout.GetAlgorithm("Vertical Tree"), wxSFLayoutVerticalTree);
+    if(pVTreeAlg) {
+        pVTreeAlg->SetVSpace(75);
+    }
 
     m_longName = _("DatabaseExplorer for CodeLite");
-    m_shortName = wxT("DatabaseExplorer");
+    m_shortName = "DatabaseExplorer";
 
-    clKeyboardManager::Get()->AddGlobalAccelerator("wxEVT_EXECUTE_SQL", "Ctrl-J", _("Execute SQL"));
+    clKeyboardManager::Get()->AddAccelerator("wxEVT_EXECUTE_SQL", _("Database Explorer"), _("Execute SQL"), "Ctrl-J");
     wxTheApp->Bind(wxEVT_MENU, &DatabaseExplorer::OnExecuteSQL, this, XRCID("wxEVT_EXECUTE_SQL"));
 }
 
@@ -184,16 +187,22 @@ void DatabaseExplorer::UnPlug()
                                      clCommandEventHandler(DatabaseExplorer::OnOpenWithDBE), NULL, this);
     EventNotifier::Get()->Unbind(wxEVT_SHOW_WORKSPACE_TAB, &DatabaseExplorer::OnToggleTab, this);
     int index = m_mgr->GetWorkspacePaneNotebook()->GetPageIndex(m_dbViewerPanel);
-    if(index != wxNOT_FOUND) { m_mgr->GetWorkspacePaneNotebook()->RemovePage(index); }
+    if(index != wxNOT_FOUND) {
+        m_mgr->GetWorkspacePaneNotebook()->RemovePage(index);
+    }
     wxTheApp->Unbind(wxEVT_MENU, &DatabaseExplorer::OnExecuteSQL, this, XRCID("wxEVT_EXECUTE_SQL"));
     wxDELETE(m_dbViewerPanel);
 }
 
 bool DatabaseExplorer::IsDbViewDetached()
 {
+    wxASSERT(m_mgr);
+    IConfigTool* configTool = m_mgr->GetConfigTool();
+    wxASSERT(configTool);
+
     DetachedPanesInfo dpi;
-    m_mgr->GetConfigTool()->ReadObject(wxT("DetachedPanesList"), &dpi);
-    wxArrayString detachedPanes = dpi.GetPanes();
+    configTool->ReadObject("DetachedPanesList", &dpi);
+    const wxArrayString& detachedPanes = dpi.GetPanes();
 
     return detachedPanes.Index(_("DbExplorer")) != wxNOT_FOUND;
 }
@@ -202,16 +211,16 @@ void DatabaseExplorer::OnAbout(wxCommandEvent& e)
 {
     wxString version = wxString::Format(DBE_VERSION);
     wxString desc = _("Cross platform database explorer\n\n");
-    desc << wxbuildinfo(long_f) << wxT("\n\n");
-    
+    desc << wxbuildinfo(long_f) << "\n\n";
+
     wxAboutDialogInfo info;
     info.SetName(_("DatabaseExplorer"));
     info.SetVersion(version);
     info.SetDescription(desc);
     info.SetCopyright(_("2011 - 2015 (C) Tomas Bata University, Zlin, Czech Republic"));
     info.SetWebSite(_("http://www.fai.utb.cz"));
-    info.AddDeveloper(wxT("Peter Janků"));
-    info.AddDeveloper(wxT("Michal Bližňák"));
+    info.AddDeveloper("Peter Janků");
+    info.AddDeveloper("Michal Bližňák");
 
     wxAboutBox(info);
 }
@@ -246,6 +255,8 @@ void DatabaseExplorer::OnToggleTab(clCommandEvent& event)
         clGetManager()->GetWorkspacePaneNotebook()->AddPage(m_dbViewerPanel, _("DbExplorer"), true);
     } else {
         int where = m_mgr->GetWorkspacePaneNotebook()->GetPageIndex(_("DbExplorer"));
-        if(where != wxNOT_FOUND) { clGetManager()->GetWorkspacePaneNotebook()->RemovePage(where); }
+        if(where != wxNOT_FOUND) {
+            clGetManager()->GetWorkspacePaneNotebook()->RemovePage(where);
+        }
     }
 }

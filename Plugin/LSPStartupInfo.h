@@ -2,6 +2,7 @@
 #define LSP_STARTUPINFO_H
 
 #include "codelite_exports.h"
+
 #include <wx/arrstr.h>
 #include <wx/string.h>
 
@@ -12,6 +13,7 @@ public:
         kShowConsole = (1 << 0),
         kUseTcp = (1 << 1),
         kAutoStart = (1 << 2),
+        kRemoteLSP = (1 << 3),
     };
 
 protected:
@@ -19,6 +21,7 @@ protected:
     wxArrayString m_lspServerCommand;
     wxString m_workingDirectory;
     size_t m_flags = 0;
+    wxString m_accountName;
 
 public:
     LSPStartupInfo& SetConnectioString(const wxString& connectioString)
@@ -39,6 +42,8 @@ public:
         return *this;
     }
     const wxString& GetWorkingDirectory() const { return m_workingDirectory; }
+    void SetAccountName(const wxString& accountName) { this->m_accountName = accountName; }
+    const wxString& GetAccountName() const { return m_accountName; }
 
 public:
     LSPStartupInfo();

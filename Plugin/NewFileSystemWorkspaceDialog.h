@@ -1,11 +1,15 @@
 #ifndef NEWFILESYSTEMWORKSPACEDIALOG_H
 #define NEWFILESYSTEMWORKSPACEDIALOG_H
-#include "clFileSystemWorkspaceDlgBase.h"
 
-class NewFileSystemWorkspaceDialog : public NewFileSystemWorkspaceDialogBase
+#include "clFileSystemWorkspaceDlgBase.h"
+#include "codelite_exports.h"
+
+class WXDLLIMPEXP_SDK NewFileSystemWorkspaceDialog : public NewFileSystemWorkspaceDialogBase
 {
+    bool m_autoSetNameFromPath = true;
+
 public:
-    NewFileSystemWorkspaceDialog(wxWindow* parent);
+    NewFileSystemWorkspaceDialog(wxWindow* parent, bool autoSetNameFromPath = true);
     virtual ~NewFileSystemWorkspaceDialog();
 
     wxString GetWorkspaceName() const;

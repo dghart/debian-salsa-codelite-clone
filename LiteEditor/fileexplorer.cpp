@@ -51,27 +51,19 @@ FileExplorer::FileExplorer(wxWindow* parent, const wxString& caption)
     , m_caption(caption)
 {
     CreateGUIControls();
-
-    m_themeHelper = new ThemeHandlerHelper(this);
     SetDropTarget(new clFileOrFolderDropTarget(this));
     Bind(wxEVT_DND_FOLDER_DROPPED, &FileExplorer::OnFolderDropped, this);
 }
 
-FileExplorer::~FileExplorer()
-{
-    wxDELETE(m_themeHelper);
-    Unbind(wxEVT_DND_FOLDER_DROPPED, &FileExplorer::OnFolderDropped, this);
-}
+FileExplorer::~FileExplorer() { Unbind(wxEVT_DND_FOLDER_DROPPED, &FileExplorer::OnFolderDropped, this); }
 
 void FileExplorer::CreateGUIControls()
 {
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
     SetSizer(mainSizer);
     m_view = new clTreeCtrlPanel(this);
-    BitmapLoader* bmpLoader = clGetManager()->GetStdIcons();
-    clToolBarButton* button =
-        new clToolBarButton(m_view->GetToolBar(), wxID_OPEN, bmpLoader->LoadBitmap("folder"), _("Open folder"));
-    m_view->GetToolBar()->Add(button);
+    auto images = m_view->GetToolBar()->GetBitmapsCreateIfNeeded();
+    m_view->GetToolBar()->AddTool(wxID_OPEN, _("Open folder"), images->Add("folder"));
     m_view->GetToolBar()->Realize();
     m_view->GetToolBar()->Bind(wxEVT_TOOL, &FileExplorer::OnOpenFolder, this, wxID_OPEN);
     // For the file explorer we use the standard configuration tool
@@ -88,7 +80,9 @@ void FileExplorer::OnFolderDropped(clCommandEvent& event)
         m_view->AddFolder(folders.Item(i));
     }
     size_t index = clGetManager()->GetWorkspacePaneNotebook()->GetPageIndex(_("Explorer"));
-    if(index != wxString::npos) { clGetManager()->GetWorkspacePaneNotebook()->ChangeSelection(index); }
+    if(index != wxString::npos) {
+        clGetManager()->GetWorkspacePaneNotebook()->ChangeSelection(index);
+    }
 }
 
 void FileExplorer::OpenFolder(const wxString& path) { m_view->AddFolder(path); }
@@ -96,6 +90,8 @@ void FileExplorer::OpenFolder(const wxString& path) { m_view->AddFolder(path); }
 void FileExplorer::OnOpenFolder(wxCommandEvent& event)
 {
     wxString path = ::wxDirSelector(_("Select folder to open"));
-    if(path.IsEmpty()) { return; }
+    if(path.IsEmpty()) {
+        return;
+    }
     OpenFolder(path);
 }

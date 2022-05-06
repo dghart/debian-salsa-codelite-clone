@@ -1,6 +1,7 @@
+#include "clStatusBar.h"
+
 #include "ColoursAndFontsManager.h"
 #include "bitmap_loader.h"
-#include "clStatusBar.h"
 #include "codelite_events.h"
 #include "drawingutils.h"
 #include "editor_config.h"
@@ -10,7 +11,10 @@
 #include "ieditor.h"
 #include "imanager.h"
 #include "macros.h"
+
 #include <algorithm>
+#include <wx/dcclient.h>
+#include <wx/dcmemory.h>
 #include <wx/fontenc.h>
 #include <wx/fontmap.h>
 #include <wx/menu.h>
@@ -27,7 +31,9 @@
 #define STATUSBAR_ENCODING_COL_IDX 6
 #define STATUSBAR_ICON_COL_IDX 7
 
-static void GetWhitespaceInfo(wxStyledTextCtrl* ctrl, wxString& whitespace, wxString& eol)
+namespace
+{
+void GetWhitespaceInfo(wxStyledTextCtrl* ctrl, wxString& whitespace, wxString& eol)
 {
     whitespace << (ctrl->GetUseTabs() ? "tabs" : "spaces");
     int eolMode = ctrl->GetEOLMode();
@@ -45,61 +51,14 @@ static void GetWhitespaceInfo(wxStyledTextCtrl* ctrl, wxString& whitespace, wxSt
         break;
     }
 }
-
-class WXDLLIMPEXP_SDK clStatusBarArtNormal : public wxCustomStatusBarArt
-{
-    wxColour m_bgColour;
-    wxColour m_penColour;
-    wxColour m_textColour;
-    wxColour m_separatorColour;
-
-protected:
-    void InitialiseColours()
-    {
-        m_bgColour = clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
-        bool isdark = DrawingUtils::IsDark(m_bgColour);
-        m_bgColour = m_bgColour.ChangeLightness(isdark ? 105 : 95);
-
-        m_penColour = m_bgColour; // clSystemSettings::GetColour(wxSYS_COLOUR_3DSHADOW);
-        m_textColour = clSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT);
-        m_separatorColour = m_bgColour; // clSystemSettings::GetColour(wxSYS_COLOUR_3DSHADOW);
-    }
-
-    void OnColoursChanged(clCommandEvent& event)
-    {
-        event.Skip();
-        InitialiseColours();
-    }
-
-public:
-    clStatusBarArtNormal()
-        : wxCustomStatusBarArt("Light")
-    {
-        InitialiseColours();
-        EventNotifier::Get()->Bind(wxEVT_SYS_COLOURS_CHANGED, &clStatusBarArtNormal::OnColoursChanged, this);
-    }
-    virtual ~clStatusBarArtNormal()
-    {
-        EventNotifier::Get()->Unbind(wxEVT_SYS_COLOURS_CHANGED, &clStatusBarArtNormal::OnColoursChanged, this);
-    }
-
-    void DrawFieldSeparator(wxDC& dc, const wxRect& fieldRec)
-    {
-        wxUnusedVar(dc);
-        wxUnusedVar(fieldRec);
-    }
-
-    virtual wxColour GetBgColour() const { return m_bgColour; }
-    virtual wxColour GetPenColour() const { return m_penColour; }
-    virtual wxColour GetTextColour() const { return m_textColour; }
-    virtual wxColour GetSeparatorColour() const { return m_separatorColour; }
-};
+} // namespace
+typedef wxCustomStatusBarArt clStatusBarArtNormal;
 
 clStatusBar::clStatusBar(wxWindow* parent, IManager* mgr)
     : wxCustomStatusBar(parent)
     , m_mgr(mgr)
 {
-    SetArt(wxCustomStatusBarArt::Ptr_t(new clStatusBarArtNormal));
+    SetArt(wxCustomStatusBarArt::Ptr_t(new clStatusBarArtNormal("Normal")));
 
     EventNotifier::Get()->Bind(wxEVT_ACTIVE_EDITOR_CHANGED, &clStatusBar::OnPageChanged, this);
     EventNotifier::Get()->Bind(wxEVT_CL_THEME_CHANGED, &clStatusBar::OnThemeChanged, this);
@@ -184,15 +143,15 @@ void clStatusBar::DoUpdateColour()
         wxColour bgColour = editor->GetCtrl()->StyleGetBackground(0);
         if(DrawingUtils::IsDark(bgColour)) {
             // Using dark theme background
-            art.reset(new clStatusBarArtNormal());
+            art.reset(new clStatusBarArtNormal("Normal"));
             SetArt(art);
         } else {
-            art.reset(new clStatusBarArtNormal());
+            art.reset(new clStatusBarArtNormal("Normal"));
             SetArt(art);
         }
     } else {
         // Non editor, set "normal" art
-        art.reset(new clStatusBarArtNormal());
+        art.reset(new clStatusBarArtNormal("Normal"));
         SetArt(art);
     }
     Refresh();
@@ -266,7 +225,7 @@ void clStatusBar::SetBuildBitmap(const wxBitmap& bmp, const wxString& tooltip)
     Refresh();
 }
 
-void clStatusBar::OnWorkspaceClosed(wxCommandEvent& event)
+void clStatusBar::OnWorkspaceClosed(clWorkspaceEvent& event)
 {
     event.Skip();
     Clear();
@@ -375,7 +334,9 @@ void clStatusBar::DoUpdateView()
     IEditor* editor = clGetManager()->GetActiveEditor();
     if(editor) {
         LexerConf::Ptr_t lexer = ColoursAndFontsManager::Get().GetLexerForFile(editor->GetFileName().GetFullPath());
-        if(lexer) { language = lexer->GetName().Upper(); }
+        if(lexer) {
+            language = lexer->GetName().Upper();
+        }
     }
 
     SetLanguage(language);
@@ -388,7 +349,8 @@ void clStatusBar::DoUpdateView()
 void clStatusBar::DoFieldClicked(int fieldIndex)
 {
     if(fieldIndex == STATUSBAR_SCM_IDX) {
-        if(m_sourceControlTabName.IsEmpty()) return;
+        if(m_sourceControlTabName.IsEmpty())
+            return;
         wxCustomStatusBarField::Ptr_t field = GetField(STATUSBAR_SCM_IDX);
         CHECK_PTR_RET(field);
         // Open the output view only if the bitmap is valid
@@ -399,12 +361,16 @@ void clStatusBar::DoFieldClicked(int fieldIndex)
         wxCustomStatusBarField::Ptr_t field = GetField(STATUSBAR_ICON_COL_IDX);
         CHECK_PTR_RET(field);
         // Open the output view only if the bitmap is valid
-        if(field->Cast<wxCustomStatusBarBitmapField>()->GetBitmap().IsOk()) { m_mgr->ToggleOutputPane("Build"); }
+        if(field->Cast<wxCustomStatusBarBitmapField>()->GetBitmap().IsOk()) {
+            m_mgr->ToggleOutputPane("Build");
+        }
     } else if(fieldIndex == STATUSBAR_ANIMATION_COL_IDX) {
         wxCustomStatusBarField::Ptr_t field = GetField(STATUSBAR_ANIMATION_COL_IDX);
         CHECK_PTR_RET(field);
         // Open the output view only if the bitmap is valid
-        if(field->Cast<wxCustomStatusBarAnimationField>()->IsRunning()) { m_mgr->ToggleOutputPane("Build"); }
+        if(field->Cast<wxCustomStatusBarAnimationField>()->IsRunning()) {
+            m_mgr->ToggleOutputPane("Build");
+        }
     } else if(fieldIndex == STATUSBAR_ENCODING_COL_IDX) {
         // Show encoding menu
         wxMenu menu;
@@ -424,7 +390,8 @@ void clStatusBar::DoFieldClicked(int fieldIndex)
             encodingMenuItems.insert(std::make_pair(itemEnc->GetId(), encodingName));
         }
         int selectedId = GetPopupMenuSelectionFromUser(menu);
-        if(encodingMenuItems.count(selectedId) == 0) return;
+        if(encodingMenuItems.count(selectedId) == 0)
+            return;
 
         // Change the encoding
         wxString selectedEncodingName = encodingMenuItems.find(selectedId)->second;
@@ -486,17 +453,18 @@ void clStatusBar::DoFieldClicked(int fieldIndex)
             CHECK_PTR_RET(field);
             wxStyledTextCtrl* stc = m_mgr->GetActiveEditor()->GetCtrl();
             wxMenu menu;
-            wxMenuItem* idConvertToTabs = menu.Append(wxID_ANY, "Convert Indentations to Tabs");
-            wxMenuItem* idConvertToSpaces = menu.Append(wxID_ANY, "Convert Indentations to Spaces");
+            wxMenuItem* idConvertToTabs = menu.Append(wxID_ANY, _("Convert Indentations to Tabs"));
+            wxMenuItem* idConvertToSpaces = menu.Append(wxID_ANY, _("Convert Indentations to Spaces"));
             menu.AppendSeparator();
-            wxMenuItem* idUseTabs = menu.Append(wxID_ANY, "Use Tabs", "", wxITEM_CHECK);
-            wxMenuItem* idUseSpaces = menu.Append(wxID_ANY, "Use Spaces", "", wxITEM_CHECK);
+            wxMenuItem* idUseTabs = menu.Append(wxID_ANY, _("Use Tabs"), "", wxITEM_CHECK);
+            wxMenuItem* idUseSpaces = menu.Append(wxID_ANY, _("Use Spaces"), "", wxITEM_CHECK);
 
             // Check the proper tabs vs spaces option
             menu.Check(idUseSpaces->GetId(), !stc->GetUseTabs());
             menu.Check(idUseTabs->GetId(), stc->GetUseTabs());
             int selectedId = GetPopupMenuSelectionFromUser(menu);
-            if(selectedId == wxID_NONE) return;
+            if(selectedId == wxID_NONE)
+                return;
 
             if(selectedId == idConvertToTabs->GetId()) {
                 wxCommandEvent evt(wxEVT_MENU, XRCID("convert_indent_to_tabs"));
@@ -547,7 +515,8 @@ void clStatusBar::DoFieldClicked(int fieldIndex)
             menu.Check(idDisplayEOL->GetId(), stc->GetViewEOL());
 
             int selectedId = GetPopupMenuSelectionFromUser(menu);
-            if(selectedId == wxID_NONE) return;
+            if(selectedId == wxID_NONE)
+                return;
 
             if(selectedId == idConvertToCrLF->GetId()) {
                 // This will also change the EOL mode to CRLF
@@ -622,12 +591,9 @@ void clStatusBar::OnActionSelected(clGotoEvent& e)
 int clStatusBar::GetTextWidth(const wxString& text) const
 {
     const int SPACER = 10;
-    wxBitmap bmp(1, 1);
-    wxMemoryDC memDc;
-    memDc.SelectObject(bmp);
-    wxGCDC gcdc(memDc);
-    gcdc.SetFont(DrawingUtils::GetDefaultGuiFont());
-    int textWidth = gcdc.GetTextExtent(text).GetWidth();
+    wxClientDC dc(const_cast<clStatusBar*>(this));
+    dc.SetFont(DrawingUtils::GetDefaultGuiFont());
+    int textWidth = dc.GetTextExtent(text).GetWidth();
     textWidth += 2 * SPACER;
     return textWidth;
 }

@@ -213,10 +213,10 @@ void VimManager::updateVimMessage()
         m_mgr->GetStatusBar()->SetMessage(_("Saving and Closing"));
         break;
     case MESSAGES_VIM::SEARCHING_WORD:
-        m_mgr->GetStatusBar()->SetMessage("Searching: " + m_currentCommand.getSearchedWord());
+        m_mgr->GetStatusBar()->SetMessage(_("Searching: ") + m_currentCommand.getSearchedWord());
         break;
     default:
-        m_mgr->GetStatusBar()->SetMessage("Unknown Error");
+        m_mgr->GetStatusBar()->SetMessage(_("Unknown Error"));
         break;
     }
 }
@@ -405,7 +405,7 @@ void VimManager::setUpVimBarPos()
     // status_vim->SetSize(0, 0, width, wxDefaultCoord);
 }
 
-void VimManager::OnWorkspaceClosing(wxCommandEvent& event)
+void VimManager::OnWorkspaceClosing(clWorkspaceEvent& event)
 {
     event.Skip();
     DeleteAllEditorState();

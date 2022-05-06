@@ -1,10 +1,12 @@
+#include "top_level_win_wrapper.h"
+
 #include "allocator_mgr.h"
 #include "choice_property.h"
-#include "top_level_win_wrapper.h"
 #include "virtual_folder_property.h"
 #include "wxc_bitmap_code_generator.h"
 #include "wxc_notebook_code_helper.h"
 #include "wxgui_helpers.h"
+
 #include <wx/arrstr.h>
 #include <wx/ffile.h>
 #include <wx/msgdlg.h>
@@ -27,20 +29,20 @@ TopLevelWinWrapper::TopLevelWinWrapper(int type)
     if(type == ID_WXFRAME || type == ID_WXDIALOG) {
         // a real top level windows
         // add support for wxTopLevelWindow events
-        RegisterEvent(wxT("wxEVT_MAXIMIZE"), wxT("wxMaximizeEvent"), wxT("Process a wxEVT_MAXIMIZE event"));
-        RegisterEvent(wxT("wxEVT_MOVE"), wxT("wxMoveEvent"),
-                      wxT("Process a wxEVT_MOVE event, which is generated when a window is moved"));
-        RegisterEvent(wxT("wxEVT_MOVE_START"), wxT("wxMoveEvent"),
-                      wxT("Process a wxEVT_MOVE_START event, which is generated when the "
-                          "user starts to move or size a window. Windows only"));
-        RegisterEvent(wxT("wxEVT_MOVE_END"), wxT("wxMoveEvent"),
-                      wxT("Process a wxEVT_MOVE_END event, which is generated when "
-                          "the user stops moving or sizing a window. Windows only"));
-        RegisterEvent(wxT("wxEVT_SHOW"), wxT("wxShowEvent"), wxT("Process a wxEVT_SHOW event"));
+        RegisterEvent("wxEVT_MAXIMIZE", "wxMaximizeEvent", _("Process a wxEVT_MAXIMIZE event"));
+        RegisterEvent("wxEVT_MOVE", "wxMoveEvent",
+                      _("Process a wxEVT_MOVE event, which is generated when a window is moved"));
+        RegisterEvent("wxEVT_MOVE_START", "wxMoveEvent",
+                      _("Process a wxEVT_MOVE_START event, which is generated when the "
+                        "user starts to move or size a window. Windows only"));
+        RegisterEvent("wxEVT_MOVE_END", "wxMoveEvent",
+                      _("Process a wxEVT_MOVE_END event, which is generated when "
+                        "the user stops moving or sizing a window. Windows only"));
+        RegisterEvent("wxEVT_SHOW", "wxShowEvent", _("Process a wxEVT_SHOW event"));
     }
 
     // Default size for top level windows
-    DoSetPropertyStringValue(PROP_SIZE, wxT("500,300"));
+    DoSetPropertyStringValue(PROP_SIZE, "500,300");
     if(IsWxTopLevelWindow()) {
         // Add a persistency object support
         AddBool(PROP_PERSISTENT,
@@ -50,10 +52,10 @@ TopLevelWinWrapper::TopLevelWinWrapper(int type)
     }
 
     wxArrayString arr;
-    arr.Add(wxT(""));
-    arr.Add(wxT("wxBOTH"));
-    arr.Add(wxT("wxVERTICAL"));
-    arr.Add(wxT("wxHORIZONTAL"));
+    arr.Add("");
+    arr.Add("wxBOTH");
+    arr.Add("wxVERTICAL");
+    arr.Add("wxHORIZONTAL");
 
     AddProperty(new StringProperty(PROP_TITLE, "", _("The title, if any")));
     AddProperty(
@@ -69,7 +71,7 @@ TopLevelWinWrapper::TopLevelWinWrapper(int type)
                                      "generated class 'FooDialogBase', you might enter 'FooDialog' here.")));
     AddProperty(new StringProperty(PROP_FILE, "",
                                    _("The name for the inherited class's files (without any file "
-                                     "extension).\nwxCrafter will generate a $(FILE).cpp and $(FILE).h\ne.g. "
+                                     "extension).\nwxCrafter will generate a $(FILE).cpp and $(FILE).hpp\ne.g. "
                                      "for an inherited class 'FooDialog', you might enter 'foodialog' here.")));
     AddProperty(new StringProperty(PROP_CLASS_DECORATOR, "",
                                    _("MSW Only\nC++ macro decorator - allows exporting this class from a DLL")));
@@ -87,12 +89,12 @@ wxString TopLevelWinWrapper::FormatCode(const wxString& chunk) const
 {
     // Format the code a bit
     wxString formattedCode;
-    wxArrayString codeArr = ::wxStringTokenize(chunk, wxT("\n\r"), wxTOKEN_RET_EMPTY_ALL);
+    wxArrayString codeArr = ::wxStringTokenize(chunk, "\n\r", wxTOKEN_RET_EMPTY_ALL);
     for(size_t i = 0; i < codeArr.GetCount(); i++) {
-        formattedCode << wxT("    ") << codeArr.Item(i) << wxT("\n");
+        formattedCode << "    " << codeArr.Item(i) << "\n";
     }
 
-    formattedCode.Replace(wxT("|@@|"), wxT(""));
+    formattedCode.Replace("|@@|", "");
 
     // Remove any double empty lines
     while(formattedCode.Replace("    \n    \n", "    \n")) {}
@@ -116,10 +118,12 @@ void TopLevelWinWrapper::GenerateCode(const wxcProjectMetadata& project, bool pr
                          "entry from the tree-view and provide an Inherited class name and file name");
 
             wxRichMessageDialog dlg(NULL, message, "wxCrafter", wxOK | wxOK_DEFAULT | wxCENTER | wxICON_WARNING);
-            dlg.SetOKLabel("OK, continue with code generation");
+            dlg.SetOKLabel(_("OK, continue with code generation"));
             dlg.ShowCheckBox(_("Don't show this message again"));
 
-            if(dlg.ShowModal() == wxID_CANCEL) { return; }
+            if(dlg.ShowModal() == wxID_CANCEL) {
+                return;
+            }
             if(dlg.IsCheckBoxChecked()) {
                 wxcSettings::Get().EnableFlag(wxcSettings::DONT_PROMPT_ABOUT_MISSING_SUBCLASS, true);
             }
@@ -134,9 +138,9 @@ void TopLevelWinWrapper::GenerateCode(const wxcProjectMetadata& project, bool pr
     wxcNotebookCodeHelper::Get().Clear();
     wxString ctorBody, dtorCode, membersChunk, eventFunctions, eventConnectCode, eventDisconnectCode,
         extraFunctionsCodeImpl, extraFunctionsCodeDecl;
-    headers.Add(wxT("#include <wx/settings.h>"));
-    headers.Add(wxT("#include <wx/xrc/xmlres.h>"));
-    headers.Add(wxT("#include <wx/xrc/xh_bmp.h>"));
+    headers.Add("#include <wx/settings.h>");
+    headers.Add("#include <wx/xrc/xmlres.h>");
+    headers.Add("#include <wx/xrc/xh_bmp.h>");
 
     DoTraverseAndGenCode(headers, ctorBody, membersChunk, eventFunctions, eventConnectCode, additionalFiles, dtorCode,
                          extraFunctionsCodeImpl, extraFunctionsCodeDecl);
@@ -150,9 +154,13 @@ void TopLevelWinWrapper::GenerateCode(const wxcProjectMetadata& project, bool pr
         wxString fgcol = wxCrafter::ColourToCpp(PropertyString(PROP_FG));
 
         // Add colors and fonts here
-        if(bgcol.IsEmpty() == false) { ctorBody << wxT("    SetBackgroundColour(") << bgcol << wxT(");\n"); }
+        if(bgcol.IsEmpty() == false) {
+            ctorBody << "    SetBackgroundColour(" << bgcol << ");\n";
+        }
 
-        if(fgcol.IsEmpty() == false) { ctorBody << wxT("    SetForegroundColour(") << fgcol << wxT(");\n"); }
+        if(fgcol.IsEmpty() == false) {
+            ctorBody << "    SetForegroundColour(" << fgcol << ");\n";
+        }
     }
 
     ctorBody << FormatCode(wxcNotebookCodeHelper::Get().Code());
@@ -163,11 +171,11 @@ void TopLevelWinWrapper::GenerateCode(const wxcProjectMetadata& project, bool pr
         ctorBody << "    SetName(" << wxCrafter::WXT(GetName()) << ");\n";
         wxSize sz = wxCrafter::DecodeSize(PropertyString(PROP_MINSIZE));
         if(sz != wxDefaultSize) {
-            ctorBody << wxT("    SetMinClientSize(wxSize(" << wxCrafter::EncodeSize(sz) << "));\n");
+            ctorBody << "    SetMinClientSize(wxSize(" << wxCrafter::EncodeSize(sz) << "));\n";
         }
 
         if(GetType() != ID_WXAUITOOLBARTOPLEVEL) {
-            ctorBody << "    SetSize(" << wxCrafter::GetSizeAsDlgUnits(GetSize(), "this") << wxT(");\n");
+            ctorBody << "    SetSize(" << wxCrafter::GetSizeAsDlgUnits(GetSize(), "this") << ");\n";
             ctorBody << "    if (GetSizer()) {\n";
             ctorBody << "         GetSizer()->Fit(this);\n";
             ctorBody << "    }\n";
@@ -181,14 +189,12 @@ void TopLevelWinWrapper::GenerateCode(const wxcProjectMetadata& project, bool pr
             }
 
             // Add support for wxPersistenceManager object
-            if(wxcSettings::Get().IsLicensed() && IsWxTopLevelWindow() && IsPropertyChecked(PROP_PERSISTENT)) {
-                ctorBody << wxCrafter::WX29_BLOCK_START();
+            if(IsWxTopLevelWindow() && IsPropertyChecked(PROP_PERSISTENT)) {
                 ctorBody << "    if(!wxPersistenceManager::Get().Find(this)) {\n";
                 ctorBody << "        wxPersistenceManager::Get().RegisterAndRestore(this);\n";
                 ctorBody << "    } else {\n";
                 ctorBody << "        wxPersistenceManager::Get().Restore(this);\n";
                 ctorBody << "    }\n";
-                ctorBody << "#endif\n";
             }
         }
     }
@@ -197,8 +203,9 @@ void TopLevelWinWrapper::GenerateCode(const wxcProjectMetadata& project, bool pr
     eventFunctions = FormatCode(eventFunctions);
     eventConnectCode = FormatCode(eventConnectCode);
 
+    // use Unbind syntax
     eventDisconnectCode = eventConnectCode;
-    eventDisconnectCode.Replace(wxT("->Connect("), wxT("->Disconnect("));
+    eventDisconnectCode.Replace("->Bind(", "->Unbind(");
 
     wxString baseClassName = CreateBaseclassName();
 
@@ -210,35 +217,42 @@ void TopLevelWinWrapper::GenerateCode(const wxcProjectMetadata& project, bool pr
 
     if(baseClassName.IsEmpty()) { // meaning that it was empty until BASE_CLASS_SUFFIX was appended
         wxString msg;
-        msg << wxT("Can not generate code.\nMake sure that all toplevel windows have a valid C++ class name");
-        wxMessageBox(msg, wxT("wxCrafter"), wxOK | wxICON_WARNING | wxCENTER);
+        msg << _("Can not generate code.\nMake sure that all toplevel windows have a valid C++ class name");
+        wxMessageBox(msg, "wxCrafter", wxOK | wxICON_WARNING | wxCENTER);
         return;
     }
 
-    if(filename.IsEmpty()) { baseOnly = true; }
+    if(filename.IsEmpty()) {
+        baseOnly = true;
+    }
 
     wxFileName headerFile, sourceFile;
     wxFileName baseFile(wxcProjectMetadata::Get().GetGeneratedFilesDir(),
                         wxcProjectMetadata::Get().GetOutputFileName());
 
     // If the files are relative make them abs
-    if(baseFile.IsRelative()) { baseFile.MakeAbsolute(project.GetProjectPath()); }
+    if(baseFile.IsRelative()) {
+        baseFile.MakeAbsolute(project.GetProjectPath());
+    }
 
     wxString dbg = baseFile.GetFullPath();
 
     headerFile = baseFile;
     sourceFile = baseFile;
 
-    headerFile.SetExt(wxT("h"));
-    sourceFile.SetExt(wxT("cpp"));
+    headerFile.SetExt(wxcProjectMetadata::Get().GetHeaderFileExt());
+    sourceFile.SetExt("cpp");
 
     dtorCode.Prepend(eventDisconnectCode);
 
     // Write the C++ file
-    baseCpp << wxT("\n") << BaseCtorImplPrefix() << wxT("{\n") << wxcCodeGeneratorHelper::Get().GenerateInitCode(this)
-            << ctorBody;
+    baseCpp << "\n"
+            << BaseCtorImplPrefix() << "{\n"
+            << wxcCodeGeneratorHelper::Get().GenerateInitCode(this) << ctorBody;
 
-    if(eventConnectCode.IsEmpty() == false) { baseCpp << wxT("    // Connect events\n") << eventConnectCode; }
+    if(eventConnectCode.IsEmpty() == false) {
+        baseCpp << "    // Connect events\n" << eventConnectCode;
+    }
 
     // Now Connect() any auitoolbar dropdown menu; it must be *after* the normal Connect()s, otherwise it won't be
     // called if the user-code forgets to event.Skip()
@@ -255,8 +269,10 @@ void TopLevelWinWrapper::GenerateCode(const wxcProjectMetadata& project, bool pr
                  << "::" << DEFAULT_AUI_DROPDOWN_FUNCTION << "), NULL, this);\n";
     }
 
-    baseCpp << wxT("}\n\n") << baseClassName << wxT("::~") << baseClassName << wxT("()\n") << wxT("{\n") << dtorCode
-            << wxT("}\n");
+    baseCpp << "}\n\n"
+            << baseClassName << "::~" << baseClassName << "()\n"
+            << "{\n"
+            << dtorCode << "}\n";
 
     // Write any extra (i.e. not ctor/dtor) functions
     if(!extraFunctionsCodeImpl.empty()) {
@@ -266,18 +282,28 @@ void TopLevelWinWrapper::GenerateCode(const wxcProjectMetadata& project, bool pr
     // prepare the enum block for the
     // Write the header file
 
-    baseHeader << wxT("\n") << wxT("class ") << (cppDecorator.IsEmpty() ? "" : cppDecorator + " ") << baseClassName
-               << wxT(" : public ") << superclass << wxT("\n") << wxT("{\n")
-               << wxcCodeGeneratorHelper::Get().GenerateWinIdEnum() << wxT("protected:\n") << membersChunk << wxT("\n")
-               << wxT("protected:\n") << eventFunctions << wxT("\n") << wxT("public:\n") << extraFunctionsCodeDecl
-               << BaseCtorDecl() << wxT("    virtual ~") << baseClassName << wxT("();\n") << wxT("};\n\n");
+    baseHeader << "\n"
+               << "class " << (cppDecorator.IsEmpty() ? "" : cppDecorator + " ") << baseClassName << " : public "
+               << superclass << "\n"
+               << "{\n"
+               << wxcCodeGeneratorHelper::Get().GenerateWinIdEnum() << "protected:\n"
+               << membersChunk << "\n"
+               << "protected:\n"
+               << eventFunctions << "\n"
+               << "public:\n"
+               << extraFunctionsCodeDecl << BaseCtorDecl() << "    virtual ~" << baseClassName << "();\n"
+               << "};\n\n";
 
-    if(baseOnly) { return; }
+    if(baseOnly) {
+        return;
+    }
 
     wxString inheritedClass = PropertyString(PROP_INHERITED_CLASS);
     inheritedClass.Trim().Trim(false);
 
-    if(inheritedClass.IsEmpty()) { return; }
+    if(inheritedClass.IsEmpty()) {
+        return;
+    }
 
     if(inheritedClass == baseClassName) {
         ::wxMessageBox(_("Base class and inherited class have the same name"), "wxCrafter",
@@ -290,50 +316,62 @@ void TopLevelWinWrapper::GenerateCode(const wxcProjectMetadata& project, bool pr
     /////////////////////////////////////////////////////////////////////////////////////////
 
     wxFileName derivedClassFileCPP(filename);
-    wxFileName derivedClassFileH(filename);
+    wxFileName derivedClassFileHPP(filename);
 
-    derivedClassFileCPP.SetExt(wxT("cpp"));
-    derivedClassFileH.SetExt(wxT("h"));
+    derivedClassFileCPP.SetExt("cpp");
+    derivedClassFileHPP.SetExt(wxcProjectMetadata::Get().GetHeaderFileExt());
 
     // Fix the paths if needed
     // i.e. if the derived classes are relative, make them use the same
     // path as the base classes file
-    if(derivedClassFileCPP.IsRelative()) { derivedClassFileCPP.SetPath(headerFile.GetPath()); }
+    if(derivedClassFileCPP.IsRelative()) {
+        derivedClassFileCPP.SetPath(headerFile.GetPath());
+    }
 
-    if(derivedClassFileH.IsRelative()) { derivedClassFileH.SetPath(headerFile.GetPath()); }
+    if(derivedClassFileHPP.IsRelative()) {
+        derivedClassFileHPP.SetPath(headerFile.GetPath());
+    }
 
     wxString dCpp, dH, dBlockGuard;
     dBlockGuard << inheritedClass;
+    dBlockGuard << "_" << derivedClassFileHPP.GetExt();
     dBlockGuard.MakeUpper();
-    dBlockGuard << wxT("_H");
 
     // Prepare the Header file content
-    dH << wxT("#ifndef ") << dBlockGuard << wxT("\n") << wxT("#define ") << dBlockGuard << wxT("\n")
-       << wxT("#include \"") << headerFile.GetFullName() << wxT("\"\n") << wxT("\n") << wxT("class ")
-       << (cppDecorator.IsEmpty() ? "" : cppDecorator + " ") << inheritedClass << wxT(" : public ") << derivedSuperclass
-       << wxT("\n") << wxT("{\n") << wxT("public:\n") << wxT("    ") << inheritedClass << GetDerivedClassCtorSignature()
-       << ";\n"
-       << wxT("    virtual ~") << inheritedClass << wxT("();\n") << wxT("};\n") << wxT("#endif // ") << dBlockGuard
-       << wxT("\n");
+    dH << "#ifndef " << dBlockGuard << "\n"
+       << "#define " << dBlockGuard << "\n"
+       << "#include \"" << headerFile.GetFullName() << "\"\n"
+       << "\n"
+       << "class " << (cppDecorator.IsEmpty() ? "" : cppDecorator + " ") << inheritedClass << " : public "
+       << derivedSuperclass << "\n"
+       << "{\n"
+       << "public:\n"
+       << "    " << inheritedClass << GetDerivedClassCtorSignature() << ";\n"
+       << "    virtual ~" << inheritedClass << "();\n"
+       << "};\n"
+       << "#endif // " << dBlockGuard << "\n";
 
     // Prepare the CPP file content
-    dCpp << wxT("#include \"") << derivedClassFileH.GetFullName() << wxT("\"\n\n") << inheritedClass << wxT("::")
-         << inheritedClass << GetDerivedClassCtorSignature() << "\n"
-         << wxT("    : ") << baseClassName << GetParentCtorInitArgumentList() << "\n"
-         << wxT("{\n") << wxT("}\n\n") << inheritedClass << wxT("::~") << inheritedClass << wxT("()\n") << wxT("{\n")
-         << wxT("}\n\n");
+    dCpp << "#include \"" << derivedClassFileHPP.GetFullName() << "\"\n\n"
+         << inheritedClass << "::" << inheritedClass << GetDerivedClassCtorSignature() << "\n"
+         << "    : " << baseClassName << GetParentCtorInitArgumentList() << "\n"
+         << "{\n"
+         << "}\n\n"
+         << inheritedClass << "::~" << inheritedClass << "()\n"
+         << "{\n"
+         << "}\n\n";
 
     // Keep track of the generated files
     if(WantsSubclass()) {
-        wxcProjectMetadata::Get().SetGeneratedHeader(derivedClassFileH);
+        wxcProjectMetadata::Get().SetGeneratedHeader(derivedClassFileHPP);
         wxcProjectMetadata::Get().SetGeneratedSource(derivedClassFileCPP);
     }
 
     wxcProjectMetadata::Get().SetGeneratedClassName(inheritedClass);
     wxcProjectMetadata::Get().SetVirtualFolder(GetVirtualFolder());
 
-    if(WantsSubclass() && wxCrafter::IsTheSame(derivedClassFileH, dH) == false) {
-        wxCrafter::WriteFile(derivedClassFileH, dH, false);
+    if(WantsSubclass() && wxCrafter::IsTheSame(derivedClassFileHPP, dH) == false) {
+        wxCrafter::WriteFile(derivedClassFileHPP, dH, false);
     }
 
     if(WantsSubclass() && wxCrafter::IsTheSame(derivedClassFileCPP, dCpp) == false) {
@@ -348,9 +386,9 @@ void TopLevelWinWrapper::GenerateCode(const wxcProjectMetadata& project, bool pr
 void TopLevelWinWrapper::WrapXRC(wxString& text)
 {
     wxString prefix, sifa;
-    prefix << wxT("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>")
-           << wxT("<resource xmlns=\"http://www.wxwidgets.org/wxxrc\">");
-    sifa << wxT("</resource>");
+    prefix << "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>"
+           << "<resource xmlns=\"http://www.wxwidgets.org/wxxrc\">";
+    sifa << "</resource>";
     text.Prepend(prefix).Append(sifa);
 }
 

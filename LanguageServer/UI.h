@@ -22,10 +22,15 @@
 #include <wx/button.h>
 #include <wx/panel.h>
 #include <wx/textctrl.h>
+#include <wx/choice.h>
+#include <wx/arrstr.h>
+#include <wx/imaglist.h>
 #include <wx/stc/stc.h>
 #include <wx/combobox.h>
-#include <wx/arrstr.h>
 #include <wx/slider.h>
+#include "clThemedTextCtrl.hpp"
+#include <wx/dataview.h>
+#include "clTerminalViewCtrl.hpp"
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -86,8 +91,16 @@ protected:
     wxCheckBox* m_checkBoxEnabled;
     wxStaticText* m_staticText453;
     wxTextCtrl* m_textCtrlName;
+    wxCheckBox* m_checkBoxRemoteServer;
+    wxChoice* m_choiceSSHAccounts;
     wxStaticText* m_staticText495;
+    wxNotebook* m_notebook164;
+    wxPanel* m_panelCommand;
     wxStyledTextCtrl* m_stcCommand;
+    wxPanel* m_panelEnvironment;
+    wxStyledTextCtrl* m_stcEnvironment;
+    wxPanel* m_panelInitOptions;
+    wxStyledTextCtrl* m_stcInitOptions;
     wxStaticText* m_staticText579;
     wxTextCtrl* m_textCtrlWD;
     wxButton* m_button1153;
@@ -101,6 +114,7 @@ protected:
     wxCheckBox* m_checkBoxDiagnostics;
 
 protected:
+    virtual void OnRemoteServerUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnCommandUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnBrowseWD(wxCommandEvent& event) { event.Skip(); }
     virtual void OnSuggestLanguages(wxCommandEvent& event) { event.Skip(); }
@@ -109,8 +123,16 @@ public:
     wxCheckBox* GetCheckBoxEnabled() { return m_checkBoxEnabled; }
     wxStaticText* GetStaticText453() { return m_staticText453; }
     wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
+    wxCheckBox* GetCheckBoxRemoteServer() { return m_checkBoxRemoteServer; }
+    wxChoice* GetChoiceSSHAccounts() { return m_choiceSSHAccounts; }
     wxStaticText* GetStaticText495() { return m_staticText495; }
     wxStyledTextCtrl* GetStcCommand() { return m_stcCommand; }
+    wxPanel* GetPanelCommand() { return m_panelCommand; }
+    wxStyledTextCtrl* GetStcEnvironment() { return m_stcEnvironment; }
+    wxPanel* GetPanelEnvironment() { return m_panelEnvironment; }
+    wxStyledTextCtrl* GetStcInitOptions() { return m_stcInitOptions; }
+    wxPanel* GetPanelInitOptions() { return m_panelInitOptions; }
+    wxNotebook* GetNotebook164() { return m_notebook164; }
     wxStaticText* GetStaticText579() { return m_staticText579; }
     wxTextCtrl* GetTextCtrlWD() { return m_textCtrlWD; }
     wxButton* GetButton1153() { return m_button1153; }
@@ -143,6 +165,43 @@ public:
                              const wxSize& size = wxSize(-1, -1),
                              long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~NewLanguageServerDlgBase();
+};
+
+class LSPOutlineViewDlgBase : public wxDialog
+{
+protected:
+    wxPanel* m_panel155;
+    clThemedTextCtrl* m_textCtrlFilter;
+    clTerminalViewCtrl* m_dvTreeCtrll;
+
+protected:
+    virtual void OnTextUpdated(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnEnter(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnKeyDown(wxKeyEvent& event) { event.Skip(); }
+    virtual void OnItemActivated(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnListKeyDown(wxKeyEvent& event) { event.Skip(); }
+
+public:
+    clThemedTextCtrl* GetTextCtrlFilter() { return m_textCtrlFilter; }
+    clTerminalViewCtrl* GetDvTreeCtrll() { return m_dvTreeCtrll; }
+    wxPanel* GetPanel155() { return m_panel155; }
+    LSPOutlineViewDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Outline View"),
+                          const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500, 300),
+                          long style = wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER);
+    virtual ~LSPOutlineViewDlgBase();
+};
+
+class LanguageServerLogViewBase : public wxPanel
+{
+protected:
+    clTerminalViewCtrl* m_dvListCtrl;
+
+protected:
+public:
+    clTerminalViewCtrl* GetDvListCtrl() { return m_dvListCtrl; }
+    LanguageServerLogViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
+                              const wxSize& size = wxSize(500, 300), long style = wxTAB_TRAVERSAL);
+    virtual ~LanguageServerLogViewBase();
 };
 
 #endif

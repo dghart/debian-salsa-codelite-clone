@@ -27,19 +27,20 @@
 #define __unixprocessimpl__
 
 #if defined(__WXMAC__) || defined(__WXGTK__)
-#include "asyncprocess.h"
-#include "processreaderthread.h"
 #include "codelite_exports.h"
+#include "processreaderthread.h"
+#include "asyncprocess.h"
 
 class wxTerminal;
+
 class WXDLLIMPEXP_CL UnixProcessImpl : public IProcess
 {
     int m_readHandle;
     int m_stderrHandle = wxNOT_FOUND;
     int m_writeHandle;
-    ProcessReaderThread* m_thr = nullptr;
     wxString m_tty;
     friend class wxTerminal;
+
 private:
     void StartReaderThread();
     bool ReadFromFd(int fd, fd_set& rset, wxString& output);
@@ -47,6 +48,9 @@ private:
 public:
     UnixProcessImpl(wxEvtHandler* parent);
     virtual ~UnixProcessImpl();
+
+    static IProcess* Execute(wxEvtHandler* parent, const wxArrayString& args, size_t flags,
+                             const wxString& workingDirectory = wxEmptyString, IProcessCallback* cb = NULL);
 
     static IProcess* Execute(wxEvtHandler* parent, const wxString& cmd, size_t flags,
                              const wxString& workingDirectory = wxEmptyString, IProcessCallback* cb = NULL);

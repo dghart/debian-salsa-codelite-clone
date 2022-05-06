@@ -1,3 +1,4 @@
+#include "asyncprocess.h"
 #include "clClangFormatLocator.h"
 #include "cl_standard_paths.h"
 #include "globals.h"
@@ -6,6 +7,7 @@
 #include <wx/log.h>
 #include <wx/regex.h>
 #include <wx/tokenzr.h>
+#include "file_logger.h"
 
 clClangFormatLocator::clClangFormatLocator() {}
 
@@ -14,25 +16,31 @@ clClangFormatLocator::~clClangFormatLocator() {}
 bool clClangFormatLocator::Locate(wxString& clangFormat)
 {
 #ifdef __WXGTK__
-    wxArrayString nameOptions;
-    nameOptions.Add("clang-format");
-    nameOptions.Add("clang-format-3.9");
-    nameOptions.Add("clang-format-3.8");
-    nameOptions.Add("clang-format-3.7");
-    nameOptions.Add("clang-format-3.6");
-    nameOptions.Add("clang-format-3.5");
-    nameOptions.Add("clang-format-3.4");
-    nameOptions.Add("clang-format-3.3");
-
-    wxFileName file;
-    for(size_t i = 0; i < nameOptions.GetCount(); ++i) {
-        if(clFindExecutable(nameOptions.Item(i), file)) {
-            clangFormat = file.GetFullPath();
+    wxFileName fnClangFormat("/usr/bin", "clang-format");
+    if(fnClangFormat.FileExists()) {
+        clSYSTEM() << "Found clang-format ==>" << fnClangFormat << endl;
+        clangFormat = fnClangFormat.GetFullPath();
+        return true;
+    }
+    
+    wxArrayString suffix;
+    for(size_t i = 20; i >= 7; --i) {
+        fnClangFormat.SetFullName(wxString() << "clang-format-" << i);
+        if(fnClangFormat.FileExists()) {
+            clSYSTEM() << "Found clang-format ==>" << fnClangFormat << endl;
+            clangFormat = fnClangFormat.GetFullPath();
             return true;
         }
     }
+#elif defined(__WXMSW__)
+    wxFileName fnClangFormat(clStandardPaths::Get().GetBinaryFullPath("clang-format"));
+    if(fnClangFormat.FileExists()) {
+        clangFormat = fnClangFormat.GetFullPath();
+        return true;
+    }
 #else
-    wxFileName fnClangFormat(clStandardPaths::Get().GetBinaryFullPath("codelite-clang-format"));
+    // macOS
+    wxFileName fnClangFormat(clStandardPaths::Get().GetBinaryFullPath("clang-format"));
     if(fnClangFormat.FileExists()) {
         clangFormat = fnClangFormat.GetFullPath();
         return true;

@@ -29,11 +29,11 @@
 // PLEASE DO "NOT" EDIT THIS FILE!
 ///////////////////////////////////////////////////////////////////////////
 
+#include "advanced_settings.h"
+
 #include "CompilersFoundDlg.h"
 #include "NewCompilerDlg.h"
 #include "advance_settings_base.h"
-#include "advanced_settings.h"
-#include "build_page.h"
 #include "build_settings_config.h"
 #include "buildsettingstab.h"
 #include "editor_config.h"
@@ -42,8 +42,8 @@
 #include "macros.h"
 #include "manager.h"
 #include "windowattrmanager.h"
+
 #include <CompilersDetectorManager.h>
-#include <cl_aui_notebook_art.h>
 #include <wx/textdlg.h>
 #include <wx/xrc/xmlres.h>
 
@@ -55,11 +55,10 @@ BuildSettingsDialog::BuildSettingsDialog(wxWindow* parent, size_t selected_page,
 {
     m_compilersPage = new CompilerMainPage(m_notebook);
     m_notebook->AddPage(m_compilersPage, _("Compilers"), true);
-    m_buildSettings = new BuildTabSetting(m_notebook);
-    m_notebook->AddPage(m_buildSettings, _("Build Output Appearance"), false);
 
-    m_buildPage = new BuildPage(m_notebook);
-    m_notebook->AddPage(m_buildPage, _("Build Systems"), false);
+    m_buildSettings = new BuildTabSetting(m_notebook);
+    m_notebook->AddPage(m_buildSettings, _("Build Panel"), false);
+
     m_rightclickMenu = wxXmlResource::Get()->LoadMenu(wxT("delete_compiler_menu"));
     LoadCompilers();
     clSetDialogBestSizeAndPosition(this);
@@ -82,23 +81,6 @@ void BuildSettingsDialog::OnButtonOKClicked(wxCommandEvent& event)
 {
     OnApply(event);
     EndModal(wxID_OK);
-}
-
-void BuildSettingsDialog::SaveCompilers()
-{
-    std::map<wxString, std::vector<ICompilerSubPage*>>::iterator iter = m_compilerPagesMap.begin();
-    for(; iter != m_compilerPagesMap.end(); iter++) {
-        std::vector<ICompilerSubPage*> items = iter->second;
-        wxString cmpname = iter->first;
-        CompilerPtr cmp = BuildSettingsConfigST::Get()->GetCompiler(cmpname);
-        if(cmp) {
-            for(size_t i = 0; i < items.size(); i++) {
-                ICompilerSubPage* p = items.at(i);
-                p->Save(cmp);
-            }
-            BuildSettingsConfigST::Get()->SetCompiler(cmp); // save changes
-        }
-    }
 }
 
 bool BuildSettingsDialog::CreateNewCompiler(const wxString& name, const wxString& copyFrom)
@@ -128,16 +110,7 @@ bool BuildSettingsDialog::DeleteCompiler(const wxString& name)
     return false;
 }
 
-void BuildSettingsDialog::OnContextMenu(wxContextMenuEvent& e)
-{
-    //    wxTreeCtrl *tree = m_compilersNotebook->GetTreeCtrl();
-    //    wxTreeItemId item = tree->GetSelection();
-    //
-    //    // only compilers have children
-    //    if(item.IsOk() && tree->HasChildren(item)) {
-    //        PopupMenu(m_rightclickMenu);
-    //    }
-}
+void BuildSettingsDialog::OnContextMenu(wxContextMenuEvent& e) { wxUnusedVar(e); }
 
 #define ID_MENU_AUTO_DETECT_COMPILERS 1001
 #define ID_MENU_ADD_COMPILER_BY_PATH 1002
@@ -146,7 +119,6 @@ void BuildSettingsDialog::OnContextMenu(wxContextMenuEvent& e)
 void BuildSettingsDialog::OnAutoDetectCompilers(wxButton* btn)
 {
     // Launch the auto detect compilers code
-
     wxMenu menu;
     menu.Append(ID_MENU_ADD_COMPILER_BY_PATH, _("Add an existing compiler"));
     menu.Append(ID_MENU_CLONE_COMPILER, _("Clone a compiler"));
@@ -175,33 +147,46 @@ void BuildSettingsDialog::OnCompilersDetected(const ICompilerLocator::CompilerVe
 {
     CompilersFoundDlg dlg(this, compilers);
     if(dlg.ShowModal() == wxID_OK) {
-        // Replace the current compilers with a new one
-        BuildSettingsConfigST::Get()->SetCompilers(compilers);
+        ICompilerLocator::CompilerVec_t selected_compilers;
+        if(dlg.GetSelectedCompilers(selected_compilers) == 0) {
+            return;
+        }
+
+        auto conf = BuildSettingsConfigST::Get();
+        conf->BeginBatch();
+        for(auto compiler : selected_compilers) {
+            if(conf->IsCompilerExist(compiler->GetName())) {
+                conf->DeleteCompiler(compiler->GetName());
+            }
+            conf->SetCompiler(compiler);
+        }
+        conf->Flush();
 
         // update the code completion search paths
         clMainFrame::Get()->CallAfter(&clMainFrame::UpdateParserSearchPathsFromDefaultCompiler);
 
-        // Dismiss this dialog and reload it
-        wxCommandEvent event(wxEVT_COMMAND_MENU_SELECTED, XRCID("advance_settings"));
-        clMainFrame::Get()->GetEventHandler()->AddPendingEvent(event);
-        EndModal(wxID_OK);
+        // update the compilers view
+        LoadCompilers();
     }
 }
 
 void BuildSettingsDialog::OnApply(wxCommandEvent& event)
 {
     // save the build page
+    BuildSettingsConfigST::Get()->BeginBatch();
     m_compilersPage->Save();
-    m_buildPage->Save();
     m_buildSettings->Save();
-
     // mark all the projects as dirty
     wxArrayString projects;
     clCxxWorkspaceST::Get()->GetProjectList(projects);
     for(size_t i = 0; i < projects.size(); i++) {
         ProjectPtr proj = ManagerST::Get()->GetProject(projects.Item(i));
-        if(proj) { proj->SetModified(true); }
+        if(proj) {
+            proj->SetModified(true);
+        }
     }
+    // Now do the actual save
+    BuildSettingsConfigST::Get()->Flush();
 }
 
 void BuildSettingsDialog::OnApplyUI(wxUpdateUIEvent& event)
@@ -212,7 +197,9 @@ void BuildSettingsDialog::OnApplyUI(wxUpdateUIEvent& event)
 void BuildSettingsDialog::OnAddExistingCompiler()
 {
     wxString folder = ::wxDirSelector(_("Select the compiler folder"));
-    if(folder.IsEmpty()) { return; }
+    if(folder.IsEmpty()) {
+        return;
+    }
 
     CompilerPtr cmp = m_compilersDetector.Locate(folder);
     if(cmp) {
@@ -221,9 +208,13 @@ void BuildSettingsDialog::OnAddExistingCompiler()
         while(true) {
             wxString name =
                 ::wxGetTextFromUser(_("Set a name to the compiler"), _("New compiler found!"), cmp->GetName());
-            if(name.IsEmpty()) { return; }
+            if(name.IsEmpty()) {
+                return;
+            }
             // Add the compiler
-            if(BuildSettingsConfigST::Get()->IsCompilerExist(name)) { continue; }
+            if(BuildSettingsConfigST::Get()->IsCompilerExist(name)) {
+                continue;
+            }
             cmp->SetName(name);
             break;
         }

@@ -13,7 +13,7 @@ class WXDLLIMPEXP_CL CompletionItem : public Serializable
     wxString m_label;
     int m_kind = wxNOT_FOUND;
     wxString m_detail;
-    wxString m_documentation;
+    MarkupContent m_documentation;
     wxString m_filterText;
     wxString m_insertText;
     wxString m_insertTextFormat;
@@ -64,16 +64,16 @@ public:
 public:
     CompletionItem();
     virtual ~CompletionItem();
-    virtual JSONItem ToJSON(const wxString& name, IPathConverter::Ptr_t pathConverter) const;
-    virtual void FromJSON(const JSONItem& json, IPathConverter::Ptr_t pathConverter);
+    virtual JSONItem ToJSON(const wxString& name) const;
+    virtual void FromJSON(const JSONItem& json);
     void SetDetail(const wxString& detail) { this->m_detail = detail; }
-    void SetDocumentation(const wxString& documentation) { this->m_documentation = documentation; }
+    void SetDocumentation(const MarkupContent& documentation) { this->m_documentation = documentation; }
     void SetFilterText(const wxString& filterText) { this->m_filterText = filterText; }
     void SetInsertText(const wxString& insertText) { this->m_insertText = insertText; }
     void SetKind(int kind) { this->m_kind = kind; }
     void SetLabel(const wxString& label) { this->m_label = label; }
     const wxString& GetDetail() const { return m_detail; }
-    const wxString& GetDocumentation() const { return m_documentation; }
+    const MarkupContent& GetDocumentation() const { return m_documentation; }
     const wxString& GetFilterText() const { return m_filterText; }
     const wxString& GetInsertText() const { return m_insertText; }
     int GetKind() const { return m_kind; }

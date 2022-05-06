@@ -22,12 +22,14 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "optionsconfig.h"
+
 #include "cl_defs.h"
 #include "editor_config.h"
 #include "macros.h"
-#include "optionsconfig.h"
 #include "wx_xml_compatibility.h"
 #include "xmlutils.h"
+
 #include <wx/fontmap.h>
 #include <wx/intl.h>
 
@@ -90,7 +92,7 @@ OptionsConfig::OptionsConfig(wxXmlNode* node)
     , m_copyLineEmptySelection(true)
     , m_programConsoleCommand(TERMINAL_CMD)
     , m_eolMode(wxT("Default"))
-    , m_hideChangeMarkerMargin(true)
+    , m_trackEditorChanges(false)
     , m_hideOutpuPaneOnUserClick(false)
     , m_hideOutputPaneNotIfBuild(false)
     , m_hideOutputPaneNotIfSearch(true)
@@ -127,7 +129,11 @@ OptionsConfig::OptionsConfig(wxXmlNode* node)
     , m_workspaceTabsDirection(wxUP)
     , m_outputTabsDirection(wxUP)
     , m_indentedComments(false)
+#ifdef __WXOSX__
+    , m_nbTabHeight(nbTabHt_Medium)
+#else
     , m_nbTabHeight(nbTabHt_Tall)
+#endif
     , m_webSearchPrefix(wxT("https://www.google.com/search?q="))
     , m_smartParen(true)
 {
@@ -152,7 +158,8 @@ OptionsConfig::OptionsConfig(wxXmlNode* node)
         m_highlightCaretLine = XmlUtils::ReadBool(node, wxT("HighlightCaretLine"), m_highlightCaretLine);
         m_displayLineNumbers = XmlUtils::ReadBool(node, wxT("ShowLineNumber"), m_displayLineNumbers);
         m_relativeLineNumbers = XmlUtils::ReadBool(node, wxT("RelativeLineNumber"), m_relativeLineNumbers);
-        m_highlightCurLineNumber = XmlUtils::ReadBool(node, wxT("HighlightCurLineNumber"), m_highlightCurLineNumber);
+        m_lineNumberHighlightCurrent =
+            XmlUtils::ReadBool(node, wxT("LineNumbersHighlightCurrent"), m_lineNumberHighlightCurrent);
         m_showIndentationGuidelines = XmlUtils::ReadBool(node, wxT("IndentationGuides"), m_showIndentationGuidelines);
         m_caretLineColour =
             XmlUtils::ReadString(node, wxT("CaretLineColour"), m_caretLineColour.GetAsString(wxC2S_HTML_SYNTAX));
@@ -177,7 +184,7 @@ OptionsConfig::OptionsConfig(wxXmlNode* node)
         m_smartParen = XmlUtils::ReadBool(node, wxT("SmartParen"), m_smartParen);
         m_programConsoleCommand = XmlUtils::ReadString(node, wxT("ConsoleCommand"), m_programConsoleCommand);
         m_eolMode = XmlUtils::ReadString(node, wxT("EOLMode"), m_eolMode);
-        m_hideChangeMarkerMargin = XmlUtils::ReadBool(node, wxT("HideChangeMarkerMargin"));
+        m_trackEditorChanges = XmlUtils::ReadBool(node, wxT("TrackEditorChanges"));
         m_scrollBeyondLastLine = XmlUtils::ReadBool(node, wxT("ScrollBeyondLastLine"), m_scrollBeyondLastLine);
         m_hideOutpuPaneOnUserClick = XmlUtils::ReadBool(node, wxT("HideOutputPaneOnUserClick"));
         m_hideOutputPaneNotIfBuild = XmlUtils::ReadBool(node, wxT("HideOutputPaneNotIfBuild"));
@@ -233,8 +240,12 @@ OptionsConfig::OptionsConfig(wxXmlNode* node)
         m_workspaceTabsDirection =
             (wxDirection)XmlUtils::ReadLong(node, "WorkspaceTabsDirection", (int)m_workspaceTabsDirection);
 #ifdef __WXOSX__
-        if(m_workspaceTabsDirection == wxLEFT) { m_workspaceTabsDirection = wxTOP; }
-        if(m_workspaceTabsDirection == wxRIGHT) { m_workspaceTabsDirection = wxBOTTOM; }
+        if(m_workspaceTabsDirection == wxLEFT) {
+            m_workspaceTabsDirection = wxTOP;
+        }
+        if(m_workspaceTabsDirection == wxRIGHT) {
+            m_workspaceTabsDirection = wxBOTTOM;
+        }
 #endif
 
         m_webSearchPrefix = XmlUtils::ReadString(node, wxT("m_webSearchPrefix"), m_webSearchPrefix);
@@ -271,7 +282,7 @@ wxXmlNode* OptionsConfig::ToXml() const
     n->AddProperty(wxT("HighlightCaretLine"), BoolToString(m_highlightCaretLine));
     n->AddProperty(wxT("ShowLineNumber"), BoolToString(m_displayLineNumbers));
     n->AddProperty(wxT("RelativeLineNumber"), BoolToString(m_relativeLineNumbers));
-    n->AddProperty("HighlightCurLineNumber", BoolToString(m_highlightCurLineNumber));
+    n->AddProperty(wxT("LineNumbersHighlightCurrent"), BoolToString(m_lineNumberHighlightCurrent));
     n->AddProperty(wxT("IndentationGuides"), BoolToString(m_showIndentationGuidelines));
     n->AddProperty(wxT("CaretLineColour"), m_caretLineColour.GetAsString(wxC2S_HTML_SYNTAX));
     n->AddProperty(wxT("IndentUsesTabs"), BoolToString(m_indentUsesTabs));
@@ -281,7 +292,7 @@ wxXmlNode* OptionsConfig::ToXml() const
     n->AddProperty(wxT("HighlightMatchedBraces"), BoolToString(m_highlightMatchedBraces));
     n->AddProperty(wxT("FoldBgColour"), m_foldBgColour.GetAsString(wxC2S_HTML_SYNTAX));
     n->AddProperty(wxT("AutoAdjustHScrollBarWidth"), BoolToString(m_autoAdjustHScrollBarWidth));
-    n->AddProperty(wxT("HideChangeMarkerMargin"), BoolToString(m_hideChangeMarkerMargin));
+    n->AddProperty(wxT("TrackEditorChanges"), BoolToString(m_trackEditorChanges));
     n->AddProperty(wxT("ScrollBeyondLastLine"), BoolToString(m_scrollBeyondLastLine));
     n->AddProperty(wxT("HideOutputPaneOnUserClick"), BoolToString(m_hideOutpuPaneOnUserClick));
     n->AddProperty(wxT("HideOutputPaneNotIfBuild"), BoolToString(m_hideOutputPaneNotIfBuild));
@@ -381,7 +392,9 @@ void OptionsConfig::SetFileFontEncoding(const wxString& strFileFontEncoding)
 {
     this->m_fileFontEncoding = wxFontMapper::Get()->CharsetToEncoding(strFileFontEncoding, false);
 
-    if(wxFONTENCODING_SYSTEM == this->m_fileFontEncoding) { this->m_fileFontEncoding = wxFONTENCODING_UTF8; }
+    if(wxFONTENCODING_SYSTEM == this->m_fileFontEncoding) {
+        this->m_fileFontEncoding = wxFONTENCODING_UTF8;
+    }
 }
 
 wxString OptionsConfig::GetEOLAsString() const
@@ -404,7 +417,9 @@ wxColour OptionsConfig::GetBookmarkFgColour(size_t index) const
 {
     wxColour col;
     wxArrayString arr = wxSplit(m_bookmarkFgColours, ';');
-    if(index < arr.GetCount()) { return wxColour(arr.Item(index)); }
+    if(index < arr.GetCount()) {
+        return wxColour(arr.Item(index));
+    }
 
     return col;
 }
@@ -422,7 +437,9 @@ wxColour OptionsConfig::GetBookmarkBgColour(size_t index) const
 {
     wxColour col;
     wxArrayString arr = wxSplit(m_bookmarkBgColours, ';');
-    if(index < arr.GetCount()) { return wxColour(arr.Item(index)); }
+    if(index < arr.GetCount()) {
+        return wxColour(arr.Item(index));
+    }
 
     return col;
 }
@@ -439,7 +456,9 @@ void OptionsConfig::SetBookmarkBgColour(wxColour c, size_t index)
 wxString OptionsConfig::GetBookmarkLabel(size_t index) const
 {
     wxArrayString arr = wxSplit(m_bookmarkLabels, ';');
-    if(index < arr.GetCount()) { return arr.Item(index); }
+    if(index < arr.GetCount()) {
+        return arr.Item(index);
+    }
 
     return "";
 }
@@ -455,7 +474,9 @@ void OptionsConfig::SetBookmarkLabel(const wxString& label, size_t index)
 
 void OptionsConfig::UpdateFromEditorConfig(const clEditorConfigSection& section)
 {
-    if(section.IsInsertFinalNewlineSet()) { this->SetAppendLF(section.IsInsertFinalNewline()); }
+    if(section.IsInsertFinalNewlineSet()) {
+        this->SetAppendLF(section.IsInsertFinalNewline());
+    }
     if(section.IsSetEndOfLineSet()) {
         // Convert .editorconfig to CodeLite strings
         wxString eolMode = "Unix (LF)"; // default
@@ -466,10 +487,18 @@ void OptionsConfig::UpdateFromEditorConfig(const clEditorConfigSection& section)
         }
         this->SetEolMode(eolMode);
     }
-    if(section.IsTabWidthSet()) { this->SetTabWidth(section.GetTabWidth()); }
-    if(section.IsIndentStyleSet()) { this->SetIndentUsesTabs(section.GetIndentStyle() == "tab"); }
-    if(section.IsTabWidthSet()) { this->SetTabWidth(section.GetTabWidth()); }
-    if(section.IsIndentSizeSet()) { this->SetIndentWidth(section.GetIndentSize()); }
+    if(section.IsTabWidthSet()) {
+        this->SetTabWidth(section.GetTabWidth());
+    }
+    if(section.IsIndentStyleSet()) {
+        this->SetIndentUsesTabs(section.GetIndentStyle() == "tab");
+    }
+    if(section.IsTabWidthSet()) {
+        this->SetTabWidth(section.GetTabWidth());
+    }
+    if(section.IsIndentSizeSet()) {
+        this->SetIndentWidth(section.GetIndentSize());
+    }
     if(section.IsCharsetSet()) {
         // TODO: fix the locale here
     }

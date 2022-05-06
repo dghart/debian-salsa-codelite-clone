@@ -44,22 +44,20 @@ class PSCompletionPage : public PSCompletionBase, public IProjectSettingsPage
 protected:
     virtual void OnProjectEnabledUI(wxUpdateUIEvent& event);
     ProjectSettingsDlg* m_dlg;
-    bool                m_ccSettingsModified;
 
 protected:
     // Handlers for PSCompletionBase events.
-    void OnCmdEvtVModified( wxCommandEvent& event );
+    void OnStcEvtVModified(wxStyledTextEvent& event);
     void OnBrowsePCH(wxCommandEvent& event);
 
 public:
     /** Constructor */
-    PSCompletionPage( wxWindow* parent, ProjectSettingsDlg* dlg );
+    PSCompletionPage(wxWindow* parent, ProjectSettingsDlg* dlg);
     //// end generated class members
 
     virtual void Clear();
     virtual void Load(BuildConfigPtr buildConf);
     virtual void Save(BuildConfigPtr buildConf, ProjectSettingsPtr projSettingsPtr);
-
 };
 
 #endif // __ps_completion_page__

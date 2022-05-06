@@ -3,15 +3,17 @@
 
 #include "clControlWithItems.h"
 #include "clHeaderBar.h"
+#include "clRowEntry.h"
 #include "clScrolledPanel.h"
 #include "clTreeCtrlModel.h"
 #include "codelite_exports.h"
+
 #include <wx/arrstr.h>
 #include <wx/datetime.h>
 #include <wx/dc.h>
+#include <wx/headercol.h>
 #include <wx/panel.h>
 #include <wx/scrolwin.h>
-#include <wx/headercol.h>
 
 #define wxTR_ENABLE_SEARCH 0x4000
 // Sorting is applied for top level items (i.e. items whom their direct parent is the root item)
@@ -20,6 +22,12 @@
 static const int wxTREE_HITTEST_ONDROPDOWNARROW = 0x2000;
 
 class clScrollBar;
+enum class eRendererType {
+    RENDERER_DEFAULT = 0,
+    RENDERER_DIRECT2D,
+    RENDERER_CAIRO,
+};
+
 class WXDLLIMPEXP_SDK clTreeCtrl : public clControlWithItems
 {
 protected:
@@ -27,7 +35,12 @@ protected:
     bool m_needToClearDefaultHeader = true;
     long m_treeStyle = 0;
     int m_scrollLines = 0;
-    wxFont m_defaultFont = wxNullFont;
+    bool m_bulkInsert = false;
+    bool m_drawBorder = false;
+    clSortFunc_t m_oldSortFunc;
+    eRendererType m_renderer = eRendererType::RENDERER_DEFAULT;
+    size_t m_spacerY = clRowEntry::Y_SPACER;
+    size_t m_spacerX = clRowEntry::X_SPACER;
 
 private:
     wxPoint DoFixPoint(const wxPoint& pt);
@@ -35,8 +48,8 @@ private:
     bool IsItemVisible(clRowEntry* item) const;
     bool IsItemFullyVisible(clRowEntry* item) const;
     void EnsureItemVisible(clRowEntry* item, bool fromTop);
-    clRowEntry* GetFirstItemOnScreen();
-    void SetFirstItemOnScreen(clRowEntry* item);
+    clRowEntry* GetFirstItemOnScreen() override;
+    void SetFirstItemOnScreen(clRowEntry* item) override;
     wxTreeItemId DoScrollLines(int numLines, bool up, wxTreeItemId from, bool selectIt);
 
     /**
@@ -53,13 +66,13 @@ private:
     clRowEntry* DoFind(clRowEntry* from, const wxString& what, size_t col, size_t searchFlags, bool next);
 
 protected:
-    void UpdateScrollBar();
+    void UpdateScrollBar() override;
     void DoAddHeader(const wxString& label, const wxBitmap& bmp, int width = wxCOL_WIDTH_AUTOSIZE);
     void UpdateLineHeight();
-    
+
 public:
-    virtual int GetFirstItemPosition() const;
-    virtual int GetRange() const;
+    int GetFirstItemPosition() const override;
+    int GetRange() const override;
     clTreeCtrl(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
                const wxSize& size = wxDefaultSize, long style = 0);
     clTreeCtrl();
@@ -67,8 +80,28 @@ public:
     bool Create(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
                 const wxSize& size = wxDefaultSize, long style = 0);
 
-    void SetDefaultFont(const wxFont& font);
-    wxFont GetDefaultFont() const;
+    /**
+     * @brief set the upper and lower spacing between lines in the view
+     */
+    void SetLineSpacing(size_t pixels);
+
+    void SetRendererType(eRendererType renderer)
+    {
+        m_renderer = renderer;
+        Refresh();
+    }
+
+    void SetDefaultFont(const wxFont& font) override;
+    /**
+     * @brief notify the control that we are doing bulk insert so avoid
+     * not needed UI updates
+     */
+    void Begin();
+
+    /**
+     * @brief update the UI to the control content, use with `Begin()`
+     */
+    void Commit();
 
     //===--------------------
     // Search support
@@ -101,13 +134,22 @@ public:
      * @brief clear all highlighted text from all the items
      */
     void ClearAllHighlights();
-    
+
+    /**
+     * @brief set highlight information for a given item
+     * @param item the item to highlight
+     * @param start_pos position within the item text
+     * @param len number of characters to highlight
+     * @param col which column text should we highlight?
+     */
+    void SetItemHighlightInfo(const wxTreeItemId& item, size_t start_pos, size_t len, size_t col = 0);
+
     //===--------------------
     // table view support
     //===--------------------
-    
+
     void AddHeader(const wxString& label, const wxBitmap& bmp = wxNullBitmap, int width = wxCOL_WIDTH_AUTOSIZE);
-    
+
     // For internal use, dont use these two methods
     const clTreeCtrlModel& GetModel() const { return m_model; }
     clTreeCtrlModel& GetModel() { return m_model; }
@@ -121,13 +163,13 @@ public:
     /**
      * @brief associate bitmap vector with this tree. The bitmaps array must exists as long as this control exists
      */
-    virtual void SetBitmaps(BitmapVec_t* bitmaps);
-    
+    void SetBitmaps(BitmapVec_t* bitmaps) override;
+
     /**
      * @brief set image list. The control does not take ownership on the input image list
      * Instead, it creates a copy of the images. It is up to the user to free any resources allocated
      */
-    virtual void SetImageList(wxImageList* images);
+    void SetImageList(wxImageList* images) override;
 
     /**
      * @brief return the tree style
@@ -148,17 +190,17 @@ public:
      * @brief does the tree has 'style' enabled?
      */
     bool HasStyle(int style) const { return m_treeStyle & style; }
-    
+
     /**
      * @brief add style to the current tree style
      */
     void AddTreeStyle(int style) { m_treeStyle |= style; }
-    
+
     /**
      * @brief set style to the tree
      */
     void SetTreeStyle(int style) { m_treeStyle = style; }
-    
+
     /**
      * @brief Calculates which (if any) item is under the given point, returning the tree item id at this point plus
      *  extra information flags.
@@ -198,18 +240,18 @@ public:
      * @brief Expands the given item
      */
     void Expand(const wxTreeItemId& item);
-    
+
     /**
      * @brief check a given item (if it has checkbox)
      * This method fires 'wxEVT_TREE_ITEM_VALUE_CHANGED' event
      */
     void Check(const wxTreeItemId& item, bool check, size_t col = 0);
-    
+
     /**
      * @brief is the state of an item is checked?
      */
     bool IsChecked(const wxTreeItemId& item, size_t col = 0) const;
-    
+
     /**
      * @brief Collapses the given item
      */
@@ -249,17 +291,17 @@ public:
     /**
      * @brief set the item's indent size
      */
-    void SetIndent(int size);
+    void SetIndent(int size) override;
 
     /**
      * @brief return the current indent size
      */
-    virtual int GetIndent() const;
+    virtual int GetIndent() const override;
 
     /**
      * @brief is the tree has items? (root included)
      */
-    bool IsEmpty() const;
+    bool IsEmpty() const override;
 
     /**
      * @brief return the children count of this item
@@ -408,23 +450,21 @@ public:
     void PageUp();
 
 protected:
-    virtual bool DoKeyDown(const wxKeyEvent& event);
+    bool DoKeyDown(const wxKeyEvent& event) override;
     void DoEnsureVisible(const wxTreeItemId& item);
     void OnPaint(wxPaintEvent& event);
     void OnMouseLeftDown(wxMouseEvent& event);
     void OnMouseLeftUp(wxMouseEvent& event);
     void OnRightDown(wxMouseEvent& event);
     void OnMouseLeftDClick(wxMouseEvent& event);
-    void DoMouseScroll(const wxMouseEvent& event);
-    void ProcessIdle();
+    void DoMouseScroll(const wxMouseEvent& event) override;
+    void ProcessIdle() override;
     void OnLeaveWindow(wxMouseEvent& event);
     void OnEnterWindow(wxMouseEvent& event);
     void OnContextMenu(wxContextMenuEvent& event);
-
-    void ScrollRows(int steps, wxDirection direction);
-    void ScrollToRow(int firstLine);
-
-    wxTreeItemId GetRow(const wxPoint& pt) const;
+    void ScrollRows(int steps, wxDirection direction) override;
+    void ScrollToRow(int firstLine) override;
+    wxTreeItemId GetRow(const wxPoint& pt) const override;
 };
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_TREE_ITEM_VALUE_CHANGED, wxTreeEvent);

@@ -32,6 +32,7 @@
 #include <wx/stc/stc.h>
 
 #include "Notebook.h"
+#include "clWorkspaceEvent.hpp"
 #include "findinfilesdlg.h"
 #include "outputtabwindow.h"
 #include "search_thread.h"
@@ -48,6 +49,7 @@ protected:
     wxString m_searchTitle;
     std::list<int> m_indicators;
     bool m_searchInProgress;
+    bool m_searchEventsConnected = false;
 
     struct History {
         wxString title;
@@ -62,6 +64,8 @@ protected:
 
 protected:
     MatchInfo_t m_matchInfo;
+    void UnbindSearchEvents(wxEvtHandler* binder);
+    void BindSearchEvents(wxEvtHandler* binder);
 
     void AppendText(const wxString& line);
     void Clear();
@@ -88,7 +92,7 @@ protected:
     SearchData* GetSearchData();
     void DoOpenSearchResult(const SearchResult& result, wxStyledTextCtrl* sci, int markerLine);
     void OnThemeChanged(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& event);
+    void OnWorkspaceClosed(clWorkspaceEvent& event);
     DECLARE_EVENT_TABLE()
 
 public:

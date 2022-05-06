@@ -1,5 +1,5 @@
-# define minimum cmake version
-cmake_minimum_required(VERSION 2.6.2)
+
+
 set(CL_SRC_ROOT "${CMAKE_CURRENT_LIST_DIR}/..")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CL_SRC_ROOT}/cmake/Modules/")
@@ -14,7 +14,7 @@ project(codelite-cli)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 # It was noticed that when using MinGW gcc it is essential that 'core' is mentioned before 'base'.
-find_package(wxWidgets COMPONENTS base xml REQUIRED)
+
 include("${wxWidgets_USE_FILE}")
 
 if(APPLE)

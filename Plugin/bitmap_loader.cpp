@@ -1,3 +1,4 @@
+#include <wx/settings.h>
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -25,32 +26,31 @@
 
 #include "bitmap_loader.h"
 #include "clBitmap.h"
+#include "clFilesCollector.h"
+#include "clSystemSettings.h"
 #include "clZipReader.h"
 #include "cl_standard_paths.h"
 #include "editor_config.h"
+#include "event_notifier.h"
 #include "file_logger.h"
 #include "fileutils.h"
 #include "globals.h"
 #include "optionsconfig.h"
+
 #include <algorithm>
 #include <wx/dcscreen.h>
 #include <wx/dir.h>
 #include <wx/ffile.h>
+#include <wx/msgdlg.h>
 #include <wx/stdpaths.h>
 #include <wx/tokenzr.h>
-#include "clSystemSettings.h"
-#include <wx/msgdlg.h>
-#include "clFilesCollector.h"
-
-std::unordered_map<wxString, wxBitmap> BitmapLoader::m_toolbarsBitmaps;
-std::unordered_map<wxString, wxString> BitmapLoader::m_manifest;
 
 BitmapLoader::~BitmapLoader() {}
 
-BitmapLoader::BitmapLoader()
+BitmapLoader::BitmapLoader(bool darkTheme)
     : m_bMapPopulated(false)
 {
-    initialize();
+    Initialize(darkTheme);
 }
 
 const wxBitmap& BitmapLoader::LoadBitmap(const wxString& name, int requestedSize)
@@ -81,24 +81,17 @@ wxIcon BitmapLoader::GetIcon(const wxBitmap& bmp) const
 #define DARK_ICONS _("Dark Theme Icons Set")
 #define LIGHT_ICONS _("Light Theme Icons Set")
 
-void BitmapLoader::initialize()
+void BitmapLoader::Initialize(bool darkTheme)
 {
     wxString zipname;
-    wxFileName fn;
-
-// Under linux, take into account the --prefix
-#ifdef __WXGTK__
-    wxString bitmapPath = wxString(INSTALL_DIR, wxConvUTF8);
-    fn = wxFileName(bitmapPath, zipname);
-#else
-    fn = wxFileName(clStandardPaths::Get().GetDataDir(), zipname);
-#endif
-
     // Load the bitmaps based on the current theme background colour
-    wxFileName fnNewZip(clStandardPaths::Get().GetDataDir(), "codelite-bitmaps-light.zip");
-    if(DrawingUtils::IsDark(clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE))) {
-        fnNewZip.SetFullName("codelite-bitmaps-dark.zip");
-    }
+    wxFileName fnLight(clStandardPaths::Get().GetDataDir(), "codelite-bitmaps-light.zip");
+    wxFileName fnDark(clStandardPaths::Get().GetDataDir(), "codelite-bitmaps-dark.zip");
+    wxFileName fnNewZip = darkTheme ? fnDark : fnLight;
+
+    clDEBUG() << "Loading bitmap resources:" << fnLight << endl;
+    clDEBUG() << "Loading bitmap resources:" << fnDark << endl;
+
 #ifdef __WXOSX__
     if(fnNewZip.FileExists()) {
         clZipReader zip(fnNewZip);
@@ -111,14 +104,15 @@ void BitmapLoader::initialize()
         scanner.Scan(tmpdir.GetPath(), V, "*.png", wxEmptyString, wxEmptyString);
         for(const wxFileName& fn : V) {
             // the @2x are loaded on demand
-            if(fn.GetFullName().Contains("@2x")) { continue; }
+            if(fn.GetFullName().Contains("@2x")) {
+                continue;
+            }
             wxString name = fn.GetName();
             wxBitmap bmp;
             if(bmp.LoadFile(fn.GetFullPath(), wxBITMAP_TYPE_PNG)) {
                 m_toolbarsBitmaps.erase(name);
-                m_toolbarsBitmaps.insert({name, bmp});
+                m_toolbarsBitmaps.insert({ name, bmp });
             }
-            
         }
         tmpdir.Rmdir(wxPATH_RMDIR_FULL);
     }
@@ -142,7 +136,9 @@ void BitmapLoader::initialize()
         };
 
         for(const auto& entry : buffers) {
-            if(!entry.first.EndsWith(".png")) { continue; }
+            if(!entry.first.EndsWith(".png")) {
+                continue;
+            }
 
             wxString name = wxFileName(entry.first).GetName();
             clZipReader::Entry d = entry.second;
@@ -159,7 +155,9 @@ void BitmapLoader::initialize()
 
         // Free the memory
         for(const auto& entry : buffers) {
-            if(entry.second.buffer && entry.second.len) { free(entry.second.buffer); }
+            if(entry.second.buffer && entry.second.len) {
+                free(entry.second.buffer);
+            }
         }
         buffers.clear();
     }
@@ -185,7 +183,7 @@ void BitmapLoader::CreateMimeList()
         m_mimeBitmaps.AddBitmap(LoadBitmap("mime-cpp", bitmap_size), FileExtManager::TypeSourceCpp);
         m_mimeBitmaps.AddBitmap(LoadBitmap("mime-h", bitmap_size), FileExtManager::TypeHeader);
         m_mimeBitmaps.AddBitmap(LoadBitmap("mime-txt", bitmap_size), FileExtManager::TypeText);
-        m_mimeBitmaps.AddBitmap(LoadBitmap("execute", bitmap_size), FileExtManager::TypeScript);
+        m_mimeBitmaps.AddBitmap(LoadBitmap("execute", bitmap_size), FileExtManager::TypeShellScript);
         m_mimeBitmaps.AddBitmap(LoadBitmap("mime-xml", bitmap_size), FileExtManager::TypeXml);
         m_mimeBitmaps.AddBitmap(LoadBitmap("mime-txt", bitmap_size), FileExtManager::TypeErd);
         m_mimeBitmaps.AddBitmap(LoadBitmap("mime-python", bitmap_size), FileExtManager::TypePython);
@@ -219,6 +217,10 @@ void BitmapLoader::CreateMimeList()
                                 FileExtManager::TypeFolderSymlinkExpanded);
         m_mimeBitmaps.AddBitmap(LoadBitmap("folder-yellow-symlink", bitmap_size), FileExtManager::TypeFolderSymlink);
         m_mimeBitmaps.AddBitmap(LoadBitmap("mime-txt-symlink", bitmap_size), FileExtManager::TypeFileSymlink);
+        m_mimeBitmaps.AddBitmap(LoadBitmap("rust", bitmap_size), FileExtManager::TypeRust);
+        m_mimeBitmaps.AddBitmap(LoadBitmap("diff", bitmap_size), FileExtManager::TypeDiff);
+        m_mimeBitmaps.AddBitmap(LoadBitmap("patch", bitmap_size), FileExtManager::TypePatch);
+        m_mimeBitmaps.AddBitmap(LoadBitmap("ruby", bitmap_size), FileExtManager::TypeRuby);
 
         // Non mime bitmaps
         m_mimeBitmaps.AddBitmap(LoadBitmap("file_save", bitmap_size), kSave);
@@ -265,7 +267,9 @@ clMimeBitmaps::~clMimeBitmaps() {}
 
 int clMimeBitmaps::GetIndex(int type) const
 {
-    if(m_fileIndexMap.count(type) == 0) { return wxNOT_FOUND; }
+    if(m_fileIndexMap.count(type) == 0) {
+        return wxNOT_FOUND;
+    }
     return m_fileIndexMap.at(type);
 }
 
@@ -297,4 +301,218 @@ const wxBitmap& clMimeBitmaps::GetBitmap(int type) const
         return emptyBitmap;
     }
     return m_bitmaps.at(index);
+}
+
+// ------------------------------------
+// clBitmaps
+// ------------------------------------
+wxDEFINE_EVENT(wxEVT_BITMAPS_UPDATED, clCommandEvent);
+clBitmaps::clBitmaps()
+{
+    Initialise();
+    EventNotifier::Get()->Bind(wxEVT_SYS_COLOURS_CHANGED, &clBitmaps::OnSysColoursChanged, this);
+}
+
+clBitmaps::~clBitmaps()
+{
+    EventNotifier::Get()->Unbind(wxEVT_SYS_COLOURS_CHANGED, &clBitmaps::OnSysColoursChanged, this);
+}
+
+clBitmaps& clBitmaps::Get()
+{
+    static clBitmaps* pBitmaps = nullptr;
+    if(!pBitmaps) {
+        pBitmaps = new clBitmaps();
+    }
+    return *pBitmaps;
+}
+
+BitmapLoader* clBitmaps::GetLoader() { return m_activeBitmaps; }
+
+void clBitmaps::Initialise()
+{
+    m_darkBitmaps = new BitmapLoader(true);
+    m_lightBitmaps = new BitmapLoader(false);
+    SysColoursChanged();
+}
+
+void clBitmaps::SysColoursChanged()
+{
+    auto old_ptr = m_activeBitmaps;
+    bool isDark = DrawingUtils::IsDark(clSystemSettings::GetDefaultPanelColour());
+    m_activeBitmaps = isDark ? m_darkBitmaps : m_lightBitmaps;
+
+    if(old_ptr != m_activeBitmaps) {
+        // change was made, fire an event
+        clCommandEvent event(wxEVT_BITMAPS_UPDATED);
+        EventNotifier::Get()->AddPendingEvent(event);
+    }
+}
+
+void clBitmaps::OnSysColoursChanged(clCommandEvent& event)
+{
+    event.Skip();
+    SysColoursChanged();
+}
+
+// ------------------------------------------------------------------
+// ------------------------------------------------------------------
+// clBitmapList
+// ------------------------------------------------------------------
+// ------------------------------------------------------------------
+void clBitmapList::OnBitmapsUpdated(clCommandEvent& event)
+{
+    event.Skip();
+    if(m_bitmaps.empty()) {
+        return;
+    }
+
+    decltype(m_bitmaps) M;
+    M.reserve(m_bitmaps.size());
+    m_nameToIndex.clear();
+
+    for(const auto& b : m_bitmaps) {
+        size_t index = b.first; // the key
+        const auto& old_bmp_info = b.second;
+
+        BmpInfo new_bmp_info;
+        if(old_bmp_info.bmp_ptr) {
+            // replace this entry
+            new_bmp_info.name = old_bmp_info.name;
+            new_bmp_info.bmp_ptr = const_cast<wxBitmap*>(&clBitmaps::Get().GetLoader()->LoadBitmap(old_bmp_info.name));
+            if(new_bmp_info.bmp_ptr && new_bmp_info.bmp_ptr->IsOk()) {
+                new_bmp_info.bmp_disabled = DrawingUtils::CreateDisabledBitmap(*new_bmp_info.bmp_ptr);
+            }
+        } else {
+            new_bmp_info = old_bmp_info;
+        }
+        M.insert({ index, new_bmp_info });
+        m_nameToIndex.insert({ new_bmp_info.name, index });
+    }
+    m_bitmaps.swap(M);
+}
+
+clBitmapList::clBitmapList()
+{
+    clear();
+    EventNotifier::Get()->Bind(wxEVT_BITMAPS_UPDATED, &clBitmapList::OnBitmapsUpdated, this);
+}
+
+clBitmapList::~clBitmapList()
+{
+    EventNotifier::Get()->Unbind(wxEVT_BITMAPS_UPDATED, &clBitmapList::OnBitmapsUpdated, this);
+}
+
+const wxBitmap& clBitmapList::Get(size_t index, bool disabledBmp)
+{
+    auto iter = m_bitmaps.find(index);
+    if(iter == m_bitmaps.end()) {
+        return wxNullBitmap;
+    }
+
+    if(disabledBmp) {
+        // create the disabled bitmap upon request
+        if(!iter->second.bmp_disabled.IsOk()) {
+            iter->second.bmp_disabled = DrawingUtils::CreateDisabledBitmap(iter->second.bmp);
+        }
+        return iter->second.bmp_disabled;
+    } else {
+        if(iter->second.bmp_ptr) {
+            return *(iter->second.bmp_ptr);
+        } else {
+            return iter->second.bmp;
+        }
+    }
+}
+
+void clBitmapList::clear()
+{
+    m_bitmaps.clear();
+    m_nameToIndex.clear();
+    m_index = 0;
+}
+
+void clBitmapList::Delete(size_t index)
+{
+    auto iter = m_bitmaps.find(index);
+    if(iter == m_bitmaps.end()) {
+        return;
+    }
+
+    iter->second.ref_count--;
+    if(iter->second.ref_count <= 0) {
+        // remove the entry from the name:index map
+        auto iter2 = m_nameToIndex.find(iter->second.name);
+        if(iter2 != m_nameToIndex.end()) {
+            m_nameToIndex.erase(iter2);
+        }
+        m_bitmaps.erase(iter);
+    }
+}
+
+void clBitmapList::Delete(const wxString& name) { Delete(FindIdByName(name)); }
+
+const wxBitmap& clBitmapList::Get(const wxString& name, bool disabledBmp)
+{
+    return Get(FindIdByName(name), disabledBmp);
+}
+
+size_t clBitmapList::FindIdByName(const wxString& name) const
+{
+    auto iter = m_nameToIndex.find(name);
+    if(iter == m_nameToIndex.end()) {
+        return wxString::npos;
+    }
+    return iter->second;
+}
+
+size_t clBitmapList::Add(const wxString& bmp_name, int size)
+{
+    wxUnusedVar(size);
+    const wxBitmap& bmp = clBitmaps::Get().GetLoader()->LoadBitmap(bmp_name);
+    return DoAdd(bmp, wxNullBitmap, bmp_name, false);
+}
+
+size_t clBitmapList::Add(const wxBitmap& bmp, const wxString& name)
+{
+    // user bitmap
+    return DoAdd(bmp, wxNullBitmap, name, true);
+}
+
+size_t clBitmapList::DoAdd(const wxBitmap& bmp, const wxBitmap& bmpDisabled, const wxString& bmp_name, bool user_bmp)
+{
+    size_t index = FindIdByName(bmp_name);
+    if(index != wxString::npos) {
+        m_bitmaps[index].ref_count++;
+        return index;
+    }
+
+    // new entry
+    BmpInfo bi; // ref_count = 1
+    bi.bmp_disabled = bmpDisabled;
+    if(!user_bmp) {
+        // keep pointer
+        bi.bmp_ptr = const_cast<wxBitmap*>(&bmp);
+        bi.name = bmp_name;
+    } else {
+        // user provided bitmap
+        bi.bmp = bmp;
+        bi.bmp_ptr = nullptr;
+        bi.name = bmp_name;
+    }
+    size_t new_index = m_index;
+    m_bitmaps.insert({ new_index, bi });
+    m_nameToIndex.insert({ bi.name, new_index });
+    m_index++;
+    return new_index;
+}
+
+const wxString& clBitmapList::GetBitmapName(size_t index) const
+{
+    auto where = m_bitmaps.find(index);
+    if(where == m_bitmaps.end()) {
+        static wxString emptyString;
+        return emptyString;
+    }
+    return where->second.name;
 }

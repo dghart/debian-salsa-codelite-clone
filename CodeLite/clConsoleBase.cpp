@@ -1,4 +1,5 @@
 #include "clConsoleBase.h"
+
 #include "clConsoleCMD.h"
 #include "clConsoleCodeLiteTerminal.h"
 #include "clConsoleGnomeTerminal.h"
@@ -12,6 +13,7 @@
 #include "cl_config.h"
 #include "file_logger.h"
 #include "fileutils.h"
+
 #include <algorithm>
 #include <wx/utils.h>
 
@@ -142,6 +144,10 @@ wxString clConsoleBase::EscapeString(const wxString& str, const wxString& c) con
 
 bool clConsoleBase::StartProcess(const wxString& command)
 {
+    // Apply the environment variables before we launch the process
+    clConsoleEnvironment env(GetEnvironment());
+    env.Apply();
+
     wxProcess* callback = nullptr;
     if(m_callback) {
         // user provided callback
@@ -150,6 +156,8 @@ bool clConsoleBase::StartProcess(const wxString& command)
         // using events. This object will get deleted when the process exits
         callback = new ConsoleProcess(m_sink, m_callbackUID);
     }
+
+    clDEBUG() << "Console: running command: `" << command << "`" << endl;
 
     SetPid(::wxExecute(command, wxEXEC_ASYNC | wxEXEC_MAKE_GROUP_LEADER | GetExecExtraFlags(), callback));
     // reset the m_callback (it will auto-delete itself)
@@ -293,4 +301,13 @@ wxArrayString clConsoleBase::SplitArguments(const wxString& args)
     // if we still got some unprocessed token, add it
     ADD_CURRENT_TOKEN();
     return outputArr;
+}
+
+void clConsoleBase::SetEnvironment(const clEnvList_t& environment)
+{
+    // convert the list into map
+    m_environment.clear();
+    for(const auto& p : environment) {
+        m_environment.insert({ p.first, p.second });
+    }
 }

@@ -88,17 +88,17 @@ SQLCommandPanel::SQLCommandPanel(wxWindow* parent, IDbAdapter* dbAdapter, const 
     m_dbTable = dbTable;
 
     m_editHelper.Reset(new clEditEventsHandler(m_scintillaSQL));
-    m_scintillaSQL->AddText(wxString::Format(wxT(" -- selected database %s\n"), m_dbName.c_str()));
+    m_scintillaSQL->AddText(wxString::Format(_(" -- selected database %s\n"), m_dbName.c_str()));
     if(!dbTable.IsEmpty()) {
         m_scintillaSQL->AddText(m_pDbAdapter->GetDefaultSelect(m_dbName, m_dbTable));
         wxCommandEvent event(wxEVT_EXECUTE_SQL);
         GetEventHandler()->AddPendingEvent(event);
     }
 
-    BitmapLoader* bmpLoader = clGetManager()->GetStdIcons();
     m_toolbar = new clToolBar(this);
-    m_toolbar->AddTool(wxID_OPEN, _("Load SQL Script"), bmpLoader->LoadBitmap("file_open"));
-    m_toolbar->AddTool(wxID_EXECUTE, _("Execute SQL"), bmpLoader->LoadBitmap("execute"));
+    auto images = m_toolbar->GetBitmapsCreateIfNeeded();
+    m_toolbar->AddTool(wxID_OPEN, _("Load SQL Script"), images->Add("file_open"));
+    m_toolbar->AddTool(wxID_EXECUTE, _("Execute SQL"), images->Add("execute"));
     m_toolbar->Realize();
     GetSizer()->Insert(0, m_toolbar, 0, wxEXPAND);
 
@@ -141,7 +141,8 @@ void SQLCommandPanel::ExecuteSql()
         if(!sqls.IsEmpty()) {
             try {
                 m_colsMetaData.clear();
-                if(!m_pDbAdapter->GetUseDb(m_dbName).IsEmpty()) m_pDbLayer->RunQuery(m_pDbAdapter->GetUseDb(m_dbName));
+                if(!m_pDbAdapter->GetUseDb(m_dbName).IsEmpty())
+                    m_pDbLayer->RunQuery(m_pDbAdapter->GetUseDb(m_dbName));
                 // run query
                 DatabaseResultSet* pResultSet = m_pDbLayer->RunQueryWithResults(sqlStmt);
 
@@ -378,7 +379,7 @@ bool SQLCommandPanel::IsBlobColumn(const wxString& str)
 void SQLCommandPanel::SetDefaultSelect()
 {
     m_scintillaSQL->ClearAll();
-    m_scintillaSQL->AddText(wxString::Format(wxT(" -- selected database %s\n"), m_dbName.c_str()));
+    m_scintillaSQL->AddText(wxString::Format(_(" -- selected database %s\n"), m_dbName.c_str()));
     if(!m_dbTable.IsEmpty()) {
         m_scintillaSQL->AddText(m_pDbAdapter->GetDefaultSelect(m_dbName, m_dbTable));
         CallAfter(&SQLCommandPanel::ExecuteSql);
@@ -406,10 +407,12 @@ void SQLCommandPanel::OnHistoryToolClicked(wxAuiToolBarEvent& event)
         }
 
         int pos = GetPopupMenuSelectionFromUser(menu, pt);
-        if(pos == wxID_NONE) return;
+        if(pos == wxID_NONE)
+            return;
 
         size_t index = pos - wxID_HIGHEST;
-        if(index > sqls.GetCount()) return;
+        if(index > sqls.GetCount())
+            return;
 
         m_scintillaSQL->SetText(sqls.Item(index));
         CallAfter(&SQLCommandPanel::ExecuteSql);
@@ -493,7 +496,8 @@ wxArrayString SQLCommandPanel::ParseSql() const
 
 void SQLCommandPanel::SaveSqlHistory(wxArrayString sqls)
 {
-    if(sqls.IsEmpty()) return;
+    if(sqls.IsEmpty())
+        return;
 
     DbExplorerSettings s;
     clConfig conf(DBE_CONFIG_FILE);

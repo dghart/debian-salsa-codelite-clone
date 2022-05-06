@@ -30,6 +30,7 @@
 #include "entry.h"
 #include "wxCodeCompletionBoxBase.h"
 #include "wxCodeCompletionBoxEntry.hpp"
+
 #include <list>
 #include <vector>
 #include <wx/arrstr.h>
@@ -67,20 +68,20 @@ protected:
     static wxCodeCompletionBox::BmpVec_t m_defaultBitmaps;
     std::unordered_map<int, int> m_lspCompletionItemImageIndexMap;
     wxString m_displayedTip;
-    wxStyledTextCtrl* m_stc;
+    wxStyledTextCtrl* m_stc = nullptr;
     wxFont m_ccFont;
-    int m_startPos;
+    int m_startPos = wxNOT_FOUND;
 
     /// When firing the various "clCodeCompletionEvent"s, set the event object
     /// to this member. This help distinguish the real trigger of the code completion
     /// box
-    wxEvtHandler* m_eventObject;
+    wxEvtHandler* m_eventObject = nullptr;
 
     /// Code completion tooltip that is shown next to the code completion box
-    CCBoxTipWindow* m_tipWindow;
+    CCBoxTipWindow* m_tipWindow = nullptr;
 
     /// The code completion box flags, see above enum for possible values
-    size_t m_flags;
+    size_t m_flags = 0;
 
     /// Scrollbar bitmaps
     wxBitmap m_bmpUp;
@@ -112,6 +113,12 @@ public:
     wxCodeCompletionBox(wxWindow* parent, wxEvtHandler* eventObject = NULL, size_t flags = 0);
 
     /**
+     * @brief reset the code completion box clearing it from all its content and preparing it
+     * for a new usage
+     */
+    void Reset(wxEvtHandler* eventObject = NULL, size_t flags = 0);
+
+    /**
      * @brief show the completion box
      */
     void ShowCompletionBox(wxStyledTextCtrl* ctrl, const wxCodeCompletionBoxEntry::Vec_t& entries);
@@ -141,14 +148,21 @@ public:
     void SetStartPos(int startPos) { this->m_startPos = startPos; }
     int GetStartPos() const { return m_startPos; }
 
+    /**
+     * @brief strip HTML tags before showing the tooltip
+     */
+    static void SetStripHtmlTags(bool strip);
+
 protected:
     /**
      * @brief filter the results based on what the user typed in the editor
+     * @param [output] startsWithCount number of entries that 'starts with' the filter (case-I)
+     * @param [output] containsCount number of entries that 'starts with' the filter
      * @return Should we refresh the content of the CC box (based on number of "Exact matches" / "Starts with" found)
      */
-    bool FilterResults();
+    bool FilterResults(bool updateEntries, size_t& startsWithCount, size_t& containsCount, size_t& exactMatchCount);
     void RemoveDuplicateEntries();
-    void InsertSelection();
+    void InsertSelection(wxCodeCompletionBoxEntry::Ptr_t entry = wxCodeCompletionBoxEntry::Ptr_t(nullptr));
     wxString GetFilter();
 
     // For backward compatibility, we support initializing the list with TagEntryPtrVector_t

@@ -1,5 +1,5 @@
-# define minimum cmake version
-cmake_minimum_required(VERSION 2.6.2)
+
+
 
 # Our project is called 'codelite' this is how it will be called in
 # visual studio, and in our makefiles. 
@@ -7,7 +7,7 @@ project(codelite-client)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 # It was noticed that when using MinGW gcc it is essential that 'core' is mentioned before 'base'.
-find_package(wxWidgets COMPONENTS base xml core std stc xrc REQUIRED)
+
 include("${wxWidgets_USE_FILE}")
 
 # we need wxWidgets flags to be set only for the c++ files, so we do it like this

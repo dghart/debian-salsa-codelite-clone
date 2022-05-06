@@ -1,12 +1,9 @@
-# define minimum cmake version
-cmake_minimum_required(VERSION 2.6.2)
- 
 # Our project is called 'plugin' this is how it will be called in
-# visual studio, and in our makefiles. 
+# visual studio, and in our makefiles.
 project(plugin)
 
 # It was noticed that when using MinGW gcc it is essential that 'core' is mentioned before 'base'.
-find_package(wxWidgets COMPONENTS ${WX_COMPONENTS} REQUIRED)
+
 
 # wxWidgets include (this will do all the magic to configure everything)
 include( "${wxWidgets_USE_FILE}" )
@@ -19,10 +16,10 @@ if(WIN32)
     add_definitions(-DWXMAKINGDLL_SDK)
 endif(WIN32)
 
-if ( USE_PCH )
+if ( USE_PCH AND NOT MINGW )
     add_definitions(-include "${CL_PCH_FILE}")
     add_definitions(-Winvalid-pch)
-endif ( USE_PCH )
+endif()
 
 
 if (UNIX AND NOT APPLE)
@@ -67,7 +64,7 @@ if (UNIX)
     elseif ( IS_NETBSD )
         set(ADDITIONAL_LIBRARIES "-lutil")
     elseif ( UNIX AND NOT APPLE )
-        set(ADDITIONAL_LIBRARIES "-ldl -lutil")
+        set(ADDITIONAL_LIBRARIES "-ldl -lutil -lgobject-2.0")
     else ( )
         set(ADDITIONAL_LIBRARIES "-ldl")
     endif ( )
@@ -89,6 +86,7 @@ FILE(GLOB SRCS "*.cpp")
 
 # Define the output
 add_library(plugin SHARED ${SRCS})
+
 if(GTK2_FOUND)
     target_link_libraries(plugin ${LINKER_OPTIONS} ${ADDITIONAL_LIBRARIES} ${GTK2_LIBRARIES} ${wxWidgets_LIBRARIES} -L"${CL_LIBPATH}" libcodelite)
 elseif (GTK3_FOUND)
@@ -96,6 +94,8 @@ elseif (GTK3_FOUND)
 else()
     target_link_libraries(plugin ${LINKER_OPTIONS} ${ADDITIONAL_LIBRARIES} ${wxWidgets_LIBRARIES} -L"${CL_LIBPATH}" libcodelite)
 endif()
+
+codelite_add_pch(plugin)
 
 if (NOT MINGW)
     if(APPLE)
@@ -107,4 +107,3 @@ if (NOT MINGW)
 else ()
     install(TARGETS plugin RUNTIME DESTINATION ${CL_PREFIX}/bin LIBRARY DESTINATION ${CL_PREFIX}/lib ARCHIVE DESTINATION ${CL_PREFIX}/lib)
 endif()
-CL_INSTALL_FILE_SHARED(${CL_SRC_ROOT}/Plugin/jsctags.zip)

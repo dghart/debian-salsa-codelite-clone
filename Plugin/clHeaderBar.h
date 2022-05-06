@@ -3,8 +3,11 @@
 
 #include "clHeaderItem.h"
 #include "codelite_exports.h"
+
 #include <vector>
 #include <wx/panel.h>
+
+using namespace std;
 
 class clControlWithItems;
 class WXDLLIMPEXP_SDK clHeaderBar : public wxPanel
@@ -15,6 +18,7 @@ class WXDLLIMPEXP_SDK clHeaderBar : public wxPanel
     bool m_isDragging = false;
     int m_draggedCol = wxNOT_FOUND;
     wxCursor m_previousCursor;
+    wxFont m_headerFont = wxNullFont;
 
 protected:
     void DoUpdateSize();
@@ -23,11 +27,13 @@ protected:
     void OnPaint(wxPaintEvent& event);
     void OnSize(wxSizeEvent& event);
     void DoCancelDrag();
-    
+
 public:
     clHeaderBar(clControlWithItems* parent, const clColours& colours);
     virtual ~clHeaderBar();
-    
+
+    void SetHeaderFont(const wxFont& headerFont) { this->m_headerFont = headerFont; }
+    const wxFont& GetHeaderFont() const { return m_headerFont; }
     bool Show(bool show = true);
     /**
      * @brief set drawing native header
@@ -57,6 +63,8 @@ public:
 
     size_t size() const { return m_columns.size(); }
     size_t GetCount() const { return size(); }
+
+    void SetColumnsWidth(const vector<size_t>& v_width);
 
     /**
      * @brief Return the header bar height, taking into consideration all columns
@@ -101,12 +109,12 @@ public:
      */
     void Render(wxDC& dc, const clColours& colours);
     size_t GetWidth() const;
-    
+
     /**
      * @brief are we dragging a column?
      */
     bool IsDragging() { return m_isDragging; };
-    
+
     /**
      * @brief process a left-down event
      */

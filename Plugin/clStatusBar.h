@@ -26,9 +26,11 @@
 #ifndef CLSTATUSBAR_H
 #define CLSTATUSBAR_H
 
+#include "clWorkspaceEvent.hpp"
 #include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "wxCustomStatusBar.h" // Base class: wxCustomStatusBar
+
 #include <wx/bitmap.h>
 
 class IManager;
@@ -48,7 +50,7 @@ protected:
     void OnAllEditorsClosed(wxCommandEvent& event);
     void OnBuildStarted(clBuildEvent& event);
     void OnBuildEnded(clBuildEvent& event);
-    void OnWorkspaceClosed(wxCommandEvent& event);
+    void OnWorkspaceClosed(clWorkspaceEvent& event);
     void OnFieldClicked(clCommandEvent& event);
     void OnEditorSettingsChanged(wxCommandEvent& event);
     void OnGotoAnythingShowing(clGotoEvent& e);
@@ -61,7 +63,7 @@ protected:
     void DoUpdateView();
     void DoFieldClicked(int fieldIndex);
     int GetTextWidth(const wxString& text) const;
-    
+
 public:
     clStatusBar(wxWindow* parent, IManager* mgr);
     virtual ~clStatusBar();

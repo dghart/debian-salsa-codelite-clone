@@ -1,5 +1,5 @@
 # Don't support very old versions
-cmake_minimum_required(VERSION 2.6.2)
+
 
 # Create variable for plugin name
 set(PLUGIN_NAME "CodeLiteDiff")
@@ -8,7 +8,7 @@ set(PLUGIN_NAME "CodeLiteDiff")
 project(${PLUGIN_NAME})
 
 # Find wxWidgets with required components
-find_package(wxWidgets COMPONENTS ${WX_COMPONENTS} REQUIRED)
+
 
 # wxWidgets include
 include("${wxWidgets_USE_FILE}")
@@ -29,10 +29,10 @@ add_definitions(-DWXUSINGDLL_SDK)
 add_definitions(-DWXUSINGDLL_SDK)
 
 # Only with precompiled headers
-if (USE_PCH)
+if (USE_PCH AND NOT MINGW)
     add_definitions(-include "${CL_PCH_FILE}")
     add_definitions(-Winvalid-pch)
-endif (USE_PCH)
+endif()
 
 if (UNIX AND NOT APPLE)
     set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC" )
@@ -48,6 +48,8 @@ file(GLOB SRCS "*.cpp")
 
 # Define the output - shared library
 add_library(${PLUGIN_NAME} SHARED ${SRCS})
+
+target_precompile_headers(${PLUGIN_NAME} REUSE_FROM PCH)
 
 # Codelite plugins doesn't use the "lib" prefix.
 set_target_properties(${PLUGIN_NAME} PROPERTIES PREFIX "")

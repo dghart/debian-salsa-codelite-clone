@@ -26,16 +26,17 @@
 #ifndef LEXERCONFMANAGER_H
 #define LEXERCONFMANAGER_H
 
+#include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "lexer_configuration.h"
-#include <vector>
-#include <map>
-#include <wx/string.h>
-#include <wx/filename.h>
-#include <wx/event.h>
-#include "cl_command_event.h"
-#include <wx/font.h>
 #include "wxStringHash.h"
+
+#include <map>
+#include <vector>
+#include <wx/event.h>
+#include <wx/filename.h>
+#include <wx/font.h>
+#include <wx/string.h>
 
 // When the version is 0, it means that we need to upgrade the colours for the line numbers
 // and for the default state
@@ -64,7 +65,7 @@ private:
     virtual ~ColoursAndFontsManager();
 
     void LoadOldXmls(const std::vector<wxXmlDocument*>& xmlFiles, bool userLexers = false);
-    LexerConf::Ptr_t DoAddLexer(wxXmlNode* node);
+    LexerConf::Ptr_t DEPRECATRED_DoAddLexer(wxXmlNode* node);
     LexerConf::Ptr_t DoAddLexer(JSONItem json);
     void Clear();
     wxFileName GetConfigFile() const;
@@ -75,7 +76,11 @@ protected:
 
 public:
     static ColoursAndFontsManager& Get();
-    
+
+    /**
+     * @brief return the default editor font (monospaced)
+     */
+    wxFont GetFixedFont(bool small = false) const;
     /**
      * @brief return a suitable background colour that matches the lexer's bg colour
      */
@@ -125,13 +130,21 @@ public:
 
     /**
      * @brief save the lexers into their proper file name
+     * @param lexer_json optional output file
      */
-    void Save(bool forExport = false);
+    void Save(const wxFileName& lexer_json = {});
 
     /**
      * @brief set the active theme for a lexer by name
      */
     void SetActiveTheme(const wxString& lexerName, const wxString& themeName);
+
+    /**
+     * @brief update a theme text selection colours
+     */
+    void SetThemeTextSelectionColours(const wxString& theme_name, const wxColour& bg, const wxColour& fg,
+                                      bool useCustomerFgColour = true);
+
     /**
      * @brief return the lexer by name.
      * @param lexerName the lexer name, e.g. "c++"
@@ -166,9 +179,9 @@ public:
     void RestoreDefaults();
 
     /**
-     * @brief import an eclipse theme into codelite
+     * @brief import an eclipse theme into CodeLite, return its name
      */
-    bool ImportEclipseTheme(const wxString& eclipseXml);
+    wxString ImportEclipseTheme(const wxString& theme_file);
 
     /**
      * @brief callback called by the helper thread indicating that it finished caching
@@ -187,7 +200,7 @@ public:
      * @brief add new lexer (replace an existing one if exists)
      */
     void AddLexer(LexerConf::Ptr_t lexer);
-    
+
     /**
      * @brief return true if the current theme is dark
      */

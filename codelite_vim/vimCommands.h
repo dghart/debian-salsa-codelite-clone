@@ -66,6 +66,8 @@ enum class COMMANDVI {
     F,
     t,
     T,
+    semicolon,
+    comma,
     G,
     gg,
     i,
@@ -88,6 +90,11 @@ enum class COMMANDVI {
     c_caret, /*c^*/
     c$,
     caw,
+    ciw,
+    cf,
+    cF,
+    ct,
+    cT,
     ci_quot, /*ci"*/
     ci_apos, /*ci'*/
     ci_pare, /*ci(*/
@@ -96,6 +103,7 @@ enum class COMMANDVI {
     ci_curly,/*ci{*/
     C,
     cc,
+    s,
     S,
     x,
     X,
@@ -108,6 +116,11 @@ enum class COMMANDVI {
     d$,
     d_caret, /*d^*/
     daw,
+    diw,
+    df,
+    dF,
+    dt,
+    dT,
     di_quot, /*di"*/
     di_apos, /*di'*/
     di_pare, /*di(*/
@@ -137,6 +150,11 @@ enum class COMMANDVI {
     y_caret, /*y^*/
     y$,
     yaw,
+    yiw,
+    yf,
+    yF,
+    yt,
+    yT,
     yi_quot, /*yi"*/
     yi_apos, /*yi'*/
     yi_pare, /*yi(*/
@@ -148,7 +166,8 @@ enum class COMMANDVI {
     J,
     v,
     ctrl_V,
-    V
+    V,
+    tilde
 };
 
 /**
@@ -262,6 +281,7 @@ public:
     bool Command_call_visual_mode();
     bool command_call_visual_line_mode();
     bool command_call_visual_block_mode();
+    bool command_move_cmd_call(bool& repeat_command);
     bool is_cmd_complete();
     void set_current_word(wxString word);
     void set_current_modus(VIM_MODI modus);
@@ -285,6 +305,9 @@ private:
     bool search_word(SEARCH_DIRECTION direction, int flag, long pos);
     long goToMatchingParentesis(long start_pos);
     bool findMatchingParentesis(wxChar lch, wxChar rch, long minPos, long maxPos, long& leftPos, long& rightPos);
+    long findCharInLine(wxChar key, long setup = 1, bool posPrev = false, bool reFind = false);
+    long findNextCharPos(int line, int col);
+    long findPrevCharPos(int line, int col);
     void normal_modus(wxChar ch);
     void visual_modus(wxChar ch);
     void command_modus(wxChar ch);
@@ -323,6 +346,9 @@ private:
     bool m_newLineCopy; /*!< take track if we copy/pase the complete line (dd,yy)*/
     bool m_visualBlockCopy;
     std::vector<wxString> m_listCopiedStr;
+    wxChar m_findKey;
+    long m_findStep;
+    bool m_findPosPrev;
 
     /*~~~~~~~ EDITOR ~~~~~~~~~*/
     wxStyledTextCtrl* m_ctrl;

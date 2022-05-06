@@ -34,37 +34,39 @@
 // License:
 /////////////////////////////////////////////////////////////////////////////
 // For compilers that support precompilation, includes "wx/wx.h".
+#include "file_logger.h"
+#include "globals.h"
+#include "macros.h"
 #include "wx/wxprec.h"
 #include <wx/log.h>
-#include "file_logger.h"
 
 #ifndef WX_PRECOMP
 #include "wx/wx.h"
 #endif
 
-#include <wx/filename.h>
-#include <wx/tokenzr.h>
-#include <wx/textfile.h>
 #include <wx/arrimpl.cpp>
+#include <wx/filename.h>
 #include <wx/regex.h>
 #include <wx/stc/stc.h>
+#include <wx/textfile.h>
+#include <wx/tokenzr.h>
 
-#include "scGlobals.h"
-#include "IHunSpell.h"
 #include "CorrectSpellingDlg.h"
-#include "spellcheck.h"
+#include "IHunSpell.h"
 #include "ctags_manager.h"
+#include "scGlobals.h"
+#include "spellcheck.h"
 
 // ------------------------------------------------------------
 #define MIN_TOKEN_LEN 3
 // ------------------------------------------------------------
-IHunSpell::IHunSpell() :
-    m_caseSensitiveUserDictionary(true),
-    m_ignoreSymbolsInTagsDatabase(false),
-    m_pSpell(nullptr),
-    m_pPlugIn(nullptr),
-    m_pSpellDlg(nullptr),
-    m_scanners(0)
+IHunSpell::IHunSpell()
+    : m_caseSensitiveUserDictionary(true)
+    , m_ignoreSymbolsInTagsDatabase(false)
+    , m_pSpell(nullptr)
+    , m_pPlugIn(nullptr)
+    , m_pSpellDlg(nullptr)
+    , m_scanners(0)
 {
     InitLanguageList();
 }
@@ -73,21 +75,24 @@ IHunSpell::~IHunSpell()
 {
     CloseEngine();
 
-    if(m_pSpellDlg != NULL) m_pSpellDlg->Destroy();
+    if(m_pSpellDlg != NULL)
+        m_pSpellDlg->Destroy();
 }
 // ------------------------------------------------------------
 bool IHunSpell::InitEngine()
 {
     // check if we are already initialized
-    if(m_pSpell != NULL) return true;
+    if(m_pSpell != NULL)
+        return true;
 
     m_ignoreList = CustomDictionary(0, StringHashOptionalCase(m_caseSensitiveUserDictionary),
-        StringCompareOptionalCase(m_caseSensitiveUserDictionary));
+                                    StringCompareOptionalCase(m_caseSensitiveUserDictionary));
     m_userDict = CustomDictionary(0, StringHashOptionalCase(m_caseSensitiveUserDictionary),
-        StringCompareOptionalCase(m_caseSensitiveUserDictionary));
+                                  StringCompareOptionalCase(m_caseSensitiveUserDictionary));
 
     // check base path
-    if(!m_dicPath.IsEmpty() && !wxEndsWithPathSeparator(m_dicPath)) m_dicPath += wxFILE_SEP_PATH;
+    if(!m_dicPath.IsEmpty() && !wxEndsWithPathSeparator(m_dicPath))
+        m_dicPath += wxFILE_SEP_PATH;
     // load user dict
     LoadUserDict(m_userDictPath + s_userDict);
     // create dictionary path
@@ -174,19 +179,19 @@ wxArrayString IHunSpell::GetSuggestions(const wxString& misspelled)
     return suggestions;
 }
 // ------------------------------------------------------------
-void IHunSpell::CheckCppSpelling(const wxString& check)
+void IHunSpell::CheckCppSpelling()
 {
-    IEditor* pEditor = m_pPlugIn->GetEditor();
+    // check if engine is initialized, if not do so
+    CHECK_COND_RET(InitEngine());
 
-    if(!pEditor) return;
+    IEditor* pEditor = ::clGetManager()->GetActiveEditor();
+    CHECK_PTR_RET(pEditor);
 
     int retVal = kNoSpellingError;
-    wxString text = check + wxT(" ");
+    wxString text = pEditor->GetEditorText() + " ";
+
     m_parseValues.clear();
     wxStyledTextCtrl* pTextCtrl = pEditor->GetCtrl();
-
-    // check if engine is initialized, if not do so
-    if(!InitEngine()) return;
 
     // check for dialog and create if necessary
     if(!m_pPlugIn->GetCheckContinuous()) {
@@ -207,7 +212,8 @@ void IHunSpell::CheckCppSpelling(const wxString& check)
                 ;
             query.second = i;
 
-            if(IsScannerType(kString)) m_parseValues.push_back(make_pair(query, kString));
+            if(IsScannerType(kString))
+                m_parseValues.push_back(make_pair(query, kString));
         } break;
         case SCT_CPP_COM: {
             query.first = i;
@@ -216,7 +222,8 @@ void IHunSpell::CheckCppSpelling(const wxString& check)
                 ;
             query.second = i;
 
-            if(IsScannerType(kCppComment)) m_parseValues.push_back(make_pair(query, kCppComment));
+            if(IsScannerType(kCppComment))
+                m_parseValues.push_back(make_pair(query, kCppComment));
         } break;
         case SCT_C_COM: {
             query.first = i;
@@ -225,7 +232,8 @@ void IHunSpell::CheckCppSpelling(const wxString& check)
                 ;
             query.second = i;
 
-            if(IsScannerType(kCComment)) m_parseValues.push_back(make_pair(query, kCComment));
+            if(IsScannerType(kCComment))
+                m_parseValues.push_back(make_pair(query, kCComment));
         } break;
         case SCT_DOX_1: {
             query.first = i;
@@ -234,7 +242,8 @@ void IHunSpell::CheckCppSpelling(const wxString& check)
                 ;
             query.second = i;
 
-            if(IsScannerType(kDox1)) m_parseValues.push_back(make_pair(query, kDox1));
+            if(IsScannerType(kDox1))
+                m_parseValues.push_back(make_pair(query, kDox1));
         } break;
         case SCT_DOX_2: {
             query.first = i;
@@ -243,7 +252,8 @@ void IHunSpell::CheckCppSpelling(const wxString& check)
                 ;
             query.second = i;
 
-            if(IsScannerType(kDox2)) m_parseValues.push_back(make_pair(query, kDox2));
+            if(IsScannerType(kDox2))
+                m_parseValues.push_back(make_pair(query, kDox2));
         } break;
         }
     }
@@ -252,23 +262,29 @@ void IHunSpell::CheckCppSpelling(const wxString& check)
     if(!m_pPlugIn->GetCheckContinuous()) {
         retVal = CheckCppType(pEditor);
 
-        if(errors == 0 && retVal != kSpellingCanceled) ::wxMessageBox(_("No spelling errors found!"));
+        if(errors == 0 && retVal != kSpellingCanceled)
+            ::wxMessageBox(_("No spelling errors found!"));
     } else
         retVal = MarkErrors(pEditor);
 }
 // ------------------------------------------------------------
-void IHunSpell::CheckSpelling(const wxString& check)
+void IHunSpell::CheckSpelling()
 {
-    IEditor* pEditor = m_pPlugIn->GetEditor();
+    clDEBUG1() << "SpellChecker: checkSpelling is called" << endl;
+    IEditor* pEditor = ::clGetManager()->GetActiveEditor();
+    CHECK_PTR_RET(pEditor);
+    CHECK_COND_RET(InitEngine());
 
-    if(!pEditor) return;
+    // special handling for C++ files
+    if(pEditor->GetLexerId() == wxSTC_LEX_CPP) {
+        clDEBUG1() << "SpellChecker: checkSpelling -> C++ is called" << endl;
+        CheckCppSpelling();
+        return;
+    }
 
     int offset = 0;
     bool error = false;
-    wxString text = check + wxT(" ");
-
-    // check if engine is initialized, if not do so
-    if(!InitEngine()) return;
+    wxString text = pEditor->GetEditorText() + " ";
 
     // check for dialog and create if necessary
     if(m_pSpellDlg == NULL) {
@@ -277,13 +293,15 @@ void IHunSpell::CheckSpelling(const wxString& check)
     m_pSpellDlg->SetPHs(this);
     wxStringTokenizer tkz(text, s_defDelimiters);
 
+    clDEBUG1() << "SpellChecker: checking file:" << pEditor->GetFileName() << endl;
     while(tkz.HasMoreTokens()) {
         wxString token = tkz.GetNextToken();
         int pos = tkz.GetPosition() - token.Len() - 1;
         pos += offset;
 
         // ignore token shorter then MIN_TOKEN_LEN
-        if(token.Len() <= MIN_TOKEN_LEN) continue;
+        if(token.Len() <= MIN_TOKEN_LEN)
+            continue;
 
         // process token
         if(!CheckWord(token)) {
@@ -320,12 +338,13 @@ void IHunSpell::CheckSpelling(const wxString& check)
             }
         }
     }
-
+    clDEBUG1() << "SpellChecker:: checking file:" << pEditor->GetFileName() << "is done" << endl;
     if(!m_pPlugIn->GetCheckContinuous()) {
         // clean up
         pEditor->ClearUserIndicators();
 
-        if(!error) ::wxMessageBox(_("No spelling errors found!"));
+        if(!error)
+            ::wxMessageBox(_("No spelling errors found!"));
     }
 }
 // ------------------------------------------------------------
@@ -333,7 +352,8 @@ void IHunSpell::CheckSpelling(const wxString& check)
 // ------------------------------------------------------------
 wxString IHunSpell::GetCharacterEncoding()
 {
-    if(m_pSpell == NULL) return wxEmptyString;
+    if(m_pSpell == NULL)
+        return wxEmptyString;
 
     wxString encoding(wxConvUTF8.cMB2WC(Hunspell_get_dic_encoding(m_pSpell)), *wxConvCurrent);
     return encoding;
@@ -342,14 +362,16 @@ wxString IHunSpell::GetCharacterEncoding()
 // ------------------------------------------------------------
 void IHunSpell::AddWordToIgnoreList(const wxString& word)
 {
-    if(word.IsEmpty()) return;
+    if(word.IsEmpty())
+        return;
 
     m_ignoreList.insert(word);
 }
 // ------------------------------------------------------------
 void IHunSpell::AddWordToUserDict(const wxString& word)
 {
-    if(word.IsEmpty()) return;
+    if(word.IsEmpty())
+        return;
 
     m_userDict.insert(word);
 }
@@ -358,7 +380,8 @@ bool IHunSpell::LoadUserDict(const wxString& filename)
 {
     wxTextFile tf(filename);
 
-    if(!tf.Exists()) return false;
+    if(!tf.Exists())
+        return false;
 
     m_userDict.clear();
 
@@ -378,9 +401,11 @@ bool IHunSpell::SaveUserDict(const wxString& filename)
     CustomDictionary fileUserDict(m_userDict);
 
     if(!tf.Exists()) {
-        if(!tf.Create()) return false;
+        if(!tf.Create())
+            return false;
     } else {
-        if(!tf.Open()) return false;
+        if(!tf.Open())
+            return false;
 
         // Re-read contents from disk in case another CodeLite instance has updated the user dictionary.
         for(wxUint32 i = 0; i < tf.GetLineCount(); i++) {
@@ -390,7 +415,7 @@ bool IHunSpell::SaveUserDict(const wxString& filename)
         tf.Clear();
     }
 
-    for(const auto &word : fileUserDict) {
+    for(const auto& word : fileUserDict) {
         tf.AddLine(word);
     }
     tf.Write();
@@ -401,7 +426,8 @@ bool IHunSpell::SaveUserDict(const wxString& filename)
 // ------------------------------------------------------------
 bool IHunSpell::ChangeLanguage(const wxString& language)
 {
-    if(m_dictionary.Cmp(language) == 0) return false;
+    if(m_dictionary.Cmp(language) == 0)
+        return false;
     CloseEngine();
     m_dictionary = language;
     return InitEngine();
@@ -422,7 +448,7 @@ void IHunSpell::InitLanguageList()
     m_languageList[_T( "German (Germany-neu ortho.)" )] = _T( "de_DE_neu" );
     m_languageList[_T( "Greek (Greece)" )] = _T( "el_GR" );
     m_languageList[_T( "English (Australia)" )] = _T( "en_AU" );
-    m_languageList[_T( "English (Canada)" )] = _("en_CA");
+    m_languageList[_T( "English (Canada)" )] = _T("en_CA");
     m_languageList[_T( "English (United Kingdom)" )] = _T( "en_GB" );
     m_languageList[_T( "English (New Zealand)" )] = _T( "en_NZ" );
     m_languageList[_T( "English (United States)" )] = _T( "en_US" );
@@ -496,7 +522,8 @@ void IHunSpell::GetAvailableLanguageKeyNames(const wxString& path, wxArrayString
         fnd.SetName(itLang->second);
         fnd.SetExt("dic");
 
-        if(!fna.FileExists() || !fnd.FileExists()) continue;
+        if(!fna.FileExists() || !fnd.FileExists())
+            continue;
 
         lang.Add(itLang->first);
     }
@@ -545,15 +572,17 @@ int IHunSpell::CheckCppType(IEditor* pEditor)
             int pos = pl.first + tkz.GetPosition() - token.Len() - 1;
             pos += offset;
 
-            if(token.Len() <= MIN_TOKEN_LEN) continue;
+            if(token.Len() <= MIN_TOKEN_LEN)
+                continue;
 
             if(m_parseValues[i].second == kString) { // ignore filenames in #include
                 wxString line = pEditor->GetCtrl()->GetLine(pEditor->LineFromPos(pl.first));
 
-                if(line.Find(s_include) != wxNOT_FOUND) continue;
+                if(line.Find(s_include) != wxNOT_FOUND)
+                    continue;
             }
 
-			// Note checking tags database only in continuous mode.
+            // Note checking tags database only in continuous mode.
             if(!CheckWord(token)) {
                 pEditor->SetUserIndicator(pos, token.Len());
                 pEditor->SetCaretAt(pos);
@@ -618,7 +647,8 @@ int IHunSpell::MarkErrors(IEditor* pEditor)
             wxString token = tkz.GetNextToken();
             int pos = pl.first + tkz.GetPosition() - token.Len() - 1;
 
-            if(token.Len() <= MIN_TOKEN_LEN) continue;
+            if(token.Len() <= MIN_TOKEN_LEN)
+                continue;
 
             if(m_parseValues[i].second == kString) {
                 wxString line = pEditor->GetCtrl()->GetLine(pEditor->LineFromPos(pl.first));
@@ -637,18 +667,20 @@ int IHunSpell::MarkErrors(IEditor* pEditor)
     return counter;
 }
 
-void IHunSpell::SetCaseSensitiveUserDictionary(const bool caseSensitiveUserDictionary) {
-    if (caseSensitiveUserDictionary != m_caseSensitiveUserDictionary)
-    {
+void IHunSpell::SetCaseSensitiveUserDictionary(const bool caseSensitiveUserDictionary)
+{
+    if(caseSensitiveUserDictionary != m_caseSensitiveUserDictionary) {
         m_caseSensitiveUserDictionary = caseSensitiveUserDictionary;
 
         // Re-order user dictionary and ignores.
-        CustomDictionary userDict(m_userDict.begin(), m_userDict.end(), 0, StringHashOptionalCase(caseSensitiveUserDictionary),
-            StringCompareOptionalCase(caseSensitiveUserDictionary));
+        CustomDictionary userDict(m_userDict.begin(), m_userDict.end(), 0,
+                                  StringHashOptionalCase(caseSensitiveUserDictionary),
+                                  StringCompareOptionalCase(caseSensitiveUserDictionary));
         m_userDict.swap(userDict);
 
         CustomDictionary ignoreList(m_ignoreList.begin(), m_ignoreList.end(), 0,
-            StringHashOptionalCase(caseSensitiveUserDictionary), StringCompareOptionalCase(caseSensitiveUserDictionary));
+                                    StringHashOptionalCase(caseSensitiveUserDictionary),
+                                    StringCompareOptionalCase(caseSensitiveUserDictionary));
         m_ignoreList.swap(ignoreList);
     }
 }

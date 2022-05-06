@@ -42,7 +42,9 @@ SFTPWorkerThread::~SFTPWorkerThread() {}
 
 SFTPWorkerThread* SFTPWorkerThread::Instance()
 {
-    if(ms_instance == 0) { ms_instance = new SFTPWorkerThread(); }
+    if(ms_instance == 0) {
+        ms_instance = new SFTPWorkerThread();
+    }
     return ms_instance;
 }
 
@@ -63,14 +65,14 @@ void SFTPWorkerThread::ProcessRequest(ThreadRequest* request)
     wxString requestAccount = req->GetAccount().GetAccountName();
 
     if(currentAccout.IsEmpty() || currentAccout != requestAccount) {
-        m_sftp.reset(NULL);
+        m_sftp.reset();
         DoConnect(req);
     }
 
     if(req->GetAction() == eSFTPActions::kConnect) {
         // Nothing more to be done here
         // Disconnect
-        m_sftp.reset(NULL);
+        m_sftp.reset();
         return;
     }
 
@@ -85,9 +87,7 @@ void SFTPWorkerThread::ProcessRequest(ThreadRequest* request)
                 return;
             case eSFTPActions::kUpload: {
                 DoReportStatusBarMessage(wxString() << _("Uploading file: ") << req->GetRemoteFile());
-                SFTPAttribute::Ptr_t attr(new SFTPAttribute(NULL));
-                attr->SetPermissions(req->GetPermissions());
-                m_sftp->CreateRemoteFile(req->GetRemoteFile(), wxFileName(req->GetLocalFile()), attr);
+                m_sftp->CreateRemoteFile(req->GetRemoteFile(), wxFileName(req->GetLocalFile()));
                 msg << "Successfully uploaded file: " << req->GetLocalFile() << " -> " << req->GetRemoteFile();
                 DoReportMessage(accountName, msg, SFTPThreadMessage::STATUS_OK);
                 DoReportStatusBarMessage("");
@@ -116,6 +116,7 @@ void SFTPWorkerThread::ProcessRequest(ThreadRequest* request)
                     cd.SetRemotePath(req->GetRemoteFile());
                     cd.SetPermissions(fileAttr ? fileAttr->GetPermissions() : 0);
                     cd.SetLineNumber(req->GetLineNumber());
+                    cd.SetAccountName(req->GetAccount().GetAccountName());
                     m_plugin->CallAfter(&SFTP::FileDownloadedSuccessfully, cd);
 
                 } else if(req->GetAction() == eSFTPActions::kDownloadAndOpenContainingFolder) {
@@ -150,7 +151,7 @@ void SFTPWorkerThread::ProcessRequest(ThreadRequest* request)
             msg << "SFTP error: " << e.What();
             DoReportMessage(accountName, msg, SFTPThreadMessage::STATUS_ERROR);
             DoReportStatusBarMessage(msg);
-            m_sftp.reset(NULL);
+            m_sftp.reset();
 
             // Requeue our request
             if(req->GetRetryCounter() == 0) {
@@ -177,7 +178,9 @@ void SFTPWorkerThread::DoConnect(SFTPThreadRequet* req)
         DoReportStatusBarMessage(wxString() << _("Connecting to ") << accountName);
         DoReportMessage(accountName, "Connecting...", SFTPThreadMessage::STATUS_NONE);
         ssh->Connect();
-        if(!ssh->AuthenticateServer(message)) { ssh->AcceptServerAuthentication(); }
+        if(!ssh->AuthenticateServer(message)) {
+            ssh->AcceptServerAuthentication();
+        }
 
         ssh->Login();
         m_sftp.reset(new clSFTP(ssh));
@@ -194,7 +197,7 @@ void SFTPWorkerThread::DoConnect(SFTPThreadRequet* req)
         wxString msg;
         msg << "Connect error. " << e.What();
         DoReportMessage(accountName, msg, SFTPThreadMessage::STATUS_ERROR);
-        m_sftp.reset(NULL);
+        m_sftp.reset();
     }
 }
 
@@ -260,7 +263,8 @@ SFTPThreadRequet::SFTPThreadRequet(const SSHAccountInfo& accountInfo, const wxSt
 
 SFTPThreadRequet::SFTPThreadRequet(const SFTPThreadRequet& other)
 {
-    if(this == &other) return;
+    if(this == &other)
+        return;
     *this = other;
 }
 

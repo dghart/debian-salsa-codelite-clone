@@ -26,11 +26,12 @@
 #ifndef __console_frame__
 #define __console_frame__
 
-#include "clSSHChannel.h"
+#include "clSSHChannel.hpp"
 #include "cl_command_event.h"
 #include "cl_ssh.h"
 #include "codelite_exports.h"
 #include "wxterminal.h"
+
 #include <wx/colour.h>
 #include <wx/font.h>
 #include <wx/frame.h>

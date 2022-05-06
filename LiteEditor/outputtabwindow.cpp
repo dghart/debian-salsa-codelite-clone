@@ -22,7 +22,8 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#include "clThemeUpdater.h"
+#include "outputtabwindow.h"
+
 #include "clToolBar.h"
 #include "cl_config.h"
 #include "editor_config.h"
@@ -33,9 +34,9 @@
 #include "macros.h"
 #include "manager.h"
 #include "output_pane.h"
-#include "outputtabwindow.h"
 #include "pluginmanager.h"
 #include "quickfindbar.h"
+
 #include <wx/xrc/xmlres.h>
 
 BEGIN_EVENT_TABLE(OutputTabWindow, wxPanel)
@@ -65,7 +66,6 @@ OutputTabWindow::OutputTabWindow(wxWindow* parent, wxWindowID id, const wxString
     , m_autoAppearErrors(false)
     , m_errorsFirstLine(false)
 {
-    clThemeUpdater::Get().RegisterWindow(this);
     m_styler.Reset(new clFindResultsStyler());
     CreateGUIControls();
     wxTheApp->Connect(wxID_COPY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(OutputTabWindow::OnEdit), NULL,
@@ -76,14 +76,11 @@ OutputTabWindow::OutputTabWindow(wxWindow* parent, wxWindowID id, const wxString
     wxTheApp->Connect(wxID_SELECTALL, wxEVT_UPDATE_UI, wxUpdateUIEventHandler(OutputTabWindow::OnEditUI), NULL, this);
     EventNotifier::Get()->Connect(wxEVT_CL_THEME_CHANGED, wxCommandEventHandler(OutputTabWindow::OnThemeChanged), NULL,
                                   this);
-    m_themeHelper = new ThemeHandlerHelper(this);
 }
 
 OutputTabWindow::~OutputTabWindow()
 {
-    clThemeUpdater::Get().UnRegisterWindow(this);
     m_styler.Reset(NULL);
-    wxDELETE(m_themeHelper);
     EventNotifier::Get()->Disconnect(wxEVT_CL_THEME_CHANGED, wxCommandEventHandler(OutputTabWindow::OnThemeChanged),
                                      NULL, this);
     wxTheApp->Disconnect(wxID_COPY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(OutputTabWindow::OnEdit), NULL,
@@ -192,23 +189,22 @@ void OutputTabWindow::CreateGUIControls()
 
     // Add the find bar
     mainSizer->Add(m_vSizer, 1, wxEXPAND | wxALL, 0);
-    BitmapLoader* bmpLoader = PluginManager::Get()->GetStdIcons();
 
     // Create the toolbar
     m_tb = new clToolBar(this);
-    m_tb->AddTool(XRCID("hold_pane_open"), _("Keep open"), bmpLoader->LoadBitmap("ToolPin"),
+    auto images = m_tb->GetBitmapsCreateIfNeeded();
+    m_tb->AddTool(XRCID("hold_pane_open"), _("Keep open"), images->Add("ToolPin"),
                   _("Don't close this pane when an editor gets focus"), wxITEM_CHECK);
 
-    m_tb->AddTool(XRCID("scroll_on_output"), _("Scroll on Output"), bmpLoader->LoadBitmap("link_editor"),
-                  _("Scroll on Output"), wxITEM_CHECK);
+    m_tb->AddTool(XRCID("scroll_on_output"), _("Scroll on Output"), images->Add("link_editor"), _("Scroll on Output"),
+                  wxITEM_CHECK);
     m_tb->ToggleTool(XRCID("scroll_on_output"), m_outputScrolls);
 
-    m_tb->AddTool(XRCID("word_wrap_output"), _("Word Wrap"), bmpLoader->LoadBitmap("word_wrap"), _("Word Wrap"),
-                  wxITEM_CHECK);
+    m_tb->AddTool(XRCID("word_wrap_output"), _("Word Wrap"), images->Add("word_wrap"), _("Word Wrap"), wxITEM_CHECK);
 
-    m_tb->AddTool(XRCID("clear_all_output"), _("Clear All"), bmpLoader->LoadBitmap("clear"), _("Clear All"));
-    m_tb->AddTool(XRCID("collapse_all"), _("Fold All Results"), bmpLoader->LoadBitmap("fold"), _("Fold All Results"));
-    m_tb->AddTool(XRCID("repeat_output"), _("Repeat"), bmpLoader->LoadBitmap("debugger_restart"), _("Repeat"));
+    m_tb->AddTool(XRCID("clear_all_output"), _("Clear All"), images->Add("clear"), _("Clear All"));
+    m_tb->AddTool(XRCID("collapse_all"), _("Fold All Results"), images->Add("fold"), _("Fold All Results"));
+    m_tb->AddTool(XRCID("repeat_output"), _("Repeat"), images->Add("debugger_restart"), _("Repeat"));
 
     m_tb->Realize();
 

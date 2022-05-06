@@ -24,10 +24,12 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "CompilerLocatorGCC.h"
+
 #include "clFilesCollector.h"
 #include "file_logger.h"
 #include "fileutils.h"
 #include "globals.h"
+
 #include <wx/filename.h>
 #include <wx/regex.h>
 
@@ -94,7 +96,11 @@ bool CompilerLocatorGCC::Locate()
     for(const auto& d : outputFiles) {
         if(d.flags & clFilesScanner::kIsFile) {
             wxFileName gcc(d.fullpath);
-            wxString fullname = gcc.GetFullName();
+#ifdef __CYGWIN__
+            wxString fullname = gcc.GetName(); // no extension
+#else
+            wxString fullname = gcc.GetFullName(); // name + extension
+#endif
             if(reGcc.IsValid() && reGcc.Matches(fullname)) {
                 wxString acceptableName = "gcc" + reGcc.GetMatch(fullname, 1);
                 if(fullname == acceptableName) {

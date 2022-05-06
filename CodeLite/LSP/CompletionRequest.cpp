@@ -14,8 +14,7 @@ LSP::CompletionRequest::CompletionRequest(const LSP::TextDocumentIdentifier& tex
 
 LSP::CompletionRequest::~CompletionRequest() {}
 
-void LSP::CompletionRequest::OnResponse(const LSP::ResponseMessage& response, wxEvtHandler* owner,
-                                        IPathConverter::Ptr_t pathConverter)
+void LSP::CompletionRequest::OnResponse(const LSP::ResponseMessage& response, wxEvtHandler* owner)
 {
     JSONItem result = response.Get("result");
     if(!result.isOk()) {
@@ -27,21 +26,25 @@ void LSP::CompletionRequest::OnResponse(const LSP::ResponseMessage& response, wx
     JSONItem items = result.namedObject("items");
     if(!items.isOk()) {
         clWARNING() << "LSP::CompletionRequest::OnResponse(): invalid 'items' object";
-        return;
+        // clWARNING() << result.format() << clEndl;
+        // return;
     }
 
-    if(!items.isArray()) {
+    JSONItem* pItems = items.isOk() ? &items : &result;
+    if(!pItems->isArray()) {
         clWARNING() << "LSP::CompletionRequest::OnResponse(): items is not of type array";
         return;
     }
 
     CompletionItem::Vec_t completions;
-    const int itemsCount = items.arraySize();
+    const int itemsCount = pItems->arraySize();
     clDEBUG() << "Read" << itemsCount << "completion items";
     for(int i = 0; i < itemsCount; ++i) {
         CompletionItem::Ptr_t completionItem(new CompletionItem());
-        completionItem->FromJSON(items.arrayItem(i), pathConverter);
-        if(completionItem->GetInsertText().IsEmpty()) { completionItem->SetInsertText(completionItem->GetLabel()); }
+        completionItem->FromJSON(pItems->arrayItem(i));
+        if(completionItem->GetInsertText().IsEmpty()) {
+            completionItem->SetInsertText(completionItem->GetLabel());
+        }
         completions.push_back(completionItem);
     }
 
@@ -53,10 +56,10 @@ void LSP::CompletionRequest::OnResponse(const LSP::ResponseMessage& response, wx
     }
 }
 
-bool LSP::CompletionRequest::IsValidAt(const wxFileName& filename, size_t line, size_t col) const
+bool LSP::CompletionRequest::IsValidAt(const wxString& filename, size_t line, size_t col) const
 {
-    const wxFileName& fn = m_params->As<CompletionParams>()->GetTextDocument().GetFilename();
+    wxString path = m_params->As<CompletionParams>()->GetTextDocument().GetPath();
     size_t calledLine = m_params->As<CompletionParams>()->GetPosition().GetLine();
     size_t calledColumn = m_params->As<CompletionParams>()->GetPosition().GetCharacter();
-    return (fn == filename) && (calledLine == line) && (calledColumn == col);
+    return (path == filename) && (calledLine == line) && (calledColumn == col);
 }

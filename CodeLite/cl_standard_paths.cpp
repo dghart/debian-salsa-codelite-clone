@@ -24,14 +24,14 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "cl_standard_paths.h"
+#include <wx/datetime.h>
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
 #include <wx/utils.h>
-#include <wx/datetime.h>
 
 static wxString __get_user_name()
 {
-    wxString squashedname, name = wxGetUserName();
+    wxString squashedname, name = wxGetUserId();
 
     // The wx doc says that 'name' may now be e.g. "Mr. John Smith"
     // So try to make it more suitable to be an extension
@@ -62,7 +62,9 @@ clStandardPaths& clStandardPaths::Get()
 wxString clStandardPaths::GetUserDataDir() const
 {
     // If the user has provided an alternative datadir, use it
-    if(!m_path.empty()) { return m_path; }
+    if(!m_path.empty()) {
+        return m_path;
+    }
 
 #ifdef __WXGTK__
 
@@ -103,8 +105,10 @@ wxString clStandardPaths::GetPluginsDirectory() const
 
 wxString clStandardPaths::GetDataDir() const
 {
-    if(!m_dataDir.IsEmpty()) { return m_dataDir; }
-    
+    if(!m_dataDir.IsEmpty()) {
+        return m_dataDir;
+    }
+
 #ifdef USE_POSIX_LAYOUT
     wxFileName path(wxStandardPaths::Get().GetDataDir() + wxT(INSTALL_DIR), "");
     return path.GetPath();
@@ -168,11 +172,11 @@ wxString clStandardPaths::GetTempDir() const
     if(once) {
         wxString username = __get_user_name();
 #if defined(__WXGTK__) || defined(__WXOSX__)
-        tmpdir << "/tmp/CodeLite." << username << ".";
+        tmpdir << "/tmp/codelite/";
 #else
-        tmpdir << wxStandardPaths::Get().GetTempDir() << "\\CodeLite." << username << ".";
+        tmpdir << wxStandardPaths::Get().GetTempDir() << "\\CodeLite." << username << "\\.";
 #endif
-        tmpdir << wxDateTime::Now().GetTicks();
+        tmpdir << ::wxGetProcessId();
         // Create the temp folder
         wxFileName::Mkdir(tmpdir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
         once = false;
@@ -188,7 +192,9 @@ wxString clStandardPaths::GetDocumentsDir() const
     // but what we really want is ~/Documents
     wxFileName fp(path, "");
     fp.AppendDir("Documents");
-    if(fp.DirExists()) { return fp.GetPath(); }
+    if(fp.DirExists()) {
+        return fp.GetPath();
+    }
 #endif
     return path;
 }

@@ -1,17 +1,21 @@
-@echo OFF
+echo OFF
 
+set MSYS2_HOME=C:\msys64\home\eran
 set TARGET_DIR=%ProgramFiles%
 set COPY_WXC_RESOURCES=0
 set CODELITE_SRC_DIR=C:\src\codelite
-set BIN_DIR=%CODELITE_SRC_DIR%\build-Win_x64_Release\bin
 set LIB_DIR=%CODELITE_SRC_DIR%\build-Win_x64_Release\lib
 set SDK_DIR==%CODELITE_SRC_DIR%\sdk
 set RUNTIME_DIR=%CODELITE_SRC_DIR%\Runtime
+set WX_CONFIG_DIR=%MSYS2_HOME%\devl\wx-config-msys2\bin
+set WXWIN=%MSYS2_HOME%\root
+set LLVM_BIN=C:\LLVM\bin
 
 ::IF EXIST D:\software\NUL (set TARGET_DIR=D:\software)
 IF EXIST ..\wxcrafter\wxcrafter.accelerators (set COPY_WXC_RESOURCES=1)
 
 xcopy %RUNTIME_DIR%\config\*.default "%TARGET_DIR%\CodeLite\config\" /E /I /H /Y /EXCLUDE:excludes
+xcopy %RUNTIME_DIR%\codelite-remote "%TARGET_DIR%\CodeLite\" /E /I /H /Y /EXCLUDE:excludes
 xcopy %RUNTIME_DIR%\config\build_settings.xml.default.win "%TARGET_DIR%\CodeLite\config\build_settings.xml.default" /E /I /H /Y /EXCLUDE:excludes
 xcopy %RUNTIME_DIR%\debuggers\*.dll "%TARGET_DIR%\CodeLite\debuggers\" /E /I /H /Y /EXCLUDE:excludes
 xcopy %RUNTIME_DIR%\images\* "%TARGET_DIR%\CodeLite\images\" /E /I /H /Y /EXCLUDE:excludes
@@ -39,8 +43,8 @@ IF EXIST %RUNTIME_DIR%\PHP.zip ( copy PHP.zip "%TARGET_DIR%\CodeLite\" )
 xcopy %LIB_DIR%\*.dll "%TARGET_DIR%\CodeLite\plugins\" /E /I /H /Y /EXCLUDE:excludes
 
 if "%WXWIN%" == "" GOTO OTHERS
-xcopy %WXWIN%\lib\gcc_dll\wxmsw*u_*gcc_cl.dll "%TARGET_DIR%\CodeLite\" /E /I /H /Y /EXCLUDE:excludes
-xcopy %WXWIN%\lib\gcc_dll\wxbase*u_*gcc_cl.dll "%TARGET_DIR%\CodeLite\" /E /I /H /Y /EXCLUDE:excludes
+xcopy %WXWIN%\lib\gcc_x64_dll\wxmsw*u_*.dll "%TARGET_DIR%\CodeLite\" /E /I /H /Y /EXCLUDE:excludes
+xcopy %WXWIN%\lib\gcc_x64_dll\wxbase*u_*.dll "%TARGET_DIR%\CodeLite\" /E /I /H /Y /EXCLUDE:excludes
 :: xcopy %WXWIN%\lib\gcc_dll\wxrc.exe "%TARGET_DIR%\CodeLite\" /E /I /H /Y /EXCLUDE:excludes
 
 if "%COPY_WXC_RESOURCES%" == "1" (copy ..\wxcrafter\wxcrafter.accelerators  "%TARGET_DIR%\CodeLite\plugins\resources" )
@@ -50,11 +54,16 @@ if "%COPY_WXC_RESOURCES%" == "1" (copy ..\wxcrafter\wxcrafter.accelerators  "%TA
 copy %RUNTIME_DIR%\codelite_indexer.exe "%TARGET_DIR%\CodeLite\" /Y
 copy %RUNTIME_DIR%\codelite-cc.exe "%TARGET_DIR%\CodeLite\" /Y
 copy %RUNTIME_DIR%\codelite_cppcheck.exe "%TARGET_DIR%\CodeLite\" /Y
-copy %RUNTIME_DIR%\codelite_launcher.exe "%TARGET_DIR%\CodeLite\" /Y
 copy %RUNTIME_DIR%\codelite-echo.exe "%TARGET_DIR%\CodeLite\" /Y
-copy %SDK_DIR%\clang\lib\clang-format-64.exe "%TARGET_DIR%\CodeLite\codelite-clang-format.exe" /Y
+copy %RUNTIME_DIR%\ctagsd.exe "%TARGET_DIR%\CodeLite\" /Y
+copy %CODELITE_SRC_DIR%\universal-ctags\win32\codelite-ctags.exe "%TARGET_DIR%\CodeLite\" /Y
+copy %LLVM_BIN%\clang-format.exe "%TARGET_DIR%\CodeLite\codelite-clang-format.exe" /Y
+copy %LLVM_BIN%\clangd.exe "%TARGET_DIR%\CodeLite\lsp\" /Y
+copy %LLVM_BIN%\msvcp140.dll "%TARGET_DIR%\CodeLite\lsp\" /Y
+copy %LLVM_BIN%\vcruntime140.dll "%TARGET_DIR%\CodeLite\lsp\" /Y
+copy %LLVM_BIN%\vcruntime140_1.dll "%TARGET_DIR%\CodeLite\lsp\" /Y
 copy %SDK_DIR%\libssh\lib\libssh.dll "%TARGET_DIR%\CodeLite\libssh.dll" /Y
-copy %RUNTIME_DIR%\le_exec.exe "%TARGET_DIR%\CodeLite\" /Y
+copy %RUNTIME_DIR%\codelite-exec.exe "%TARGET_DIR%\CodeLite\" /Y
 copy %RUNTIME_DIR%\codelite.exe "%TARGET_DIR%\CodeLite\" /Y
 copy %RUNTIME_DIR%\codelite-make.exe "%TARGET_DIR%\CodeLite\" /Y
 copy %RUNTIME_DIR%\codelite-terminal.exe "%TARGET_DIR%\CodeLite\" /Y
@@ -62,8 +71,10 @@ copy %RUNTIME_DIR%\rm.exe "%TARGET_DIR%\CodeLite\" /Y
 copy %RUNTIME_DIR%\astyle.sample "%TARGET_DIR%\CodeLite\" /Y
 copy %RUNTIME_DIR%\php.sample "%TARGET_DIR%\CodeLite\" /Y
 copy %RUNTIME_DIR%\pthreadGC2.dll "%TARGET_DIR%\CodeLite\" /Y
-copy %RUNTIME_DIR%\wx-config.exe "%TARGET_DIR%\CodeLite\" /Y
+copy %WX_CONFIG_DIR%\wx-config.exe "%TARGET_DIR%\CodeLite\" /Y
 
 :END
 
 echo CodeLite was updated into %TARGET_DIR%\CodeLite
+date /T
+time /T

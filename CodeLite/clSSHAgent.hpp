@@ -2,19 +2,21 @@
 #define CLSSHAGENT_HPP
 
 #include "codelite_exports.h"
+#include <memory>
 #include <wx/sharedptr.h>
 
+class IProcess;
 class WXDLLIMPEXP_CL clSSHAgent
 {
 private:
-    int m_sshAgentPID = wxNOT_FOUND;
+    IProcess* m_process = nullptr;
 
 protected:
     void Start();
     void Stop();
 
 public:
-    typedef wxSharedPtr<clSSHAgent> Ptr_t;
+    typedef std::shared_ptr<clSSHAgent> Ptr_t;
 
 public:
     clSSHAgent();

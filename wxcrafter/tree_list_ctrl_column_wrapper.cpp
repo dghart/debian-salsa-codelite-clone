@@ -1,9 +1,10 @@
 #include "tree_list_ctrl_column_wrapper.h"
+
 #include "allocator_mgr.h"
 #include "choice_property.h"
 #include "col_header_flags_property.h"
-#include "wxc_settings.h"
 #include "wxgui_helpers.h"
+
 #include <wx/headercol.h>
 
 TreeListCtrlColumnWrapper::TreeListCtrlColumnWrapper()
@@ -20,7 +21,7 @@ TreeListCtrlColumnWrapper::TreeListCtrlColumnWrapper()
 
     // FIXME: add alignment + column flags here
     AddProperty(new CategoryProperty(_("wxTreeListCtrl Column")));
-    AddProperty(new StringProperty(PROP_NAME, wxT("My Column"), wxT("Column caption")));
+    AddProperty(new StringProperty(PROP_NAME, _("My Column"), _("Column caption")));
     AddProperty(new ChoiceProperty(PROP_DV_LISTCTRL_COL_ALIGN, alignment, 0,
                                    _("Alignment of both the column header and its items")));
     AddProperty(new StringProperty(
@@ -60,12 +61,13 @@ void TreeListCtrlColumnWrapper::ToXRC(wxString& text, XRC_TYPE type) const
         text << XRCUnknown();
 
     } else {
-        text << wxT("<object class=\"wxTreeListCtrlCol\">") << wxT("<label>") << wxCrafter::CDATA(GetName())
-             << wxT("</label>") << wxT("<width>") << PropertyInt(PROP_WIDTH, -1) << wxT("</width>") << "<align>"
+        text << "<object class=\"wxTreeListCtrlCol\">"
+             << "<label>" << wxCrafter::CDATA(GetName()) << "</label>"
+             << "<width>" << PropertyInt(PROP_WIDTH, -1) << "</width>"
+             << "<align>"
              << "wxALIGN_LEFT"
              << "</align>"
-             << "<flags>" << PropertyString(PROP_COL_FLAGS, "0") << "</flags>" << wxT("</object>");
+             << "<flags>" << PropertyString(PROP_COL_FLAGS, "0") << "</flags>"
+             << "</object>";
     }
 }
-
-bool TreeListCtrlColumnWrapper::IsLicensed() const { return wxcSettings::Get().IsLicensed(); }

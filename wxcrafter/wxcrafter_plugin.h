@@ -7,9 +7,7 @@
 #include "import_dlg.h"
 #include "main.h"
 #include "plugin.h"
-#include "wxcNetworkManager.h"
 
-class wxcNetworkThread;
 class EventsEditorPane;
 class GUICraftMainPanel;
 class wxcTreeView;
@@ -29,17 +27,15 @@ struct GeneratedClass {
 
 class wxCrafterPlugin : public IPlugin
 {
-    GUICraftMainPanel* m_mainPanel;
-    wxcTreeView* m_treeView;
-    wxMenuItem* m_separatorItem;
+    GUICraftMainPanel* m_mainPanel = nullptr;
+    wxcTreeView* m_treeView = nullptr;
+    wxMenuItem* m_separatorItem = nullptr;
     GeneratedClass m_generatedClassInfo;
-    bool m_allEditorsClosing;
-    bool m_addFileMenu;
-    bool m_useFrame;
-    MainFrame* m_mainFrame;
-    bool m_serverMode;
-    wxcNetworkThread* m_networkThread;
-    wxcNetworkManager m_netManager;
+    bool m_allEditorsClosing = false;
+    bool m_addFileMenu = false;
+    bool m_useFrame = true;
+    MainFrame* m_mainFrame = nullptr;
+    bool m_serverMode = false;
     wxFileName m_selectedFile;
 
 protected:
@@ -70,7 +66,6 @@ protected:
     void OnReGenerateForProject(wxCommandEvent& e);
     void OnDesignerDelete(wxCommandEvent& e);
     void OnBitmapCodeGenerationCompleted(wxCommandEvent& e);
-    void OnSourceFilesParsingDone(wxCommandEvent& e);
     void OnNewForm(wxCommandEvent& e);
     void OnOpenFile(clCommandEvent& e);
     void OnPageClosing(wxNotifyEvent& e);
@@ -79,7 +74,7 @@ protected:
     void OnPageChanged(wxCommandEvent& e);
     void OnWorkspaceTabSelected(wxBookCtrlEvent& e);
     void OnDesignerItemSelected(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnBuildStarting(wxCommandEvent& e);
     void OnAllEditorsClosing(wxCommandEvent& e);
     void OnAllEditorsClosed(wxCommandEvent& e);

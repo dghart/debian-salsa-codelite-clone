@@ -26,6 +26,7 @@
 #define LITEEDITOR_EDITOR_H
 
 #include "LSP/CompletionItem.h"
+#include "SFTPClientData.hpp"
 #include "bookmark_manager.h"
 #include "browse_record.h"
 #include "clEditorStateLocker.h"
@@ -42,6 +43,7 @@
 #include "stringhighlighterjob.h"
 #include "wx/filename.h"
 #include "wx/menu.h"
+
 #include <map>
 #include <stack>
 #include <vector>
@@ -56,7 +58,6 @@
 #define HYPERLINK_INDICATOR 4
 #define MARKER_FIND_BAR_WORD_HIGHLIGHT 5
 #define MARKER_CONTEXT_WORD_HIGHLIGHT 6
-#define CUR_LINE_NUMBER_STYLE (wxSTC_STYLE_MAX - 1)
 
 #if(wxVERSION_NUMBER < 3101)
 // Some wxSTC keycodes names were altered in 311, & the old versions deprecated
@@ -206,6 +207,12 @@ private:
         kShowSelectedChars = (1 << 4),
     };
 
+    enum eLineStatus : short {
+        LINE_NONE,
+        LINE_MODIFIED,
+        LINE_SAVED,
+    };
+
 protected:
     wxFileName m_fileName;
     wxString m_project;
@@ -226,12 +233,11 @@ protected:
     bool m_isVisible;
     int m_hyperLinkIndicatroStart;
     int m_hyperLinkIndicatroEnd;
-    int m_hyperLinkType;
     bool m_hightlightMatchedBraces;
     bool m_autoAddMatchedCurlyBrace;
     bool m_autoAddNormalBraces;
     bool m_smartParen = true;
-    std::map<int, std::vector<BreakpointInfo>> m_breakpointsInfo;
+    std::map<int, std::vector<clDebuggerBreakpoint>> m_breakpointsInfo;
     bool m_autoAdjustHScrollbarWidth;
     bool m_reloadingFile;
     bool m_disableSmartIndent;
@@ -257,11 +263,11 @@ protected:
     OptionsConfigPtr m_options;
     bool m_hasCCAnnotation;
     wxRichToolTip* m_richTooltip;
-    /// A space delimited list of all the classes in this editor
     wxString m_keywordClasses;
-    /// A space delimited list of all the variables in this editor
+    wxString m_keywordMethods;
+    wxString m_keywordOthers;
     wxString m_keywordLocals;
-    wxBitmap m_editorBitmap;
+    int m_editorBitmap = wxNOT_FOUND;
     size_t m_statusBarFields;
     int m_lastBeginLine = wxNOT_FOUND;
     int m_lastLine = wxNOT_FOUND;
@@ -269,6 +275,9 @@ protected:
     int m_lastLineCount;
     wxColour m_selTextColour;
     wxColour m_selTextBgColour;
+    bool m_zoomProgrammatically = false;
+    std::vector<eLineStatus> m_modifiedLines;
+    bool m_trackChanges = false;
 
 public:
     static bool m_ccShowPrivateMembers;
@@ -289,10 +298,31 @@ public:
     bool IsHasCCAnnotation() const { return m_hasCCAnnotation; }
     void ClearCCAnnotations();
 
-    void SetEditorBitmap(const wxBitmap& editorBitmap) { this->m_editorBitmap = editorBitmap; }
-    const wxBitmap& GetEditorBitmap() const { return m_editorBitmap; }
+    void SetEditorBitmap(int editorBitmap) { this->m_editorBitmap = editorBitmap; }
+    int GetEditorBitmap() const { return m_editorBitmap; }
 
     void NotifyMarkerChanged(int lineNumber = wxNOT_FOUND);
+
+    /**
+     * @brief static version of the below `CenterLine`
+     * so we can use it outside of this class, e.g. from `QuickFindBar`
+     */
+    static void CenterLine(wxStyledTextCtrl* ctrl, int line, int col);
+
+    /**
+     * @brief static version
+     */
+    static void CenterLinePreserveSelection(wxStyledTextCtrl* ctrl, int line);
+
+    /**
+     * @brief static version of the below
+     */
+    static void SetCaretAt(wxStyledTextCtrl* ctrl, long pos);
+
+    /**
+     * @brief wrapper calling CenterLinePreserveSelection using CallAfter()
+     */
+    void CenterLinePreserveSelectionAfter(int line);
 
 public:
     static FindReplaceData& GetFindReplaceData() { return m_findReplaceData; }
@@ -333,10 +363,22 @@ public:
      */
     void PageSetup();
 
-    virtual const wxString& GetKeywordClasses() const { return m_keywordClasses; }
-    virtual const wxString& GetKeywordLocals() const { return m_keywordLocals; }
-    virtual void SetKeywordClasses(const wxString& keywordClasses) { this->m_keywordClasses = keywordClasses; }
-    virtual void SetKeywordLocals(const wxString& keywordLocals) { this->m_keywordLocals = keywordLocals; }
+    const wxString& GetKeywordClasses() const override { return m_keywordClasses; }
+    const wxString& GetKeywordLocals() const override { return m_keywordLocals; }
+    const wxString& GetKeywordMethods() const override { return m_keywordMethods; }
+    const wxString& GetKeywordOthers() const override { return m_keywordOthers; }
+
+    // used by other plugins
+    void SetKeywordClasses(const wxString& keywords) { this->m_keywordClasses = keywords; }
+    void SetKeywordLocals(const wxString& keywords) { this->m_keywordLocals = keywords; }
+    void SetKeywordMethods(const wxString& keywords) { this->m_keywordMethods = keywords; }
+    void SetKeywordOthers(const wxString& keywords) { this->m_keywordOthers = keywords; }
+
+    /**
+     * @brief set semantic tokens for this editor
+     */
+    void SetSemanticTokens(const wxString& classes, const wxString& variables, const wxString& methods,
+                           const wxString& others) override;
 
     /**
      * @brief split the current selection into multiple carets.
@@ -387,15 +429,24 @@ public:
      * @param commentSymbol the comment symbol to insert (e.g. "//")
      * @param commentStyle the wxSTC line comment style
      */
-    virtual void ToggleLineComment(const wxString& commentSymbol, int commentStyle);
+    void ToggleLineComment(const wxString& commentSymbol, int commentStyle) override;
 
     /**
      * @brief block comment the selection
      */
-    virtual void CommentBlockSelection(const wxString& commentBlockStart, const wxString& commentBlockEnd);
+    void CommentBlockSelection(const wxString& commentBlockStart, const wxString& commentBlockEnd) override;
+
+    /**
+     * @brief is this editor modified?
+     */
+    bool IsEditorModified() const override { return GetModify(); }
 
     // User clicked Ctrl+.
     void GotoDefinition();
+    /**
+     * find declaration file for the current expression
+     */
+    void FindDeclarationFile();
 
     // return the EOL according to the content
     int GetEOLByContent();
@@ -421,10 +472,10 @@ public:
 
     // set this page as active, this usually happened when user changed the notebook
     // page to this one
-    virtual void SetActive();
+    void SetActive() override;
 
     // Ditto, but asynchronously
-    virtual void DelayedSetActive();
+    void DelayedSetActive() override;
 
     // Perform FindNext operation based on the data stored in the FindReplaceData class
     void FindNext(const FindReplaceData& data);
@@ -438,7 +489,7 @@ public:
      * Change the document's syntax highlight
      * \param lexerName the syntax highlight's lexer name (as appear in the liteeditor.xml file)
      */
-    virtual void SetSyntaxHighlight(const wxString& lexerName);
+    void SetSyntaxHighlight(const wxString& lexerName) override;
 
     /**
      * Change the document's syntax highlight - use the file name to determine lexer name
@@ -478,12 +529,12 @@ public:
     /**
      * @brief center the line in the editor
      */
-    void CenterLine(int line, int col = wxNOT_FOUND);
+    void CenterLine(int line, int col = wxNOT_FOUND) override;
 
     /**
      * @brief center the editor at a given line, but preserve the selection
      */
-    void CenterLinePreserveSelection(int line);
+    void CenterLinePreserveSelection(int line) override;
 
     /**
      * @brief Center line if needed (i.e. only if the line is not visible)
@@ -520,7 +571,13 @@ public:
     /**
      * @brief return list of bookmarks (active type)
      */
-    virtual size_t GetFindMarkers(std::vector<std::pair<int, wxString>>& bookmarksVector);
+    size_t GetFindMarkers(std::vector<std::pair<int, wxString>>& bookmarksVector) override;
+
+    /**
+     * @brief similar to wxStyledTextCtrl::GetColumn(), but treat TAB as a single char
+     * width
+     */
+    int GetColumnInChars(int pos) override;
 
     /**
      * Sets whether the currently-active bookmark level is Find', or the current standard-bookmark type
@@ -605,11 +662,12 @@ public:
     void QuickFindAll();
 
     bool FindAndSelect();
-    bool SelectRange(const LSP::Range& range);
+    bool SelectRange(const LSP::Range& range) override;
+    bool SelectLocation(const LSP::Location& range) override;
     bool FindAndSelect(const FindReplaceData& data);
     bool FindAndSelect(const wxString& pattern, const wxString& name);
     void FindAndSelectV(const wxString& pattern, const wxString& name, int pos = 0,
-                        NavMgr* unused = NULL); // The same but returns void, so usable with CallAfter()
+                        NavMgr* unused = NULL) override; // The same but returns void, so usable with CallAfter()
     void DoFindAndSelectV(const wxArrayString& strings, int pos); // Called with CallAfter()
 
     bool Replace();
@@ -620,7 +678,7 @@ public:
     /**
      * Get editor options. Takes any workspace/project overrides into account
      */
-    virtual OptionsConfigPtr GetOptions() { return m_options; }
+    virtual OptionsConfigPtr GetOptions() override { return m_options; }
 
     /**
      * Add marker to the current line
@@ -663,7 +721,7 @@ public:
      */
     void InsertTextWithIndentation(const wxString& text, int pos);
 
-    virtual BrowseRecord CreateBrowseRecord();
+    BrowseRecord CreateBrowseRecord() override;
 
     bool IsContextMenuOn() const { return m_popupIsOn; }
 
@@ -721,7 +779,7 @@ public:
      * @param navmgr  Navigation manager to place browsing recrods
      * @return return true if a match was found, false otherwise
      */
-    virtual bool FindAndSelect(const wxString& pattern, const wxString& what, int pos, NavMgr* navmgr);
+    bool FindAndSelect(const wxString& pattern, const wxString& what, int pos, NavMgr* navmgr) override;
 
     virtual void UpdateBreakpoints();
 
@@ -729,18 +787,22 @@ public:
     // breakpoint visualisation
     //--------------------------------
     virtual void SetBreakpointMarker(int lineno, BreakpointType bptype, bool is_disabled,
-                                     const std::vector<BreakpointInfo>& li);
+                                     const std::vector<clDebuggerBreakpoint>& li);
     virtual void DelAllBreakpointMarkers();
 
-    virtual void HighlightLine(int lineno);
-    virtual void UnHighlightAll();
+    void HighlightLine(int lineno) override;
+    void UnHighlightAll() override;
 
     // compiler warnings and errors
-    virtual void SetWarningMarker(int lineno, const wxString& annotationText);
-    virtual void SetErrorMarker(int lineno, const wxString& annotationText);
-    virtual void DelAllCompilerMarkers();
+    void SetWarningMarker(int lineno, const wxString& annotationText) override;
+    void SetErrorMarker(int lineno, const wxString& annotationText) override;
+    void DelAllCompilerMarkers() override;
 
-    void DoShowCalltip(int pos, const wxString& title, const wxString& tip, bool manipulateText);
+    void DoShowCalltip(int pos, const wxString& title, const wxString& tip, bool strip_html_tags = true);
+    /**
+     * @brief adjust calltip window position to fit into the display screen
+     */
+    void DoAdjustCalltipPos(wxPoint& pt) const;
     void DoCancelCalltip();
     void DoCancelCodeCompletionBox();
     int DoGetOpenBracePos();
@@ -763,7 +825,7 @@ public:
     /**
      * @brief Get the editor's modification count
      */
-    virtual wxUint64 GetModificationCount() const { return m_modificationCount; }
+    wxUint64 GetModificationCount() const override { return m_modificationCount; }
 
     /**
      * \brief run through the file content and update colours for the
@@ -781,7 +843,7 @@ public:
     /**
      * @brief return true if the completion box is visible
      */
-    virtual bool IsCompletionBoxShown();
+    bool IsCompletionBoxShown() override;
 
     /**
      * @brief highlight the word where the cursor is at
@@ -801,7 +863,7 @@ public:
      * Implemetation for IEditor interace
      *--------------------------------------------------
      */
-    virtual wxStyledTextCtrl* GetCtrl() { return static_cast<wxStyledTextCtrl*>(this); }
+    wxStyledTextCtrl* GetCtrl() override { return static_cast<wxStyledTextCtrl*>(this); }
 
     /**
      * @brief set a code completion annotation at the given line. code completion
@@ -809,78 +871,82 @@ public:
      * @param text
      * @param lineno
      */
-    virtual void SetCodeCompletionAnnotation(const wxString& text, int lineno);
+    void SetCodeCompletionAnnotation(const wxString& text, int lineno) override;
 
-    virtual wxString GetEditorText() { return GetText(); }
-    virtual size_t GetEditorTextRaw(std::string& text);
-    virtual void SetEditorText(const wxString& text);
-    virtual void OpenFile();
-    virtual void ReloadFromDisk(bool keepUndoHistory = false);
-    virtual void SetCaretAt(long pos);
-    virtual long GetCurrentPosition() { return GetCurrentPos(); }
-    virtual const wxFileName& GetFileName() const { return m_fileName; }
-    virtual const wxString& GetProjectName() const { return m_project; }
+    wxString GetEditorText() override { return GetText(); }
+    size_t GetEditorTextRaw(std::string& text) override;
+    void SetEditorText(const wxString& text) override;
+    void OpenFile() override;
+    void ReloadFromDisk(bool keepUndoHistory = false) override;
+    void SetCaretAt(long pos) override;
+    long GetCurrentPosition() override { return GetCurrentPos(); }
+    const wxFileName& GetFileName() const override { return m_fileName; }
+    const wxString& GetProjectName() const override { return m_project; }
+
+    int GetPosAtMousePointer() override;
+
     /**
      * @brief
      * @return
      */
-    virtual wxString GetWordAtCaret(bool wordCharsOnly = true);
+    wxString GetWordAtCaret(bool wordCharsOnly = true) override;
     /**
      * @brief
      * @return
      */
-    virtual void GetWordAtMousePointer(wxString& word, wxRect& wordRect);
+    void GetWordAtMousePointer(wxString& word, wxRect& wordRect) override;
     /**
      * @brief get word at a given position
      * @param pos word's position
      * @param wordCharsOnly when set to false, return the string between the nearest whitespaces
      */
-    virtual wxString GetWordAtPosition(int pos, bool wordCharsOnly = true);
+    wxString GetWordAtPosition(int pos, bool wordCharsOnly = true) override;
     /**
      * @brief
      * @param text
      */
-    virtual void AppendText(const wxString& text) { wxStyledTextCtrl::AppendText(text); }
-    virtual void InsertText(int pos, const wxString& text) { wxStyledTextCtrl::InsertText(pos, text); }
-    virtual int GetLength() { return wxStyledTextCtrl::GetLength(); }
-    virtual bool IsModified() { return wxStyledTextCtrl::GetModify(); }
-    virtual bool Save() { return SaveFile(); }
-    virtual bool SaveAs(const wxString& defaultName = wxEmptyString, const wxString& savePath = wxEmptyString)
+    void AppendText(const wxString& text) override { wxStyledTextCtrl::AppendText(text); }
+    void InsertText(int pos, const wxString& text) override { wxStyledTextCtrl::InsertText(pos, text); }
+    int GetLength() override { return wxStyledTextCtrl::GetLength(); }
+
+    bool Save() override { return SaveFile(); }
+    bool SaveAs(const wxString& defaultName = wxEmptyString, const wxString& savePath = wxEmptyString) override
     {
         return SaveFileAs(defaultName, savePath);
     }
-    virtual int GetEOL() { return wxStyledTextCtrl::GetEOLMode(); }
-    virtual int GetCurrentLine();
-    virtual void ReplaceSelection(const wxString& text);
-    virtual wxString GetSelection();
-    virtual int GetSelectionStart();
-    virtual int GetSelectionEnd();
-    virtual void SelectText(int startPos, int len);
 
-    virtual void SetLexerName(const wxString& lexerName);
+    int GetEOL() override { return wxStyledTextCtrl::GetEOLMode(); }
+    int GetCurrentLine() override;
+    void ReplaceSelection(const wxString& text) override;
+    wxString GetSelection() override;
+    int GetSelectionStart() override;
+    int GetSelectionEnd() override;
+    void SelectText(int startPos, int len) override;
+
+    void SetLexerName(const wxString& lexerName) override;
 
     // User Indicators API
-    virtual void SetUserIndicatorStyleAndColour(int style, const wxColour& colour);
-    virtual void SetUserIndicator(int startPos, int len);
-    virtual void ClearUserIndicators();
-    virtual int GetUserIndicatorStart(int pos);
-    virtual int GetUserIndicatorEnd(int pos);
-    virtual int GetLexerId();
-    virtual int GetStyleAtPos(int pos);
+    void SetUserIndicatorStyleAndColour(int style, const wxColour& colour) override;
+    void SetUserIndicator(int startPos, int len) override;
+    void ClearUserIndicators() override;
+    int GetUserIndicatorStart(int pos) override;
+    int GetUserIndicatorEnd(int pos) override;
+    int GetLexerId() override;
+    int GetStyleAtPos(int pos) override;
 
     /**
      * @brief Get position of start of word.
      * @param pos from position
      * @param onlyWordCharacters
      */
-    virtual int WordStartPos(int pos, bool onlyWordCharacters);
+    int WordStartPos(int pos, bool onlyWordCharacters) override;
 
     /**
      * @brief  Get position of end of word.
      * @param pos from position
      * @param onlyWordCharacters
      */
-    virtual int WordEndPos(int pos, bool onlyWordCharacters);
+    int WordEndPos(int pos, bool onlyWordCharacters) override;
 
     /**
      * Prepend the indentation level found at line at 'pos' to each line in the input string
@@ -888,26 +954,26 @@ public:
      * \param pos position to insert the text
      * \param flags formatting flags
      */
-    virtual wxString FormatTextKeepIndent(const wxString& text, int pos, size_t flags = 0);
+    wxString FormatTextKeepIndent(const wxString& text, int pos, size_t flags = 0) override;
 
     /**
      * @brief return the line numebr containing 'pos'
      * @param pos the position
      */
-    virtual int LineFromPos(int pos);
+    int LineFromPos(int pos) override;
 
     /**
      * @brief return the start pos of line nummber
      * @param line the line number
      * @return line nummber or 0 if the document is empty
      */
-    virtual int PosFromLine(int line);
+    int PosFromLine(int line) override;
 
     /**
      * @brief return the END position of 'line'
      * @param line the line number
      */
-    virtual int LineEnd(int line);
+    int LineEnd(int line) override;
 
     /**
      * @brief return text from a given pos -> endPos
@@ -915,22 +981,22 @@ public:
      * @param endPos
      * @return
      */
-    virtual wxString GetTextRange(int startPos, int endPos);
+    wxString GetTextRange(int startPos, int endPos) override;
 
     /**
      * @brief display a calltip at the current position
      */
-    virtual void ShowCalltip(clCallTipPtr tip);
+    void ShowCalltip(clCallTipPtr tip) override;
 
-    virtual wxChar PreviousChar(const int& pos, int& foundPos, bool wantWhitespace = false);
-    virtual int PositionAfterPos(int pos);
-    virtual int PositionBeforePos(int pos);
-    virtual int GetCharAtPos(int pos);
+    wxChar PreviousChar(const int& pos, int& foundPos, bool wantWhitespace = false) override;
+    int PositionAfterPos(int pos) override;
+    int PositionBeforePos(int pos) override;
+    int GetCharAtPos(int pos) override;
 
     /**
      * @brief apply editor configuration (TAB vs SPACES, tab size, EOL mode etc)
      */
-    virtual void ApplyEditorConfig();
+    void ApplyEditorConfig() override;
 
     /**
      * @brief return true if the current editor is detached from the mainbook
@@ -938,11 +1004,18 @@ public:
     bool IsDetached() const;
 
     /**
+     * @brief display a tooltip (title + tip)
+     * @param tip tip text
+     * @param pos position for the tip. If wxNOT_FOUND the tip is positioned at mouse cursor position
+     */
+    void ShowTooltip(const wxString& tip, const wxString& title = wxEmptyString, int pos = wxNOT_FOUND) override;
+
+    /**
      * @brief display a rich tooltip (title + tip)
      * @param tip tip text
      * @param pos position for the tip. If wxNOT_FOUND the tip is positioned at mouse cursor position
      */
-    void ShowRichTooltip(const wxString& tip, const wxString& title, int pos = wxNOT_FOUND);
+    void ShowRichTooltip(const wxString& tip, const wxString& title, int pos = wxNOT_FOUND) override;
 
     /**
      * @brief return the first selection (in case there are multiple selections enabled)
@@ -973,12 +1046,50 @@ public:
      */
     void PasteLineAbove();
 
+    /**
+     * @brief update editor options based on the global + workspace settings
+     */
+    void UpdateOptions();
+
+    /**
+     * @brief incase this editor represents a remote file, return its remote path
+     */
+    wxString GetRemotePath() const override;
+    /**
+     * @brief if this editor represents a remote file
+     * return its remote path, otherwise return the local path
+     * this is equal for writing:
+     *
+     * ```
+     * wxString fullpath = editor->IsRemoteFile() ? editor->GetRemotePath() : editor->GetFileName().GetFullPath();
+     * return fullpath;
+     * ```
+     */
+    wxString GetRemotePathOrLocal() const override;
+
+    /**
+     * @brief return true if this file represents a remote file
+     */
+    bool IsRemoteFile() const override;
+
+    /**
+     * @brief return a pointer to the remote data
+     * @return remote file info, or null if this file is not a remote a file
+     */
+    SFTPClientData* GetRemoteData() const override;
+
 private:
     void UpdateLineNumberMarginWidth();
     void DoUpdateTLWTitle(bool raise);
     void DoWrapPrevSelectionWithChars(wxChar first, wxChar last);
-    void DoUpdateOptions();
     int GetFirstSingleLineCommentPos(int from, int commentStyle);
+    void DoSelectRange(const LSP::Range& range);
+
+    /**
+     * @brief set the zoom factor
+     */
+    void SetZoomFactor(int zoom_factor);
+
     /**
      * @brief return number of whitespace characters in the beginning of the line
      */
@@ -1011,10 +1122,9 @@ private:
 
     wxFontEncoding DetectEncoding(const wxString& filename);
     void DoToggleFold(int line, const wxString& textTag);
-    
+
     // Line numbers drawings
-    void DoUpdateRelativeLineNumbers();
-    void DoUpdateLineNumbers();
+    void DoUpdateLineNumbers(bool relative_numbers);
     void UpdateLineNumbers();
 
     // Event handlers
@@ -1050,6 +1160,7 @@ private:
     void OnDragStart(wxStyledTextEvent& e);
     void OnDragEnd(wxStyledTextEvent& e);
     void DoSetCaretAt(long pos);
+    static void DoSetCaretAt(wxStyledTextCtrl* ctrl, long pos);
     void OnFileFormatDone(wxCommandEvent& e);
     void OnFileFormatStarting(wxCommandEvent& e);
     void OnTimer(wxTimerEvent& event);

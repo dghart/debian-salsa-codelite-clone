@@ -25,16 +25,17 @@
 #ifndef LEXER_CONFIGURATION_H
 #define LEXER_CONFIGURATION_H
 
-#include "wx/string.h"
-#include "wx/filename.h"
-#include "attribute_style.h"
-#include "wx/xml/xml.h"
-#include <wx/font.h>
-#include "codelite_exports.h"
-#include <wx/stc/stc.h>
-#include <wx/sharedptr.h>
-#include <smart_ptr.h>
 #include "JSON.h"
+#include "attribute_style.h"
+#include "codelite_exports.h"
+#include "wx/filename.h"
+#include "wx/string.h"
+#include "wx/xml/xml.h"
+
+#include <smart_ptr.h>
+#include <wx/font.h>
+#include <wx/sharedptr.h>
+#include <wx/stc/stc.h>
 
 #define ANNOTATION_STYLE_WARNING 210
 #define ANNOTATION_STYLE_ERROR 211
@@ -49,6 +50,11 @@ class WXDLLIMPEXP_SDK LexerConf
     wxString m_keyWords[10];
     wxString m_themeName;
     size_t m_flags;
+
+    int m_wordSetClassIndex = wxNOT_FOUND;
+    int m_wordSetFunctionsIndex = wxNOT_FOUND;
+    int m_wordSetLocals = wxNOT_FOUND;
+    int m_wordSetOthers = wxNOT_FOUND;
 
 public:
     typedef SmartPtr<LexerConf> Ptr_t;
@@ -106,6 +112,18 @@ public:
      */
     void FromJSON(const JSONItem& json);
 
+    void SetWordSetClassIndex(int wordSetClassIndex) { this->m_wordSetClassIndex = wordSetClassIndex; }
+    int GetWordSetClassIndex() const { return m_wordSetClassIndex; }
+
+    void SetWordSetFunctionsIndex(int wordSetFunctionsIndex) { this->m_wordSetFunctionsIndex = wordSetFunctionsIndex; }
+    void SetWordSetLocalsIndex(int wordSetLocalsIndex) { this->m_wordSetLocals = wordSetLocalsIndex; }
+
+    void SetWordSetOthersIndex(int othersIndex) { this->m_wordSetOthers = othersIndex; }
+    int GetWordSetOthersIndex() const { return m_wordSetOthers; }
+
+    int GetWordSetFunctionsIndex() const { return m_wordSetFunctionsIndex; }
+    int GetWordSetLocalsIndex() const { return m_wordSetLocals; }
+
 public:
     LexerConf();
     virtual ~LexerConf();
@@ -129,6 +147,11 @@ public:
      * wxStyledTextCtrl
      */
     void Apply(wxStyledTextCtrl* ctrl, bool applyKeywords = false);
+
+    /**
+     * @brief similar to `Apply`, but use the system colours instead of the theme colours
+     */
+    void ApplySystemColours(wxStyledTextCtrl* ctrl);
 
     /**
      * Get the lexer ID, which should be in sync with values of Scintilla

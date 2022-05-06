@@ -23,6 +23,7 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
+#include "reconcileproject.h"
 #include "VirtualDirectorySelectorDlg.h"
 #include "clFilesCollector.h"
 #include "event_notifier.h"
@@ -31,7 +32,6 @@
 #include "globals.h"
 #include "imanager.h"
 #include "manager.h"
-#include "reconcileproject.h"
 #include "tree_node.h"
 #include "windowattrmanager.h"
 #include "workspace.h"
@@ -97,20 +97,24 @@ bool ReconcileProjectDlg::LoadData()
 {
     ReconcileProjectFiletypesDlg dlg(clMainFrame::Get(), m_projname);
     dlg.SetData();
-    if(dlg.ShowModal() != wxID_OK) { return false; }
+    if(dlg.ShowModal() != wxID_OK) {
+        return false;
+    }
     wxString toplevelDir, filespec, ignorefilespec;
     wxArrayString excludeFolders, regexes;
     dlg.GetData(toplevelDir, filespec, ignorefilespec, excludeFolders, regexes);
     m_regexes = regexes;
 
     wxDir dir(toplevelDir);
-    if(!dir.IsOpened()) { return false; }
+    if(!dir.IsOpened()) {
+        return false;
+    }
 
     m_toplevelDir = toplevelDir;
 
     m_allfiles.clear();
     {
-        wxBusyInfo wait("Searching for files...", this);
+        wxBusyInfo wait(_("Searching for files..."), this);
         wxSafeYield();
 
         clFilesScanner scanner;
@@ -138,7 +142,7 @@ void ReconcileProjectDlg::DistributeFiles(bool usingAutoallocate)
 {
     VirtualDirectoryTree vdTree;
     wxArrayString selectedFiles;
-    bool onlySelections;
+    bool onlySelections = false;
 
     if(usingAutoallocate) {
         vdTree.BuildTree(m_projname);
@@ -195,15 +199,15 @@ void ReconcileProjectDlg::DistributeFiles(bool usingAutoallocate)
                 bool attemptAllocation(true);
                 // First see if we should only process selected files and, if so, was this file selected
                 if(onlySelections) {
-                    if(selectedFiles.Index(fn.GetFullPath()) == wxNOT_FOUND) { attemptAllocation = false; }
+                    if(selectedFiles.Index(fn.GetFullPath()) == wxNOT_FOUND) {
+                        attemptAllocation = false;
+                    }
                 }
 
                 if(attemptAllocation) {
                     wxString virtualFolder = vdTree.FindBestMatchVDir(fn.GetPath(), fn.GetExt());
-                    if(virtualFolder.empty() && fn.GetPath().empty()) {
-                        virtualFolder = m_projname; // This must be a top-level file
-                    }
                     if(!virtualFolder.empty()) {
+                        wxASSERT_MSG(virtualFolder.find(':') != wxNOT_FOUND, "Invalid virtual folder");
                         wxVector<wxVariant> cols;
                         cols.push_back(::MakeIconText(fn.GetFullPath(), GetBitmap(filename)));
                         cols.push_back(virtualFolder);
@@ -258,7 +262,9 @@ wxArrayString ReconcileProjectDlg::RemoveStaleFiles(const wxArrayString& StaleFi
         wxString vdPath = StaleFiles[n].Left(index);
         wxString filepath = StaleFiles[n].Mid(index + 2);
 
-        if(proj->RemoveFile(filepath, vdPath)) { removals.Add(StaleFiles[n]); }
+        if(proj->RemoveFile(filepath, vdPath)) {
+            removals.Add(StaleFiles[n]);
+        }
     }
 
     return removals;
@@ -287,7 +293,9 @@ wxArrayString ReconcileProjectDlg::AddMissingFiles(const wxArrayString& files, c
     VD = VD.AfterFirst(':'); // Remove the projectname
 
     for(size_t n = 0; n < files.GetCount(); ++n) {
-        if(proj->FastAddFile(files[n], VD)) { additions.Add(files[n]); }
+        if(proj->FastAddFile(files[n], VD)) {
+            additions.Add(files[n]);
+        }
     }
 
     return additions;
@@ -312,7 +320,9 @@ void ReconcileProjectDlg::DoFindFiles()
     });
 
     std::for_each(m_allfiles.begin(), m_allfiles.end(), [&](const wxString& file) {
-        if(projectfilesSet.count(file) == 0) { m_newfiles.insert(file); }
+        if(projectfilesSet.count(file) == 0) {
+            m_newfiles.insert(file);
+        }
     });
 }
 
@@ -366,7 +376,9 @@ bool ReconcileProjectDlg::GuessNewVirtualDirName(wxString& suggestedPath, wxStri
 {
     wxDataViewItemArray items;
     m_dvListCtrl1Unassigned->GetSelections(items);
-    if(!items.GetCount()) { return false; }
+    if(!items.GetCount()) {
+        return false;
+    }
 
     // Test only the first item. For this to be useful, all the selections must have the same destination anyway
     wxVariant v;
@@ -383,7 +395,9 @@ bool ReconcileProjectDlg::GuessNewVirtualDirName(wxString& suggestedPath, wxStri
     wxString pathSegments(fn.GetPath());
     pathSegments.Replace(wxFILE_SEP_PATH, ":");
 
-    if(pathSegments.empty()) { return true; } // This must be a top-level file
+    if(pathSegments.empty()) {
+        return true;
+    } // This must be a top-level file
 
     VirtualDirectoryTree vdTree;
     vdTree.BuildTree(m_projname);
@@ -480,7 +494,9 @@ void ReconcileProjectDlg::OnDeleteStaleFiles(wxCommandEvent& event)
     for(size_t i = 0; i < items.GetCount(); ++i) {
         ReconcileFileItemData* data =
             dynamic_cast<ReconcileFileItemData*>(m_dataviewStaleFilesModel->GetClientObject(items.Item(i)));
-        if(data) { proj->RemoveFile(data->GetFilename(), data->GetVirtualFolder()); }
+        if(data) {
+            proj->RemoveFile(data->GetFilename(), data->GetVirtualFolder());
+        }
         m_projectModified = true;
     }
     proj->CommitTranscation();
@@ -541,7 +557,9 @@ void ReconcileProjectDlg::OnApply(wxCommandEvent& event)
         }
         wxArrayString additions = AddMissingFiles(vdFiles, *iter);
 
-        if(additions.GetCount()) { m_projectModified = true; }
+        if(additions.GetCount()) {
+            m_projectModified = true;
+        }
         // We must also remove the processed files from m_newfiles, otherwise a rerun of the wizard will offer them for
         // insertion again
         for(size_t n = 0; n < additions.GetCount(); ++n) {
@@ -575,7 +593,8 @@ void ReconcileProjectDlg::OnDeleteSelectedNewFiles(wxCommandEvent& e)
 {
     wxDataViewItemArray items;
     m_dvListCtrl1Unassigned->GetSelections(items);
-    if(items.IsEmpty()) return;
+    if(items.IsEmpty())
+        return;
 
     wxString msg;
     if(items.GetCount() > 1) {
@@ -584,14 +603,18 @@ void ReconcileProjectDlg::OnDeleteSelectedNewFiles(wxCommandEvent& e)
         msg = wxString::Format(_("Delete the selected file from the filesystem?"));
     }
 
-    if(::wxMessageBox(msg, "CodeLite", wxICON_WARNING | wxYES_NO, this) != wxYES) { return; }
+    if(::wxMessageBox(msg, "CodeLite", wxICON_WARNING | wxYES_NO, this) != wxYES) {
+        return;
+    }
 
     int successes(0);
     for(size_t n = 0; n < items.GetCount(); ++n) {
         wxVariant v;
         int row = m_dvListCtrl1Unassigned->GetStore()->GetRow(items.Item(n));
         m_dvListCtrl1Unassigned->GetValue(v, row, 0);
-        if(v.IsNull()) { continue; }
+        if(v.IsNull()) {
+            continue;
+        }
 
         wxDataViewIconText iv;
         iv << v;
@@ -611,8 +634,8 @@ ReconcileProjectFiletypesDlg::ReconcileProjectFiletypesDlg(wxWindow* parent, con
     : ReconcileProjectFiletypesDlgBaseClass(parent)
     , m_projname(projname)
 {
-    m_listCtrlRegexes->AppendColumn("Regex");
-    m_listCtrlRegexes->AppendColumn("Virtual Directory");
+    m_listCtrlRegexes->AppendColumn(_("Regex"));
+    m_listCtrlRegexes->AppendColumn(_("Virtual Directory"));
 
     ::clSetDialogBestSizeAndPosition(this);
 }
@@ -628,12 +651,18 @@ void ReconcileProjectFiletypesDlg::SetData()
     wxArrayString ignorefiles, excludes, regexes;
     proj->GetReconciliationData(topleveldir, types, ignorefiles, excludes, regexes);
 
-    if(topleveldir.empty()) { topleveldir = proj->GetFileName().GetPath(); }
+    if(topleveldir.empty()) {
+        topleveldir = proj->GetFileName().GetPath();
+    }
     wxFileName tld(topleveldir);
-    if(tld.IsRelative()) { tld.MakeAbsolute(proj->GetFileName().GetPath()); }
+    if(tld.IsRelative()) {
+        tld.MakeAbsolute(proj->GetFileName().GetPath());
+    }
     m_dirPickerToplevel->SetPath(tld.GetFullPath());
 
-    if(types.empty()) { types << "cpp;c;h;hpp;xrc;wxcp;fbp"; }
+    if(types.empty()) {
+        types << "cpp;c;h;hpp;xrc;wxcp;fbp";
+    }
     m_textExtensions->ChangeValue(types);
 
     m_listIgnoreFiles->Clear();
@@ -661,7 +690,9 @@ void ReconcileProjectFiletypesDlg::GetData(wxString& toplevelDir, wxString& type
     wxArrayString typesArr = ::wxStringTokenize(types, "|,;", wxTOKEN_STRTOK);
     for(size_t i = 0; i < typesArr.size(); ++i) {
         wxString& fileExt = typesArr.Item(i);
-        if(!fileExt.StartsWith("*")) { fileExt.Prepend("*."); }
+        if(!fileExt.StartsWith("*")) {
+            fileExt.Prepend("*.");
+        }
     }
     types = wxJoin(typesArr, ';');
 
@@ -670,10 +701,14 @@ void ReconcileProjectFiletypesDlg::GetData(wxString& toplevelDir, wxString& type
 
     // Fix the exclude paths. First make absolute
     wxString tld(toplevelDir);
-    if(tld.Last() != wxFILE_SEP_PATH) { tld << wxFILE_SEP_PATH; }
+    if(tld.Last() != wxFILE_SEP_PATH) {
+        tld << wxFILE_SEP_PATH;
+    }
     for(size_t i = 0; i < rawExcludePaths.size(); ++i) {
         wxString& path = rawExcludePaths.Item(i);
-        if(!path.StartsWith(wxFILE_SEP_PATH)) { path.Prepend(tld); }
+        if(!path.StartsWith(wxFILE_SEP_PATH)) {
+            path.Prepend(tld);
+        }
         // Now fix any symlinks in the path and add to the array
         excludePaths.Add(CLRealPath(path));
     }
@@ -715,22 +750,30 @@ void ReconcileProjectFiletypesDlg::OnIgnoreBrowse(wxCommandEvent& WXUNUSED(event
     wxArrayString ignorefiles, excludes, regexes;
     proj->GetReconciliationData(topleveldir, types, ignorefiles, excludes, regexes);
 
-    if(topleveldir.empty()) { topleveldir = proj->GetFileName().GetPath(); }
+    if(topleveldir.empty()) {
+        topleveldir = proj->GetFileName().GetPath();
+    }
 
     wxFileName tld(topleveldir);
-    if(tld.IsRelative()) { tld.MakeAbsolute(proj->GetFileName().GetPath()); }
+    if(tld.IsRelative()) {
+        tld.MakeAbsolute(proj->GetFileName().GetPath());
+    }
     wxString new_exclude = wxDirSelector(_("Select a directory to ignore:"), tld.GetFullPath(), wxDD_DEFAULT_STYLE,
                                          wxDefaultPosition, this);
 
     if(!new_exclude.empty()) {
-        if(m_listExclude->FindString(new_exclude) == wxNOT_FOUND) { m_listExclude->Append(new_exclude); }
+        if(m_listExclude->FindString(new_exclude) == wxNOT_FOUND) {
+            m_listExclude->Append(new_exclude);
+        }
     }
 }
 
 void ReconcileProjectFiletypesDlg::OnIgnoreRemove(wxCommandEvent& WXUNUSED(event))
 {
     int sel = m_listExclude->GetSelection();
-    if(sel != wxNOT_FOUND) { m_listExclude->Delete(sel); }
+    if(sel != wxNOT_FOUND) {
+        m_listExclude->Delete(sel);
+    }
 }
 
 void ReconcileProjectFiletypesDlg::OnIgnoreRemoveUpdateUI(wxUpdateUIEvent& event)
@@ -740,16 +783,20 @@ void ReconcileProjectFiletypesDlg::OnIgnoreRemoveUpdateUI(wxUpdateUIEvent& event
 
 void ReconcileProjectFiletypesDlg::OnIgnoreFileBrowse(wxCommandEvent& WXUNUSED(event))
 {
-    wxString name = wxGetTextFromUser("Enter the filename to ignore e.g. foo*.cpp", _("CodeLite"), "", this);
+    wxString name = wxGetTextFromUser(_("Enter the filename to ignore e.g. foo*.cpp"), _("CodeLite"), "", this);
     if(!name.empty()) {
-        if(m_listIgnoreFiles->FindString(name) == wxNOT_FOUND) { m_listIgnoreFiles->Append(name); }
+        if(m_listIgnoreFiles->FindString(name) == wxNOT_FOUND) {
+            m_listIgnoreFiles->Append(name);
+        }
     }
 }
 
 void ReconcileProjectFiletypesDlg::OnIgnoreFileRemove(wxCommandEvent& WXUNUSED(event))
 {
     int sel = m_listIgnoreFiles->GetSelection();
-    if(sel != wxNOT_FOUND) { m_listIgnoreFiles->Delete(sel); }
+    if(sel != wxNOT_FOUND) {
+        m_listIgnoreFiles->Delete(sel);
+    }
 }
 
 void ReconcileProjectFiletypesDlg::OnIgnoreFileRemoveUpdateUI(wxUpdateUIEvent& event)
@@ -760,7 +807,9 @@ void ReconcileProjectFiletypesDlg::OnIgnoreFileRemoveUpdateUI(wxUpdateUIEvent& e
 void ReconcileProjectFiletypesDlg::OnAddRegex(wxCommandEvent& event)
 {
     ReconcileByRegexDlg dlg(this, m_projname);
-    if(dlg.ShowModal() == wxID_OK) { SetRegex(dlg.GetRegex()); }
+    if(dlg.ShowModal() == wxID_OK) {
+        SetRegex(dlg.GetRegex());
+    }
 }
 
 void ReconcileProjectFiletypesDlg::OnRemoveRegex(wxCommandEvent& event)
@@ -768,7 +817,9 @@ void ReconcileProjectFiletypesDlg::OnRemoveRegex(wxCommandEvent& event)
     wxUnusedVar(event);
 
     long selecteditem = m_listCtrlRegexes->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    if(selecteditem != wxNOT_FOUND) { m_listCtrlRegexes->DeleteItem(selecteditem); }
+    if(selecteditem != wxNOT_FOUND) {
+        m_listCtrlRegexes->DeleteItem(selecteditem);
+    }
 }
 
 void ReconcileProjectFiletypesDlg::OnRemoveRegexUpdateUI(wxUpdateUIEvent& event)
@@ -789,14 +840,18 @@ ReconcileByRegexDlg::~ReconcileByRegexDlg() {}
 
 void ReconcileByRegexDlg::OnTextEnter(wxCommandEvent& event)
 {
-    if(m_buttonOK->IsEnabled()) { EndModal(wxID_OK); }
+    if(m_buttonOK->IsEnabled()) {
+        EndModal(wxID_OK);
+    }
 }
 
 void ReconcileByRegexDlg::OnVDBrowse(wxCommandEvent& WXUNUSED(event))
 {
     VirtualDirectorySelectorDlg selector(this, clCxxWorkspaceST::Get(), m_textCtrlVirtualFolder->GetValue(),
                                          m_projname);
-    if(selector.ShowModal() == wxID_OK) { m_textCtrlVirtualFolder->ChangeValue(selector.GetVirtualDirectoryPath()); }
+    if(selector.ShowModal() == wxID_OK) {
+        m_textCtrlVirtualFolder->ChangeValue(selector.GetVirtualDirectoryPath());
+    }
 }
 
 void ReconcileByRegexDlg::OnRegexOKCancelUpdateUI(wxUpdateUIEvent& event)
@@ -837,10 +892,14 @@ void VirtualDirectoryTree::BuildTree(const wxString& projName)
 VirtualDirectoryTree* VirtualDirectoryTree::FindParent(const wxString& vdChildPath)
 {
     if(!vdChildPath.empty()) {
-        if(m_vdPath == vdChildPath) { return this; }
+        if(m_vdPath == vdChildPath) {
+            return this;
+        }
         for(size_t n = 0; n < m_children.size(); ++n) {
             VirtualDirectoryTree* item = m_children[n]->FindParent(vdChildPath);
-            if(item) { return item; }
+            if(item) {
+                return item;
+            }
         }
     }
 
@@ -862,7 +921,9 @@ wxString VirtualDirectoryTree::FindBestMatchVDir(const wxString& path, const wxS
     // Try all children first
     for(size_t n = 0; n < m_children.size(); ++n) {
         wxString vdir = m_children[n]->FindBestMatchVDir(path, ext);
-        if(!vdir.empty()) { return vdir; }
+        if(!vdir.empty()) {
+            return vdir;
+        }
     }
 
     // Now try here. If there's an exact match, we're the correct one _unless_ there's a src/header/resource immediate
@@ -875,15 +936,21 @@ wxString VirtualDirectoryTree::FindBestMatchVDir(const wxString& path, const wxS
         for(size_t c = 0; c < m_children.size(); ++c) {
             wxString childname = m_children[c]->GetDisplayname();
             if(IsSourceVD(childname.Lower())) {
-                if(ext == "cpp" || ext == "c" || ext == "cc") { return m_children[c]->GetVPath(); }
+                if(ext == "cpp" || ext == "c" || ext == "cc") {
+                    return m_children[c]->GetVPath();
+                }
             }
 
             if(IsHeaderVD(childname.Lower())) {
-                if(ext == "h" || ext == "hpp" || ext == "hh") { return m_children[c]->GetVPath(); }
+                if(ext == "h" || ext == "hpp" || ext == "hh") {
+                    return m_children[c]->GetVPath();
+                }
             }
 
             if(IsResourceVD(childname.Lower())) {
-                if(ext == "rc") { return m_children[c]->GetVPath(); }
+                if(ext == "rc") {
+                    return m_children[c]->GetVPath();
+                }
             }
         }
 

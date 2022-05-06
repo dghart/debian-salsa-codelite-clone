@@ -24,12 +24,19 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "navigationmanager.h"
 
-NavMgr::NavMgr()
-    : m_cur(0)
-{
-}
+#include "codelite_events.h"
+#include "event_notifier.h"
+#include "ieditor.h"
 
-NavMgr::~NavMgr() { Clear(); }
+#include <wx/stc/stc.h>
+
+NavMgr::NavMgr() { EventNotifier::Get()->Bind(wxEVT_WORKSPACE_CLOSED, &NavMgr::OnWorkspaceClosed, this); }
+
+NavMgr::~NavMgr()
+{
+    EventNotifier::Get()->Unbind(wxEVT_WORKSPACE_CLOSED, &NavMgr::OnWorkspaceClosed, this);
+    Clear();
+}
 
 NavMgr* NavMgr::Get()
 {
@@ -39,8 +46,8 @@ NavMgr* NavMgr::Get()
 
 void NavMgr::Clear()
 {
-    m_cur = 0;
-    m_jumps.clear();
+    m_prevs = {};
+    m_nexts = {};
 }
 
 bool NavMgr::ValidLocation(const BrowseRecord& rec) const
@@ -50,38 +57,62 @@ bool NavMgr::ValidLocation(const BrowseRecord& rec) const
     return (!rec.filename.IsEmpty()) && (rec.lineno > 1);
 }
 
-bool NavMgr::CanNext() const { return m_cur + 1 < m_jumps.size(); }
+bool NavMgr::CanNext() const { return !m_nexts.empty(); }
 
-bool NavMgr::CanPrev() const { return m_cur > 0; }
+bool NavMgr::CanPrev() const { return !m_prevs.empty(); }
 
-BrowseRecord NavMgr::GetNext() { return CanNext() ? m_jumps[++m_cur] : BrowseRecord(); }
-
-BrowseRecord NavMgr::GetPrev() { return CanPrev() ? m_jumps[--m_cur] : BrowseRecord(); }
-
-void NavMgr::AddJump(const BrowseRecord& from, const BrowseRecord& to)
+void NavMgr::StoreCurrentLocation(const BrowseRecord& origin, const BrowseRecord& target)
 {
-    if(ValidLocation(from)) {
-        // keep previous location only if it's not at position 0, and it is not equal to from
-        if((m_cur > 0) && (!((m_jumps[m_cur].filename == from.filename) && (m_jumps[m_cur].lineno == from.lineno)))) {
-            m_cur++;
-        }
-        m_jumps.resize(m_cur);
-        m_jumps.push_back(from);
+    if(m_prevs.empty() || !m_prevs.top().IsSameAs(origin)) {
+        m_prevs.push(origin);
     }
-    if(ValidLocation(to)) {
-        // only add if there's an actual jump
-        if (!m_jumps.empty()) {
-            if (!((m_jumps[m_cur].filename == to.filename) && (m_jumps[m_cur].lineno == to.lineno))) {
-                m_cur++;
-                m_jumps.resize(m_cur);
-                m_jumps.push_back(to);
-            } else if (m_jumps[m_cur].position != to.position) {
-                m_jumps[m_cur] = to;
-            }
-        }
-    }
+    m_currentLocation = target;
 }
 
-bool NavMgr::NavigateBackward(IManager* mgr) { return CanPrev() && mgr->OpenFile(GetPrev()); }
+bool NavMgr::NavigateBackward(IManager* mgr)
+{
+    if(!CanPrev()) {
+        return false;
+    }
 
-bool NavMgr::NavigateForward(IManager* mgr) { return CanNext() && mgr->OpenFile(GetNext()); }
+    auto new_loc = m_prevs.top();
+    m_prevs.pop();
+    if(m_currentLocation.IsOk()) {
+        m_nexts.push(m_currentLocation);
+    }
+    m_currentLocation = new_loc;
+
+    auto callback = [=](IEditor* editor) {
+        editor->GetCtrl()->ClearSelections();
+        editor->CenterLine(new_loc.lineno, new_loc.column);
+    };
+    mgr->OpenFileAndAsyncExecute(new_loc.filename, std::move(callback));
+    return true;
+}
+
+bool NavMgr::NavigateForward(IManager* mgr)
+{
+    if(!CanNext()) {
+        return false;
+    }
+
+    auto new_loc = m_nexts.top();
+    m_nexts.pop();
+    if(m_currentLocation.IsOk()) {
+        m_prevs.push(m_currentLocation);
+    }
+    m_currentLocation = new_loc;
+
+    auto callback = [=](IEditor* editor) {
+        editor->GetCtrl()->ClearSelections();
+        editor->CenterLine(new_loc.lineno, new_loc.column);
+    };
+    mgr->OpenFileAndAsyncExecute(new_loc.filename, std::move(callback));
+    return true;
+}
+
+void NavMgr::OnWorkspaceClosed(clWorkspaceEvent& e)
+{
+    e.Skip();
+    Clear();
+}

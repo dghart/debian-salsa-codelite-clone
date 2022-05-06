@@ -18,7 +18,7 @@ DesignerContainerPanel::DesignerContainerPanel(wxWindow* parent)
     Bind(wxEVT_SIZE, &DesignerContainerPanel::OnSize, this);
     wxBoxSizer* sz = new wxBoxSizer(wxVERTICAL);
     SetSizer(sz);
-    SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE));
+    SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
 }
 
 DesignerContainerPanel::~DesignerContainerPanel() { Unbind(wxEVT_SIZE, &DesignerContainerPanel::OnSize, this); }
@@ -62,18 +62,6 @@ void DesignerContainerPanel::AddMainView(wxPanel* panel)
     m_height += m_mainPanel->GetSize().GetHeight();
 
     DoConnectCharEvent(this);
-}
-
-void DesignerContainerPanel::Clear()
-{
-    m_windows.clear();
-    if(m_mainPanel) { m_mainPanel->Hide(); }
-    GetSizer()->Clear(true);
-    m_mainPanel = NULL;
-    m_height = -1;
-    m_width = -1;
-    m_topLevelType = ID_WXPANEL_TOPLEVEL;
-    m_caption = NULL;
 }
 
 void DesignerContainerPanel::CalcBestSize(int winType)

@@ -30,7 +30,6 @@
 #include <wx/scrolwin.h>
 #include "designer_panel.h"
 #include <wx/stc/stc.h>
-#include <wx/infobar.h>
 #include <wx/propgrid/manager.h>
 #include <wx/dialog.h>
 #include <wx/stattext.h>
@@ -41,7 +40,6 @@
 #include <wx/checkbox.h>
 #include <wx/bitmap.h>
 #include <wx/icon.h>
-#include <wx/commandlinkbutton.h>
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -65,9 +63,9 @@ class MainFrameBase : public wxFrame
 public:
     enum {
         ID_CUSTOM_CONTROL_DELETE = 1001,
-        ID_CUSTOM_CONTROL_NEW = 1002,
-        ID_BATCH_GENERATE_CODE = 1003,
-        ID_CUSTOM_CONTROL_EDIT = 1004,
+        ID_CUSTOM_CONTROL_EDIT = 1002,
+        ID_CUSTOM_CONTROL_NEW = 1003,
+        ID_BATCH_GENERATE_CODE = 1004,
         ID_GENERATE_CODE = 1005,
     };
 
@@ -131,6 +129,7 @@ protected:
     virtual void OnBatchGenerateCode(wxCommandEvent& event) { event.Skip(); }
     virtual void OnBatchGenerateCodeUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnSwitchToCodeliteUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnSwitchToCodelite(wxCommandEvent& event) { event.Skip(); }
     virtual void OnPreview(wxCommandEvent& event) { event.Skip(); }
     virtual void OnPreviewUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnDeleteItem(wxCommandEvent& event) { event.Skip(); }
@@ -173,11 +172,6 @@ public:
 
 class GUICraftMainPanelBase : public wxPanel
 {
-public:
-    enum {
-        ID_DOWNLOAD = 1001,
-    };
-
 protected:
     wxPanel* m_panelRightSidebar;
     wxSplitterWindow* m_mainSplitter;
@@ -195,7 +189,6 @@ protected:
     wxStyledTextCtrl* m_textCtrlHeaderSource;
     wxPanel* m_xrcNBPage;
     wxStyledTextCtrl* m_textCtrlXrc;
-    wxInfoBar* m_infobarLicense;
     wxPanel* m_panel10;
     wxNotebook* m_notebook2;
     wxPanel* m_pageProps;
@@ -210,8 +203,6 @@ protected:
 protected:
     virtual void OnPageChanged(wxBookCtrlEvent& event) { event.Skip(); }
     virtual void OnCppBookPageChanged(wxBookCtrlEvent& event) { event.Skip(); }
-    virtual void OnRegisterWxCrafter(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnCloseLicenseMessage(wxCommandEvent& event) { event.Skip(); }
     virtual void OnStylesChanged(wxPropertyGridEvent& event) { event.Skip(); }
     virtual void OnSizerFlagsChanged(wxPropertyGridEvent& event) { event.Skip(); }
     virtual void OnSizerFlagsUpdateUI(wxUpdateUIEvent& event) { event.Skip(); }
@@ -231,7 +222,6 @@ public:
     wxStyledTextCtrl* GetTextCtrlXrc() { return m_textCtrlXrc; }
     wxPanel* GetXrcNBPage() { return m_xrcNBPage; }
     OutputNBook* GetMainBook() { return m_mainBook; }
-    wxInfoBar* GetInfobarLicense() { return m_infobarLicense; }
     wxPanel* GetPanelDesigner() { return m_panelDesigner; }
     wxPanel* GetPanelProperties() { return m_panelProperties; }
     wxPanel* GetPageProps() { return m_pageProps; }
@@ -331,7 +321,6 @@ class wxcSettingsDlgBase : public wxDialog
 {
 protected:
     wxCheckBox* m_checkBoxUseTRay;
-    wxCheckBox* m_checkBoxSizersAsMembers;
     wxCheckBox* m_checkBoxFormatInheritedFiles;
     wxStaticText* m_staticText215;
     wxCheckBox* m_checkBoxKeepAllUsersetNames;
@@ -347,7 +336,6 @@ protected:
 
 public:
     wxCheckBox* GetCheckBoxUseTRay() { return m_checkBoxUseTRay; }
-    wxCheckBox* GetCheckBoxSizersAsMembers() { return m_checkBoxSizersAsMembers; }
     wxCheckBox* GetCheckBoxFormatInheritedFiles() { return m_checkBoxFormatInheritedFiles; }
     wxStaticText* GetStaticText215() { return m_staticText215; }
     wxCheckBox* GetCheckBoxKeepAllUsersetNames() { return m_checkBoxKeepAllUsersetNames; }
@@ -388,35 +376,14 @@ public:
     wxcImages();
     const wxBitmap& Bitmap(const wxString& name) const
     {
-        if(!m_bitmaps.count(name + m_resolution)) return wxNullBitmap;
+        if(!m_bitmaps.count(name + m_resolution))
+            return wxNullBitmap;
         return m_bitmaps.find(name + m_resolution)->second;
     }
 
     void SetBitmapResolution(const wxString& res = wxEmptyString) { m_resolution = res; }
 
     virtual ~wxcImages();
-};
-
-class FreeTrialVersionDlgBase : public wxDialog
-{
-protected:
-    wxStaticText* m_staticText270;
-    wxCommandLinkButton* m_cmdLnkBtnPurchase;
-    wxCommandLinkButton* m_cmdLnkBtnCancel;
-
-protected:
-    virtual void OnPurchase(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnTrial(wxCommandEvent& event) { event.Skip(); }
-
-public:
-    wxStaticText* GetStaticText270() { return m_staticText270; }
-    wxCommandLinkButton* GetCmdLnkBtnPurchase() { return m_cmdLnkBtnPurchase; }
-    wxCommandLinkButton* GetCmdLnkBtnCancel() { return m_cmdLnkBtnCancel; }
-    FreeTrialVersionDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY,
-                            const wxString& title = _("This is an unregistered copy of wxCrafter"),
-                            const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
-                            long style = wxDEFAULT_DIALOG_STYLE);
-    virtual ~FreeTrialVersionDlgBase();
 };
 
 #endif

@@ -23,8 +23,10 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "LLDBSettingDialog.h"
+#include "ColoursAndFontsManager.h"
 #include "LLDBProtocol/LLDBSettings.h"
+#include "LLDBSettingDialog.h"
+#include "globals.h"
 #include "windowattrmanager.h"
 
 LLDBSettingDialog::LLDBSettingDialog(wxWindow* parent)
@@ -33,6 +35,9 @@ LLDBSettingDialog::LLDBSettingDialog(wxWindow* parent)
 {
     LLDBSettings settings;
     settings.Load();
+
+    // keep the full path
+    m_pgPropDebugServer->SetAttribute("ShowFullPath", 1);
 
     m_pgPropArraySize->SetValue((int)settings.GetMaxArrayElements());
     m_pgPropCallStackSize->SetValue((int)settings.GetMaxCallstackFrames());
@@ -46,7 +51,11 @@ LLDBSettingDialog::LLDBSettingDialog(wxWindow* parent)
     m_stcTypes->SetText(settings.GetTypes());
     m_stcTypes->SetModified(false);
     SetName("LLDBSettingDialog");
-    WindowAttrManager::Load(this);
+    auto lexer = ColoursAndFontsManager::Get().GetLexer("text");
+    if(lexer) {
+        lexer->Apply(m_stcTypes);
+    }
+    ::clSetDialogBestSizeAndPosition(this);
 }
 
 LLDBSettingDialog::~LLDBSettingDialog() {}

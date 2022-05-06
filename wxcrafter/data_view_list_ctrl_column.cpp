@@ -33,7 +33,7 @@ DataViewListCtrlColumn::DataViewListCtrlColumn()
     cellType.Add("wxDATAVIEW_CELL_EDITABLE");
 
     AddProperty(new CategoryProperty(_("wxDataViewListCtrl Column")));
-    AddProperty(new StringProperty(PROP_NAME, wxT("My Column"), _("Column Caption")));
+    AddProperty(new StringProperty(PROP_NAME, _("My Column"), _("Column Caption")));
     AddProperty(new StringProperty(PROP_WIDTH, wxT("-2"),
                                    _("Column Width (in pixels)\n-1 - special value for column width meaning "
                                      "unspecified/default\n-2 - size the column automatically to fit all values")));
@@ -118,7 +118,7 @@ void DataViewListCtrlColumn::ToXRC(wxString& text, XRC_TYPE type) const
              << PropertyString(PROP_DV_LISTCTRL_COL_TYPES) << wxT("</coltype>") << wxT("<width>")
              << PropertyString(PROP_WIDTH) << wxT("</width>") << wxT("<label>") << wxCrafter::CDATA(GetName())
              << wxT("</label>") << wxT("<align>") << PropertyString(PROP_DV_LISTCTRL_COL_ALIGN) << wxT("</align>")
-             << wxT("<cellmode>") << PropertyString(PROP_DV_CELLMODE) << wxT("</cellmode>") << "<choices>"
-             << PropertyString(PROP_OPTIONS) << "</choices>" << wxT("</object>");
+             << wxT("<cellmode>") << PropertyString(PROP_DV_CELLMODE) << wxT("</cellmode>") << wxT("<choices>")
+             << wxCrafter::XMLEncode(PropertyString(PROP_OPTIONS)) << wxT("</choices>") << wxT("</object>");
     }
 }

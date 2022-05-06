@@ -1,5 +1,7 @@
-#include "cLToolBarControl.h"
 #include "clToolBar.h"
+
+#include "cLToolBarControl.h"
+#include "clSystemSettings.h"
 #include "clToolBarButton.h"
 #include "clToolBarButtonBase.h"
 #include "clToolBarMenuButton.h"
@@ -12,6 +14,7 @@
 #include "drawingutils.h"
 #include "event_notifier.h"
 #include "globals.h"
+
 #include <algorithm>
 #include <wx/dcbuffer.h>
 #include <wx/dcmemory.h>
@@ -25,18 +28,13 @@ clToolBar::clToolBar(wxWindow* parent, wxWindowID winid, const wxPoint& pos, con
                      const wxString& name)
     : wxPanel(parent, winid, pos, size, style, name)
     , m_popupShown(false)
-    , m_flags(0)
+    , m_flags(kMiniToolBar)
 {
     SetGroupSpacing(30);
-    m_bgColour = DrawingUtils::GetPanelBgColour();
-    m_useCustomBgColour = clConfig::Get().Read("UseCustomBaseColour", m_useCustomBgColour);
-    if(m_useCustomBgColour) {
-        m_bgColour = clConfig::Get().Read("BaseColour", m_bgColour);
-    }
+    m_bgColour = clSystemSettings::GetDefaultPanelColour();
 
     SetGroupSpacing(50);
     SetBackgroundStyle(wxBG_STYLE_PAINT);
-    SetMiniToolBar(true);
 
     Bind(wxEVT_PAINT, &clToolBar::OnPaint, this);
     Bind(wxEVT_ERASE_BACKGROUND, &clToolBar::OnEraseBackground, this);
@@ -57,7 +55,7 @@ clToolBar::clToolBar(wxWindow* parent, wxWindowID winid, const wxPoint& pos, con
         }
     });
 
-    m_bgColour = DrawingUtils::GetPanelBgColour();
+    m_bgColour = clSystemSettings::GetDefaultPanelColour();
     EventNotifier::Get()->Bind(wxEVT_CMD_COLOURS_FONTS_UPDATED, &clToolBar::OnColoursChanged, this);
 }
 
@@ -78,15 +76,20 @@ clToolBar::~clToolBar()
         delete m_buttons[i];
     }
     m_buttons.clear();
+    if(m_bitmaps && m_ownedBitmaps) {
+        wxDELETE(m_bitmaps);
+    }
 }
+
 #define CL_TOOL_BAR_CHEVRON_SIZE 16
 
 void clToolBar::OnPaint(wxPaintEvent& event)
 {
     wxUnusedVar(event);
-    wxAutoBufferedPaintDC dc(this);
-    PrepareDC(dc);
-    wxGCDC gcdc(dc);
+    wxGCDC gcdc;
+    wxPaintDC dc(this);
+    DrawingUtils::GetGCDC(dc, gcdc);
+    PrepareDC(gcdc);
 
     m_overflowButtons.clear();
     m_visibleButtons.clear();
@@ -124,9 +127,11 @@ void clToolBar::OnPaint(wxPaintEvent& event)
         m_chevronRect = chevronRect;
     }
 
-    tbBgColour = tbBgColour.ChangeLightness(70);
-    gcdc.SetPen(tbBgColour);
-    gcdc.DrawLine(GetClientRect().GetLeftBottom(), GetClientRect().GetRightBottom());
+    if(!(m_windowStyle & wxTB_NODIVIDER)) {
+        tbBgColour = tbBgColour.ChangeLightness(70);
+        gcdc.SetPen(tbBgColour);
+        gcdc.DrawLine(GetClientRect().GetLeftBottom(), GetClientRect().GetRightBottom());
+    }
 }
 
 void clToolBar::RenderGroup(int& xx, const clToolBar::ToolVect_t& G, wxDC& gcdc, bool isLastGroup)
@@ -310,21 +315,21 @@ void clToolBar::OnLeaveWindow(wxMouseEvent& event)
     }
 }
 
-clToolBarButtonBase* clToolBar::AddButton(wxWindowID id, const wxBitmap& bmp, const wxString& label)
+clToolBarButtonBase* clToolBar::AddButton(wxWindowID id, size_t bitmapIndex, const wxString& label)
 {
-    clToolBarButtonBase* button = new clToolBarButton(this, id, bmp, label);
+    clToolBarButtonBase* button = new clToolBarButton(this, id, bitmapIndex, label);
     return Add(button);
 }
 
-clToolBarButtonBase* clToolBar::AddMenuButton(wxWindowID id, const wxBitmap& bmp, const wxString& label)
+clToolBarButtonBase* clToolBar::AddMenuButton(wxWindowID id, size_t bitmapIndex, const wxString& label)
 {
-    clToolBarButtonBase* button = new clToolBarMenuButton(this, id, bmp, label);
+    clToolBarButtonBase* button = new clToolBarMenuButton(this, id, bitmapIndex, label);
     return Add(button);
 }
 
-clToolBarButtonBase* clToolBar::AddToggleButton(wxWindowID id, const wxBitmap& bmp, const wxString& label)
+clToolBarButtonBase* clToolBar::AddToggleButton(wxWindowID id, size_t bitmapIndex, const wxString& label)
 {
-    clToolBarButtonBase* button = new clToolBarToggleButton(this, id, bmp, label);
+    clToolBarButtonBase* button = new clToolBarToggleButton(this, id, bitmapIndex, label);
     return Add(button);
 }
 
@@ -369,6 +374,9 @@ void clToolBar::ShowMenuForButton(wxWindowID buttonID, wxMenu* menu)
     wxPoint menuPos = button->GetButtonRect().GetBottomLeft();
 #ifdef __WXOSX__
     menuPos.y += 5;
+#else
+    menuPos.y += 2;
+    menuPos.x -= 1;
 #endif
 
     PopupMenu(menu, menuPos);
@@ -489,8 +497,9 @@ void clToolBar::DoShowOverflowMenu()
             // Show all non-control buttons
             wxMenuItem* menuItem = new wxMenuItem(&menu, button->GetId(), button->GetLabel(), button->GetLabel(),
                                                   button->IsToggle() ? wxITEM_CHECK : wxITEM_NORMAL);
-            if(button->GetBmp().IsOk() && !button->IsToggle()) {
-                menuItem->SetBitmap(button->GetBmp());
+
+            if(button->HasBitmap() && !button->IsToggle()) {
+                menuItem->SetBitmap(button->GetBitmap());
             }
             if(button->IsToggle() && button->IsChecked()) {
                 checkedItems.push_back(button->GetId());
@@ -508,14 +517,15 @@ void clToolBar::DoShowOverflowMenu()
             menu.AppendSeparator();
         }
         menu.Append(XRCID("customise_toolbar"), _("Customise..."));
-        menu.Bind(wxEVT_MENU,
-                  [&](wxCommandEvent& event) {
-                      wxUnusedVar(event);
-                      wxCommandEvent evtCustomise(wxEVT_TOOLBAR_CUSTOMISE);
-                      evtCustomise.SetEventObject(this);
-                      GetEventHandler()->AddPendingEvent(evtCustomise);
-                  },
-                  XRCID("customise_toolbar"));
+        menu.Bind(
+            wxEVT_MENU,
+            [&](wxCommandEvent& event) {
+                wxUnusedVar(event);
+                wxCommandEvent evtCustomise(wxEVT_TOOLBAR_CUSTOMISE);
+                evtCustomise.SetEventObject(this);
+                GetEventHandler()->AddPendingEvent(evtCustomise);
+            },
+            XRCID("customise_toolbar"));
     }
     // Show the menu
     m_popupShown = true;
@@ -661,12 +671,42 @@ int clToolBar::GetYSpacer() const
 void clToolBar::OnColoursChanged(clCommandEvent& event)
 {
     event.Skip();
-    m_bgColour = DrawingUtils::GetPanelBgColour();
-    m_useCustomBgColour = clConfig::Get().Read("UseCustomBaseColour", m_useCustomBgColour);
-    if(m_useCustomBgColour) {
-        m_bgColour = clConfig::Get().Read("BaseColour", m_bgColour);
-    }
+    m_bgColour = clSystemSettings::GetDefaultPanelColour();
     Refresh();
 }
 
 void clToolBar::SetGroupSpacing(int spacing) { m_groupSpacing = clGetSize(spacing, this); }
+
+const wxBitmap& clToolBar::GetBitmap(size_t index) const
+{
+    wxASSERT_MSG(m_bitmaps, "No bitmaps !?");
+    return m_bitmaps->Get(index, false);
+}
+
+void clToolBar::SetBitmaps(clBitmapList* bitmaps)
+{
+    if(m_bitmaps && m_ownedBitmaps) {
+        wxDELETE(m_bitmaps);
+    }
+    m_ownedBitmaps = false;
+    m_bitmaps = bitmaps;
+}
+
+void clToolBar::AssignBitmaps(clBitmapList* bitmaps)
+{
+    if(m_bitmaps && m_ownedBitmaps) {
+        wxDELETE(m_bitmaps);
+    }
+    m_ownedBitmaps = true;
+    m_bitmaps = bitmaps;
+}
+
+clBitmapList* clToolBar::GetBitmapsCreateIfNeeded()
+{
+    if(m_bitmaps) {
+        return m_bitmaps;
+    }
+    m_ownedBitmaps = true;
+    m_bitmaps = new clBitmapList;
+    return m_bitmaps;
+}

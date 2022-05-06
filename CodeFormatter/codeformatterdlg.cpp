@@ -22,16 +22,17 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "codeformatterdlg.h"
 #include "ColoursAndFontsManager.h"
 #include "clSTCLineKeeper.h"
 #include "codeformatter.h"
-#include "codeformatterdlg.h"
 #include "editor_config.h"
 #include "fileextmanager.h"
 #include "globals.h"
 #include "lexer_configuration.h"
 #include "windowattrmanager.h"
 #include <wx/menu.h>
+#include <wx/msgdlg.h>
 
 CodeFormatterDlg::CodeFormatterDlg(wxWindow* parent, IManager* mgr, CodeFormatter* cf, FormatOptions& options,
                                    const wxString& cppSampleCode, const wxString& phpSampleCode)
@@ -65,15 +66,6 @@ CodeFormatterDlg::CodeFormatterDlg(wxWindow* parent, IManager* mgr, CodeFormatte
     m_pgMgrAstyle->GetGrid()->ClearModifiedStatus();
     m_pgMgrClang->GetGrid()->ClearModifiedStatus();
 
-    // set the selection based on the editor
-    IEditor* editor = m_mgr->GetActiveEditor();
-    if(editor && FileExtManager::IsPHPFile(editor->GetFileName())) {
-        m_notebook->SetSelection(2); // PHP page
-    } else if(editor && FileExtManager::IsCxxFile(editor->GetFileName())) {
-        m_notebook->SetSelection(1); // CXX page
-    } else {
-        m_notebook->SetSelection(0); // General
-    }
     m_pgPropClangFormatExePath->SetAttribute("ShowFullPath", 1);
     m_filePickerPHPCsFixerPhar->SetAttribute("ShowFullPath", 1);
     ::clSetDialogBestSizeAndPosition(this);
@@ -121,6 +113,12 @@ void CodeFormatterDlg::InitDialog()
         phpLexer->Apply(m_textCtrlPreview_PhpCSFixer, true);
         phpLexer->Apply(m_textCtrlPreview_Phpcbf, true);
     }
+
+    LexerConf::Ptr_t textLexer = EditorConfigST::Get()->GetLexer("text");
+    if(textLexer) {
+        textLexer->Apply(m_stcRustConfig);
+    }
+
     m_textCtrlPreview->SetViewWhiteSpace(wxSTC_WS_VISIBLEALWAYS);
     m_textCtrlPreview_Clang->SetViewWhiteSpace(wxSTC_WS_VISIBLEALWAYS);
     m_stcPhpPreview->SetViewWhiteSpace(wxSTC_WS_VISIBLEALWAYS);
@@ -130,6 +128,10 @@ void CodeFormatterDlg::InitDialog()
     // Select the proper engine
     m_choiceCxxEngine->SetSelection((int)m_options.GetEngine());
     m_choicePhpFormatter->SetSelection((int)m_options.GetPhpEngine());
+    m_choiceRusfmt->SetSelection((int)m_options.GetRustEngine());
+    m_choiceXMLFormatter->SetSelection((int)m_options.GetXmlEngine());
+    m_choiceJSONFormatter->SetSelection((int)m_options.GetJsonEngine());
+    m_choiceJSFormatter->SetSelection((int)m_options.GetJavaScriptEngine());
 
     //------------------------------------------------------------------
     // Clang options
@@ -149,6 +151,12 @@ void CodeFormatterDlg::InitDialog()
 
     } else if(m_options.GetClangFormatOptions() & kClangFormatLLVM) {
         m_pgPropClangFormatStyle->SetValueFromInt(kClangFormatLLVM, wxPG_FULL_VALUE);
+
+    } else if(m_options.GetClangFormatOptions() & kClangFormatMicrosoft) {
+        m_pgPropClangFormatStyle->SetValueFromInt(kClangFormatMicrosoft, wxPG_FULL_VALUE);
+
+    } else if(m_options.GetClangFormatOptions() & kClangFormatGNU) {
+        m_pgPropClangFormatStyle->SetValueFromInt(kClangFormatGNU, wxPG_FULL_VALUE);
     } else {
         // There should be at least one good formatting option, we choose WebKit for this purpose
         m_options.SetClangFormatOptions(m_options.GetClangFormatOptions() | kClangFormatWebKit);
@@ -159,6 +167,26 @@ void CodeFormatterDlg::InitDialog()
     m_pgPropClangFormattingOptions->SetValue((int)m_options.GetClangFormatOptions());
     m_pgPropClangBraceBreakStyle->SetValue((int)m_options.GetClangBreakBeforeBrace());
     m_pgPropColumnLimit->SetValue((int)m_options.GetClangColumnLimit());
+
+    m_pgPropClangBraceWrapAfterCaseLabel->SetValue((bool)(m_options.GetClangBraceWrap() & kAfterCaseLabel));
+    m_pgPropClangBraceWrapAfterClass->SetValue((bool)(m_options.GetClangBraceWrap() & kAfterClass));
+    m_pgPropClangBraceWrapAfterControlStatement->SetValue(
+        (bool)(m_options.GetClangBraceWrap() & kAfterControlStatement));
+    m_pgPropClangBraceWrapAfterEnum->SetValue((bool)(m_options.GetClangBraceWrap() & kAfterEnum));
+    m_pgPropClangBraceWrapAfterFunction->SetValue((bool)(m_options.GetClangBraceWrap() & kAfterFunction));
+    m_pgPropClangBraceWrapAfterObjCDeclaration->SetValue((bool)(m_options.GetClangBraceWrap() & kAfterObjCDeclaration));
+    m_pgPropClangBraceWrapAfterStruct->SetValue((bool)(m_options.GetClangBraceWrap() & kAfterStruct));
+    m_pgPropClangBraceWrapAfterUnion->SetValue((bool)(m_options.GetClangBraceWrap() & kAfterUnion));
+    m_pgPropClangBraceWrapAfterExternBlock->SetValue((bool)(m_options.GetClangBraceWrap() & kAfterExternBlock));
+    m_pgPropClangBraceWrapBeforeCatch->SetValue((bool)(m_options.GetClangBraceWrap() & kBeforeCatch));
+    m_pgPropClangBraceWrapBeforeElse->SetValue((bool)(m_options.GetClangBraceWrap() & kBeforeElse));
+    m_pgPropClangBraceWrapBeforeLambdaBody->SetValue((bool)(m_options.GetClangBraceWrap() & kBeforeLambdaBody));
+    m_pgPropClangBraceWrapBeforeWhile->SetValue((bool)(m_options.GetClangBraceWrap() & kBeforeWhile));
+    m_pgPropClangBraceWrapIndentBraces->SetValue((bool)(m_options.GetClangBraceWrap() & kIndentBraces));
+    m_pgPropClangBraceWrapSplitEmptyFunction->SetValue((bool)(m_options.GetClangBraceWrap() & kSplitEmptyFunction));
+    m_pgPropClangBraceWrapSplitEmptyRecord->SetValue((bool)(m_options.GetClangBraceWrap() & kSplitEmptyRecord));
+    m_pgPropClangBraceWrapSplitEmptyNamespace->SetValue((bool)(m_options.GetClangBraceWrap() & kSplitEmptyNamespace));
+    UpdateClangBraceWrapProps();
 
     // PHP flags
     m_pgPropPhpFormatterOptions->SetValue((int)m_options.GetPHPFormatterOptions());
@@ -197,6 +225,11 @@ void CodeFormatterDlg::InitDialog()
 
     // User custom flags
     m_textCtrlUserFlags->ChangeValue(m_options.GetCustomFlags());
+
+    // rust settings
+    m_rustCommand->SetPath(m_options.GetRustCommand());
+    m_stcRustConfig->SetText(m_options.GetRustConfigContent());
+    m_textCtrlRustConfigPath->ChangeValue(m_options.GetRustConfigFile());
 }
 
 void CodeFormatterDlg::OnOK(wxCommandEvent& e)
@@ -208,6 +241,7 @@ void CodeFormatterDlg::OnOK(wxCommandEvent& e)
 #define ID_ASTYLE_HELP 1309
 #define ID_CLANG_FORMAST_HELP 1310
 #define ID_PHP_FORMAST_HELP 1311
+#define ID_RUSTFMT_HELP 1312
 
 void CodeFormatterDlg::OnHelp(wxCommandEvent& e)
 {
@@ -215,11 +249,13 @@ void CodeFormatterDlg::OnHelp(wxCommandEvent& e)
     static wxString astyleHelpUrl(wxT("http://astyle.sourceforge.net/astyle.html"));
     static wxString clangFormatHelpUrl(wxT("http://clang.llvm.org/docs/ClangFormatStyleOptions.html"));
     static wxString phpFormatHelpUrl(wxT("https://github.com/FriendsOfPHP/PHP-CS-Fixer"));
+    static wxString rustfmtHelpUrl(wxT("https://rust-lang.github.io/rustfmt"));
 
     wxMenu menu;
     menu.Append(ID_ASTYLE_HELP, _("AStyle help page"));
     menu.Append(ID_CLANG_FORMAST_HELP, _("clang-format help page"));
     menu.Append(ID_PHP_FORMAST_HELP, _("PHP-CS-Fixer help page"));
+    menu.Append(ID_RUSTFMT_HELP, _("rustfmt help page"));
 
     wxRect size = m_buttonHelp->GetSize();
     wxPoint menuPos(0, size.GetHeight());
@@ -233,6 +269,8 @@ void CodeFormatterDlg::OnHelp(wxCommandEvent& e)
 
     } else if(res == ID_PHP_FORMAST_HELP) {
         ::wxLaunchDefaultBrowser(phpFormatHelpUrl);
+    } else if(res == ID_RUSTFMT_HELP) {
+        ::wxLaunchDefaultBrowser(rustfmtHelpUrl);
     }
 }
 
@@ -243,11 +281,16 @@ void CodeFormatterDlg::UpdatePreview()
     if(m_notebook->GetSelection() == 1) { // CXX page
         output = m_cppSampleCode;
 
-        if(m_notebookCxx->GetSelection() == 0) { // Clang
+        if(m_notebookCxx->GetSelection() == 0) {
+            // Clang
             m_cf->DoFormatPreview(output, "cpp", kFormatEngineClangFormat);
             UpdatePreviewText(m_textCtrlPreview_Clang, output);
-        } else if(m_notebookCxx->GetSelection() == 1) { // Astyle
+        } else if(m_notebookCxx->GetSelection() == 1) {
+            // Astyle
             m_cf->DoFormatPreview(output, "cpp", kFormatEngineAStyle);
+            UpdatePreviewText(m_textCtrlPreview, output);
+        } else if(m_notebookCxx->GetSelection() == 2) {
+            // None
             UpdatePreviewText(m_textCtrlPreview, output);
         }
     } else if(m_notebook->GetSelection() == 2) { // PHP page
@@ -262,6 +305,8 @@ void CodeFormatterDlg::UpdatePreview()
         } else if(m_notebookPhp->GetSelection() == 2) { // Phpcbf
             m_cf->DoFormatPreview(output, "php", kFormatEnginePhpcbf);
             UpdatePreviewText(m_textCtrlPreview_Phpcbf, output);
+        } else if(m_notebookPhp->GetSelection() == 3) { // None
+            UpdatePreviewText(m_stcPhpPreview, output);
         }
     }
 }
@@ -288,6 +333,11 @@ void CodeFormatterDlg::OnApply(wxCommandEvent& event)
 {
     m_isDirty = false;
     m_options.SetCustomFlags(m_textCtrlUserFlags->GetValue());
+
+    m_options.SetRustCommand(m_rustCommand->GetPath());
+    m_options.SetRustConfigContent(m_stcRustConfig->GetText());
+    m_options.SetRustConfigFile(m_textCtrlRustConfigPath->GetValue());
+
     m_mgr->GetConfigTool()->WriteObject(wxT("FormatterOptions"), &m_options);
     UpdatePreview();
 }
@@ -339,14 +389,96 @@ void CodeFormatterDlg::OnPgmgrclangPgChanged(wxPropertyGridEvent& event)
     size_t clangOptions(0);
     clangOptions |= m_pgPropClangFormatStyle->GetValue().GetInteger();
     clangOptions |= m_pgPropClangFormattingOptions->GetValue().GetInteger();
-    if(m_pgPropClangUseFile->GetValue().GetBool()) { clangOptions |= kClangFormatFile; }
+    if(m_pgPropClangUseFile->GetValue().GetBool()) {
+        clangOptions |= kClangFormatFile;
+    }
 
     m_options.SetClangFormatOptions(clangOptions);
     m_options.SetClangBreakBeforeBrace(m_pgPropClangBraceBreakStyle->GetValue().GetInteger());
     m_options.SetClangFormatExe(m_pgPropClangFormatExePath->GetValueAsString());
     m_options.SetClangColumnLimit(m_pgPropColumnLimit->GetValue().GetInteger());
 
+    size_t braceWrap(0);
+    if(m_pgPropClangBraceWrapAfterCaseLabel->GetValue().GetBool()) {
+        braceWrap |= kAfterCaseLabel;
+    }
+    if(m_pgPropClangBraceWrapAfterClass->GetValue().GetBool()) {
+        braceWrap |= kAfterClass;
+    }
+    if(m_pgPropClangBraceWrapAfterControlStatement->GetValue().GetBool()) {
+        braceWrap |= kAfterControlStatement;
+    }
+    if(m_pgPropClangBraceWrapAfterEnum->GetValue().GetBool()) {
+        braceWrap |= kAfterEnum;
+    }
+    if(m_pgPropClangBraceWrapAfterFunction->GetValue().GetBool()) {
+        braceWrap |= kAfterFunction;
+    }
+    if(m_pgPropClangBraceWrapAfterObjCDeclaration->GetValue().GetBool()) {
+        braceWrap |= kAfterObjCDeclaration;
+    }
+    if(m_pgPropClangBraceWrapAfterStruct->GetValue().GetBool()) {
+        braceWrap |= kAfterStruct;
+    }
+    if(m_pgPropClangBraceWrapAfterUnion->GetValue().GetBool()) {
+        braceWrap |= kAfterUnion;
+    }
+    if(m_pgPropClangBraceWrapAfterExternBlock->GetValue().GetBool()) {
+        braceWrap |= kAfterExternBlock;
+    }
+    if(m_pgPropClangBraceWrapBeforeCatch->GetValue().GetBool()) {
+        braceWrap |= kBeforeCatch;
+    }
+    if(m_pgPropClangBraceWrapBeforeElse->GetValue().GetBool()) {
+        braceWrap |= kBeforeElse;
+    }
+    if(m_pgPropClangBraceWrapBeforeLambdaBody->GetValue().GetBool()) {
+        braceWrap |= kBeforeLambdaBody;
+    }
+    if(m_pgPropClangBraceWrapBeforeWhile->GetValue().GetBool()) {
+        braceWrap |= kBeforeWhile;
+    }
+    if(m_pgPropClangBraceWrapIndentBraces->GetValue().GetBool()) {
+        braceWrap |= kIndentBraces;
+    }
+    if(m_pgPropClangBraceWrapSplitEmptyFunction->GetValue().GetBool()) {
+        braceWrap |= kSplitEmptyFunction;
+    }
+    if(m_pgPropClangBraceWrapSplitEmptyRecord->GetValue().GetBool()) {
+        braceWrap |= kSplitEmptyRecord;
+    }
+    if(m_pgPropClangBraceWrapSplitEmptyNamespace->GetValue().GetBool()) {
+        braceWrap |= kSplitEmptyNamespace;
+    }
+    m_options.SetClangBraceWrap(braceWrap);
+    UpdateClangBraceWrapProps();
+
     CallAfter(&CodeFormatterDlg::UpdatePreview);
+}
+
+void CodeFormatterDlg::OnExportClangFormatFile(wxCommandEvent& event)
+{
+    wxString defaultDir;
+    if(m_mgr->IsWorkspaceOpen()) {
+        defaultDir = m_mgr->GetWorkspace()->GetFileName().GetPath();
+    }
+    wxString path = ::wxDirSelector(_("Export .clang-format file..."), defaultDir);
+    if(path.empty()) {
+        return;
+    }
+
+    wxFileName clang_format(path, ".clang-format");
+    if(clang_format.FileExists()) {
+        if(::wxMessageBox(clang_format.GetFullPath() + _(" already exists\nContinue?"), "CodeLite",
+                          wxICON_WARNING | wxYES_NO | wxCANCEL | wxCANCEL_DEFAULT) != wxYES) {
+            return;
+        }
+    }
+
+    if(!m_options.ExportClangFormatFile(clang_format)) {
+        ::wxMessageBox(_("Failed to save file:\n") + clang_format.GetFullPath(), _("Source Code Formatter"),
+                       wxOK | wxICON_ERROR);
+    }
 }
 
 void CodeFormatterDlg::OnPgmgrphpPgChanged(wxPropertyGridEvent& event)
@@ -375,7 +507,9 @@ void CodeFormatterDlg::OnPgmgrPHPCsFixerPgChanged(wxPropertyGridEvent& event)
     m_options.SetPHPCSFixerPhar(m_filePickerPHPCsFixerPhar->GetValueAsString());
     m_options.SetPHPCSFixerPharOptions(m_pgPropPHPCsFixerOptions->GetValueAsString().Trim().Trim(false));
     size_t phpcsfixerSettings(0);
-    if(m_pgPropPHPCsFixerUseFile->GetValue().GetBool()) { phpcsfixerSettings |= kPHPFixserFormatFile; }
+    if(m_pgPropPHPCsFixerUseFile->GetValue().GetBool()) {
+        phpcsfixerSettings |= kPHPFixserFormatFile;
+    }
     m_options.SetPHPCSFixerPharSettings(phpcsfixerSettings);
     size_t phpcsfixerOptions(0);
     phpcsfixerOptions |= m_pgPropPHPCsFixerStandard->GetValue().GetInteger();
@@ -405,7 +539,9 @@ void CodeFormatterDlg::OnPgmgrPhpcbfPgChanged(wxPropertyGridEvent& event)
     m_options.SetPhpcbfStandard(m_pgPropPhpcbfStandard->GetValueAsString());
     size_t phpcbfOptions(0);
     phpcbfOptions |= m_pgPropPhpcbfOptions->GetValue().GetInteger();
-    if(m_pgPropPhpcbfUseFile->GetValue().GetBool()) { phpcbfOptions |= kPhpbcfFormatFile; }
+    if(m_pgPropPhpcbfUseFile->GetValue().GetBool()) {
+        phpcbfOptions |= kPhpbcfFormatFile;
+    }
     m_options.SetPhpcbfOptions(phpcbfOptions);
 
     CallAfter(&CodeFormatterDlg::UpdatePreview);
@@ -415,4 +551,34 @@ void CodeFormatterDlg::UpdatePreviewUI(wxNotebookEvent& event)
 {
     UpdatePreview();
     event.Skip();
+}
+
+void CodeFormatterDlg::UpdateClangBraceWrapProps()
+{
+    bool hide = !(m_options.GetClangBreakBeforeBrace() & kCustom);
+    if(!m_pgPropClangBraceBreakStyle->HasVisibleChildren() != hide) {
+        for(unsigned int i = 0; i < m_pgPropClangBraceBreakStyle->GetChildCount(); ++i) {
+            m_pgPropClangBraceBreakStyle->Item(i)->Hide(hide);
+        }
+    }
+}
+void CodeFormatterDlg::OnChoiceRust(wxCommandEvent& event)
+{
+    m_isDirty = true;
+    m_options.SetRustEngine((RustFormatterEngine)event.GetSelection());
+}
+void CodeFormatterDlg::OnChoiceXML(wxCommandEvent& event)
+{
+    m_isDirty = true;
+    m_options.SetXmlEngine((XmlFormatterEngine)event.GetSelection());
+}
+void CodeFormatterDlg::OnChoiceJavaScript(wxCommandEvent& event)
+{
+    m_isDirty = true;
+    m_options.SetJavaScriptEngine((JavaScriptFormatterEngine)event.GetSelection());
+}
+void CodeFormatterDlg::OnChoiceJSON(wxCommandEvent& event)
+{
+    m_isDirty = true;
+    m_options.SetJsonEngine((JSONFormatterEngine)event.GetSelection());
 }

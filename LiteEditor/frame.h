@@ -28,6 +28,7 @@
 #include "EnvironmentVariablesDlg.h"
 #include "Notebook.h"
 #include "ZombieReaperPOSIX.h"
+#include "clCaptionBar.hpp"
 #include "clDockingManager.h"
 #include "clInfoBar.h"
 #include "clMainFrameHelper.h"
@@ -40,15 +41,14 @@
 #include "macros.h"
 #include "mainbook.h"
 #include "output_pane.h"
-#include "parse_thread.h"
-#include "refactorengine.h"
 #include "tags_options_dlg.h"
-#include "theme_handler.h"
 #include "wx/aui/aui.h"
 #include "wx/choice.h"
 #include "wx/combobox.h"
 #include "wx/frame.h"
 #include "wx/timer.h"
+#include "wxCustomControls.hpp"
+
 #include <set>
 #include <wx/cmndata.h>
 #include <wx/dcbuffer.h>
@@ -59,6 +59,7 @@
 #include <wx/splash.h>
 
 // forward decls
+class OnSysColoursChanged;
 class DebuggerToolBar;
 class clToolBar;
 class WebUpdateJob;
@@ -112,18 +113,19 @@ class clMainFrame : public wxFrame
     wxString m_defaultLayout;
     bool m_workspaceRetagIsRequired;
     bool m_loadLastSession;
-    wxSizer* m_horzSizer;
-    MyMenuBar* m_myMenuBar;
+    wxSizer* m_toolbarsSizer = nullptr;
+    clThemedMenuBar* m_menuBar;
     wxMenu* m_bookmarksDropDownMenu;
-    ThemeHandler m_themeHandler;
     bool m_noSavePerspectivePrompt;
 
 #ifndef __WXMSW__
     ZombieReaperPOSIX m_zombieReaper;
+#else
+    HMENU hMenu = nullptr; // Menu bar
 #endif
 
 #ifdef __WXGTK__
-    bool m_isWaylandSession;
+    bool m_isWaylandSession = false;
 #endif
 
     // Maintain a set of core toolbars (i.e. toolbars not owned by any plugin)
@@ -139,23 +141,36 @@ class clMainFrame : public wxFrame
     clToolBar* m_toolbar;
     DebuggerToolBar* m_debuggerToolbar = nullptr;
     clInfoBar* m_infoBar = nullptr;
+#if !wxUSE_NATIVE_CAPTION
+    clCaptionBar* m_captionBar = nullptr;
+#endif
 
 public:
     static bool m_initCompleted;
 
 protected:
     bool IsEditorEvent(wxEvent& event);
+    void DoSysColoursChanged();
     void DoCreateBuildDropDownMenu(wxMenu* menu);
     void DoShowToolbars(bool show, bool update = true);
     void InitializeLogo();
     void DoFullscreen(bool b);
+    void DoShowMenuBar(bool show);
+    void OnSysColoursChanged(clCommandEvent& event);
 
 public:
-    virtual void Raise();
+    void Raise() override;
+
     static clMainFrame* Get();
     static void Initialize(bool loadLastSession);
 
     clInfoBar* GetMessageBar() { return m_infoBar; }
+
+    /**
+     * @brief return the menu bar
+     * @return
+     */
+    clMenuBar* GetMainMenuBar() const { return m_menuBar; }
 
     /**
      * @brief goto anything..
@@ -327,6 +342,7 @@ private:
     clMainFrame(wxWindow* pParent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size,
                 long style = wxMINIMIZE_BOX | wxMAXIMIZE_BOX | wxCLOSE_BOX | wxCAPTION | wxSYSTEM_MENU |
                              wxRESIZE_BORDER | wxCLIP_CHILDREN);
+    void AddKeyboardAccelerators();
     wxString CreateWorkspaceTable();
     wxString CreateFilesTable();
     void StartTimer();
@@ -367,7 +383,7 @@ private:
      * @brief show the startup wizard
      * @return true if a restart is needed
      */
-    bool StartSetupWizard();
+    bool StartSetupWizard(bool firstTime);
 
     /**
      * @brief see if the wizard changed developer profile
@@ -385,8 +401,7 @@ private:
     void SetNoSavePerspectivePrompt(bool devProfileChanged) { m_noSavePerspectivePrompt = devProfileChanged; }
 
     void DoShowCaptions(bool show);
-    
-    
+
 public:
     void ViewPane(const wxString& paneName, bool checked);
     void ShowOrHideCaptions();
@@ -403,7 +418,7 @@ protected:
 
     void OnRestoreDefaultLayout(wxCommandEvent& e);
     void OnIdle(wxIdleEvent& e);
-    void OnBuildEnded(clCommandEvent& event);
+    void OnBuildEnded(clBuildEvent& event);
     void OnQuit(wxCommandEvent& WXUNUSED(event));
     void OnClose(wxCloseEvent& event);
     void OnCustomiseToolbar(wxCommandEvent& event);
@@ -509,6 +524,7 @@ protected:
     void OnMarkEditorReadonlyUI(wxUpdateUIEvent& e);
     void OnDetachEditorUI(wxUpdateUIEvent& e);
     void OnQuickDebug(wxCommandEvent& e);
+    void OnStartQuickDebug(clDebugEvent& e);
     void OnQuickDebugUI(wxUpdateUIEvent& e);
     void OnDebugCoreDump(wxCommandEvent& e);
     void OnNextFiFMatch(wxCommandEvent& e);
@@ -521,17 +537,11 @@ protected:
     void OnWebSearchSelectionUI(wxUpdateUIEvent& e);
     void OnThemeChanged(wxCommandEvent& e);
     void OnEnvironmentVariablesModified(clCommandEvent& e);
-    void OnFindReferences(clRefactoringEvent& e);
-    void OnRenameSymbol(clRefactoringEvent& e);
 
     // handle symbol tree events
-    void OnParsingThreadMessage(wxCommandEvent& e);
     void OnDatabaseUpgrade(wxCommandEvent& e);
     void OnDatabaseUpgradeInternally(wxCommandEvent& e);
     void OnRefreshPerspectiveMenu(wxCommandEvent& e);
-    void OnClearTagsCache(wxCommandEvent& e);
-    void OnRetaggingCompelted(wxCommandEvent& e);
-    void OnRetaggingProgress(wxCommandEvent& e);
 
     void OnRecentFile(wxCommandEvent& event);
     void OnRecentWorkspace(wxCommandEvent& event);
@@ -633,7 +643,8 @@ protected:
     void OnLoadPerspective(wxCommandEvent& e);
     void OnWorkspaceSettings(wxCommandEvent& e);
     void OnWorkspaceEditorPreferences(wxCommandEvent& e);
-    void OnParserThreadReady(wxCommandEvent& e);
+    void OnSetActivePoject(wxCommandEvent& e);
+    void OnSetActivePojectUI(wxUpdateUIEvent& e);
 
     // Clang
     void OnPchCacheStarted(wxCommandEvent& e);
@@ -642,9 +653,9 @@ protected:
     // Misc
     void OnActivateEditor(wxCommandEvent& e);
     void OnActiveEditorChanged(wxCommandEvent& e);
-    void OnWorkspaceLoaded(wxCommandEvent& e);
+    void OnWorkspaceLoaded(clWorkspaceEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnRefactoringCacheStatus(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& e);
     void OnChangeActiveBookmarkType(wxCommandEvent& e);
     void OnSettingsChanged(wxCommandEvent& e);
     void OnEditMenuOpened(wxMenuEvent& e);

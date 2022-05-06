@@ -106,7 +106,7 @@ bool clSSH::AuthenticateServer(wxString& message)
 
     message.Clear();
 
-#if LIBSSH_VERSION_INT < SSH_VERSION_INT(0, 6, 1)
+#if LIBSSH_VERSION_INT < SSH_VERSION_INT(0, 6, 5)
     int hlen = 0;
     hlen = ssh_get_pubkey_hash(m_session, &hash);
     if(hlen < 0) {
@@ -115,7 +115,11 @@ bool clSSH::AuthenticateServer(wxString& message)
 #else
     size_t hlen = 0;
     ssh_key key = NULL;
+#if LIBSSH_VERSION_INT >= SSH_VERSION_INT(0, 8, 0)
     ssh_get_server_publickey(m_session, &key);
+#else
+    ssh_get_publickey(m_session, &key);
+#endif
     ssh_get_publickey_hash(key, SSH_PUBLICKEY_HASH_SHA1, &hash, &hlen);
     if(hlen == 0) {
         throw clException("Unable to obtain server public key!");
@@ -197,7 +201,7 @@ bool clSSH::LoginPassword(bool throwExc)
         return true;
 
     } else if(rc == SSH_AUTH_DENIED) {
-        THROW_OR_FALSE("Login failed: invalid username/password");
+        THROW_OR_FALSE(_("Login failed: invalid username/password"));
 
     } else {
         THROW_OR_FALSE(wxString() << _("Authentication error: ") << ssh_get_error(m_session));
@@ -244,7 +248,7 @@ bool clSSH::LoginInteractiveKBD(bool throwExc)
         }
         return true; // success
     }
-    THROW_OR_FALSE("Interactive Keyboard is not enabled for this server");
+    THROW_OR_FALSE(_("Interactive Keyboard is not enabled for this server"));
     return false;
 }
 
@@ -436,6 +440,16 @@ void clSSH::DoConnectWithRetries(int retries)
         }
     }
     throw clException("Connect timeout");
+}
+
+void clSSH::SendIgnore()
+{
+    if(!m_session) {
+        throw clException("Session not opened");
+    }
+    if(ssh_send_ignore(m_session, "ping") != SSH_OK) {
+        throw clException("Failed to send ignore message");
+    }
 }
 
 #endif // USE_SFTP

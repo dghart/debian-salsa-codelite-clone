@@ -29,6 +29,7 @@
 #include "debugger.h"
 #include "serialized_object.h"
 #include "wx/xml/xml.h"
+
 #include <vector>
 
 namespace
@@ -36,7 +37,7 @@ namespace
 const wxChar defaultSessionName[] = wxT("Default");
 const wxChar sessionTag[] = wxT("Session");
 const wxChar tabgroupTag[] = wxT("Tabgroup");
-}
+} // namespace
 
 /**
  * \class SessionEntry
@@ -60,18 +61,21 @@ public:
     // void SetTabs(const wxArrayString& tabs) {this->m_tabs = tabs;}
     void SetWorkspaceName(const wxString& workspaceName) { this->m_workspaceName = workspaceName; }
     void SetTabInfoArr(const std::vector<TabInfo>& _vTabInfoArr) { m_vTabInfoArr = _vTabInfoArr; }
-    void SetBreakpoints(const std::vector<BreakpointInfo>& breakpoints) { m_breakpoints.SetBreakpoints(breakpoints); }
+    void SetBreakpoints(const std::vector<clDebuggerBreakpoint>& breakpoints)
+    {
+        m_breakpoints.SetBreakpoints(breakpoints);
+    }
 
     // Getters
     const int& GetSelectedTab() const { return m_selectedTab; }
     // const wxArrayString& GetTabs() const {return m_tabs;}
     const wxString& GetWorkspaceName() const { return m_workspaceName; }
     const std::vector<TabInfo>& GetTabInfoArr() { return m_vTabInfoArr; }
-    const std::vector<BreakpointInfo>& GetBreakpoints() const { return m_breakpoints.GetBreakpoints(); }
+    const std::vector<clDebuggerBreakpoint>& GetBreakpoints() const { return m_breakpoints.GetBreakpoints(); }
 
     void SetFindInFilesMask(const wxString& findInFilesMask) { this->m_findInFilesMask = findInFilesMask; }
     const wxString& GetFindInFilesMask() const { return m_findInFilesMask; }
-    
+
     SessionEntry();
     virtual ~SessionEntry();
 

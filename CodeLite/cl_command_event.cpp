@@ -88,7 +88,6 @@ wxEvent* clCodeCompletionEvent::Clone() const
 
 clCodeCompletionEvent::clCodeCompletionEvent(const clCodeCompletionEvent& event)
     : clCommandEvent(event)
-    , m_editor(NULL)
     , m_insideCommentOrString(false)
 {
     *this = event;
@@ -98,7 +97,6 @@ clCodeCompletionEvent::clCodeCompletionEvent(const clCodeCompletionEvent& event)
 
 clCodeCompletionEvent::clCodeCompletionEvent(wxEventType commandType, int winid)
     : clCommandEvent(commandType, winid)
-    , m_editor(NULL)
     , m_insideCommentOrString(false)
 {
     m_position = wxNOT_FOUND;
@@ -112,7 +110,6 @@ clCodeCompletionEvent& clCodeCompletionEvent::operator=(const clCodeCompletionEv
     // Call parent operator =
     clCommandEvent::operator=(src);
     // Implement our copy c tor
-    m_editor = src.m_editor;
     m_word = src.m_word;
     m_position = src.m_position;
     m_tooltip = src.m_tooltip;
@@ -121,6 +118,8 @@ clCodeCompletionEvent& clCodeCompletionEvent::operator=(const clCodeCompletionEv
     m_definitions = src.m_definitions;
     m_entries = src.m_entries;
     m_triggerKind = src.m_triggerKind;
+    m_classes = src.m_classes;
+    m_variables = src.m_variables;
     return *this;
 }
 
@@ -184,6 +183,9 @@ clBuildEvent& clBuildEvent::operator=(const clBuildEvent& src)
     m_warningCount = src.m_warningCount;
     m_kind = src.m_kind;
     m_isRunning = src.m_isRunning;
+    m_cleanLog = src.m_cleanLog;
+    m_flags = src.m_flags;
+    m_toolchain = src.m_toolchain;
     return *this;
 }
 
@@ -217,6 +219,10 @@ clDebugEvent& clDebugEvent::operator=(const clDebugEvent& other)
     m_memoryBlockSize = other.m_memoryBlockSize;
     m_memoryAddress = other.m_memoryAddress;
     m_memoryBlockValue = other.m_memoryBlockValue;
+    m_breakpoints = other.m_breakpoints;
+    m_isSSHDebugging = other.m_isSSHDebugging;
+    m_sshAccount = other.m_sshAccount;
+    m_alternateDebuggerPath = other.m_alternateDebuggerPath;
     return *this;
 }
 
@@ -379,6 +385,7 @@ clFindInFilesEvent& clFindInFilesEvent::operator=(const clFindInFilesEvent& src)
     m_fileMask = src.m_fileMask;
     m_options = src.m_options;
     m_transientPaths = src.m_transientPaths;
+    m_matches = src.m_matches;
     return *this;
 }
 
@@ -469,7 +476,9 @@ clGotoEvent::~clGotoEvent() {}
 
 clGotoEvent& clGotoEvent::operator=(const clGotoEvent& src)
 {
-    if(this == &src) { return *this; }
+    if(this == &src) {
+        return *this;
+    }
     clCommandEvent::operator=(src);
     m_entries = src.m_entries;
     m_entry = src.m_entry;
@@ -492,8 +501,44 @@ wxEvent* clSourceControlEvent::Clone() const { return new clSourceControlEvent(*
 
 clSourceControlEvent& clSourceControlEvent::operator=(const clSourceControlEvent& src)
 {
-    if(this == &src) { return *this; }
+    if(this == &src) {
+        return *this;
+    }
     clCommandEvent::operator=(src);
     m_sourceControlName = src.m_sourceControlName;
     return *this;
 }
+
+///----------------------------------------------------------------------------------
+/// clLanguageServerEvent
+///----------------------------------------------------------------------------------
+
+clLanguageServerEvent::clLanguageServerEvent(wxEventType commandType, int winid)
+    : clCommandEvent(commandType, winid)
+{
+}
+
+clLanguageServerEvent::clLanguageServerEvent(const clLanguageServerEvent& event) {}
+
+clLanguageServerEvent::~clLanguageServerEvent() {}
+clLanguageServerEvent& clLanguageServerEvent::operator=(const clLanguageServerEvent& src)
+{
+    if(this == &src) {
+        return *this;
+    }
+    clCommandEvent::operator=(src);
+    m_lspName = src.m_lspName;
+    m_lspCommand = src.m_lspCommand;
+    m_flags = src.m_flags;
+    m_sshAccount = src.m_sshAccount;
+    m_priority = src.m_priority;
+    m_connectionString = src.m_connectionString;
+    m_enviroment = src.m_enviroment;
+    m_initOptions = src.m_initOptions;
+    m_languages = src.m_languages;
+    m_action = src.m_action;
+    m_rootUri = src.m_rootUri;
+    return *this;
+}
+
+wxEvent* clLanguageServerEvent::Clone() const { return new clLanguageServerEvent(*this); }

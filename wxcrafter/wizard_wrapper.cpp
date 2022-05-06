@@ -13,7 +13,7 @@ WizardWrapper::WizardWrapper()
     : TopLevelWinWrapper(ID_WXWIZARD)
 {
     SetPropertyString(_("Common Settings"), "wxWizard");
-    DoSetPropertyStringValue(PROP_TITLE, wxT("My Wizard"));
+    DoSetPropertyStringValue(PROP_TITLE, _("My Wizard"));
     AddProperty(new BitmapPickerProperty(PROP_BITMAP_PATH, wxT(""),
                                          _("The default bitmap used in the left side of the wizard.")));
 
@@ -107,7 +107,8 @@ void WizardWrapper::ToXRC(wxString& text, XRC_TYPE type) const
                                                  // wxBOTH/wxVERTICAL/wxHORIZONTAL
     }
 
-    text << XRCPrefix() << wxT("<title>") << PropertyString(PROP_TITLE) << wxT("</title>") << centred << XRCBitmap()
+    text << XRCPrefix() << wxT("<title>") << wxCrafter::CDATA(PropertyString(PROP_TITLE)) << wxT("</title>") << centred
+         << XRCBitmap()
          << XRCStyle(type != wxcWidget::XRC_LIVE) // The parameter is to add the wxSTAY_ON_TOP, but not if we're 'live'
          << XRCCommonAttributes();
 

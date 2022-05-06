@@ -34,6 +34,7 @@
 #include <wx/bitmap.h>
 #include <wx/filename.h>
 #include <wx/panel.h>
+#include <wx/stattext.h>
 #include <wx/timer.h>
 
 // Forward Declarations
@@ -48,37 +49,31 @@ class WorkspacePane : public wxPanel
 {
 private:
     wxString m_caption;
-    wxAuiManager* m_mgr;
-    wxGauge* m_parsingProgress;
-    wxStaticText* m_staticText;
-    Notebook* m_book;
-    TabgroupsPane* m_TabgroupsPane;
+    wxAuiManager* m_mgr = nullptr;
+    wxGauge* m_parsingProgress = nullptr;
+    wxStaticText* m_staticText = nullptr;
+    Notebook* m_book = nullptr;
+    TabgroupsPane* m_TabgroupsPane = nullptr;
+    OpenWindowsPanel* m_openWindowsPane = nullptr;
 
-#ifndef __WXOSX__
-    OpenWindowsPanel* m_openWindowsPane;
-#endif
-
-    FileExplorer* m_explorer;
-    WorkspaceTab* m_workspaceTab;
+    FileExplorer* m_explorer = nullptr;
+    WorkspaceTab* m_workspaceTab = nullptr;
     clAuiCaptionEnabler m_captionEnabler;
 
 protected:
     struct Tab {
         wxString m_label;
-        wxWindow* m_window;
-        wxBitmap m_bmp;
+        wxWindow* m_window = nullptr;
+        int m_bmp = wxNOT_FOUND;
 
-        Tab(const wxString& label, wxWindow* win, const wxBitmap& bmp = wxNullBitmap)
+        Tab(const wxString& label, wxWindow* win, int bmp = wxNOT_FOUND)
             : m_label(label)
             , m_window(win)
             , m_bmp(bmp)
         {
         }
 
-        Tab()
-            : m_window(NULL)
-        {
-        }
+        Tab() {}
     };
 
 protected:
@@ -116,6 +111,11 @@ public:
      * @param tabTitle the tab to select
      */
     void SelectTab(const wxString& tabTitle);
+
+    /**
+     * @brief show or hide a workspace tab
+     */
+    void ShowTab(const wxString& name, bool show);
 };
 
 #endif // WORKSPACE_PANE_H

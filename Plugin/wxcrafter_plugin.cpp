@@ -5,6 +5,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "wxcrafter_plugin.h"
+
 #include "codelite_exports.h"
 
 // Declare the bitmap loading function
@@ -81,7 +82,9 @@ EditDlgBase::EditDlgBase(wxWindow* parent, wxWindowID id, const wxString& title,
     SetName(wxT("EditDlgBase"));
     SetMinClientSize(wxSize(300, 300));
     SetSize(wxDLG_UNIT(this, wxSize(300, 300)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
@@ -288,7 +291,9 @@ DiffSideBySidePanelBase::DiffSideBySidePanelBase(wxWindow* parent, wxWindowID id
 
     SetName(wxT("DiffSideBySidePanelBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_textCtrlLeftFile->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(DiffSideBySidePanelBase::OnLeftPickerUI), NULL,
                                 this);
@@ -401,7 +406,9 @@ clGetTextFromUserBaseDialog::clGetTextFromUserBaseDialog(wxWindow* parent, wxWin
 
     SetName(wxT("clGetTextFromUserBaseDialog"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
@@ -440,7 +447,9 @@ clTreeCtrlPanelBase::clTreeCtrlPanelBase(wxWindow* parent, wxWindowID id, const 
 
     SetName(wxT("clTreeCtrlPanelBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_treeCtrl->Connect(wxEVT_COMMAND_TREE_ITEM_EXPANDING, wxTreeEventHandler(clTreeCtrlPanelBase::OnItemExpanding),
                         NULL, this);
@@ -497,7 +506,9 @@ NotebookNavigationDlgBase::NotebookNavigationDlgBase(wxWindow* parent, wxWindowI
     SetName(wxT("NotebookNavigationDlgBase"));
     SetMinClientSize(wxSize(400, 200));
     SetSize(wxDLG_UNIT(this, wxSize(400, 200)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
@@ -567,7 +578,9 @@ clTreeCtrlPanelDefaultPageBase::clTreeCtrlPanelDefaultPageBase(wxWindow* parent,
 
     SetName(wxT("clTreeCtrlPanelDefaultPageBase"));
     SetSize(wxDLG_UNIT(this, wxSize(500, 300)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_panel169->Connect(wxEVT_CONTEXT_MENU,
                         wxContextMenuEventHandler(clTreeCtrlPanelDefaultPageBase::OnDefaultPageContextMenu), NULL,
@@ -595,19 +608,10 @@ clSingleChoiceDialogBase::clSingleChoiceDialogBase(wxWindow* parent, wxWindowID 
     wxBoxSizer* boxSizer181 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(boxSizer181);
 
-    m_searchCtrl = new wxSearchCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
-                                    wxTE_PROCESS_ENTER);
-    m_searchCtrl->SetToolTip(_("Filter the results.\nHit ENTER to apply the filter"));
-    m_searchCtrl->SetFocus();
-    m_searchCtrl->ShowSearchButton(true);
-    m_searchCtrl->ShowCancelButton(false);
+    m_dvListCtrl = new clThemedListCtrl(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
+                                        wxDV_NO_HEADER | wxDV_ROW_LINES | wxDV_SINGLE);
 
-    boxSizer181->Add(m_searchCtrl, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
-
-    m_dvListCtrl = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
-                                          wxDV_NO_HEADER | wxDV_ROW_LINES | wxDV_SINGLE);
-
-    boxSizer181->Add(m_dvListCtrl, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+    boxSizer181->Add(m_dvListCtrl, 1, wxEXPAND, WXC_FROM_DIP(5));
 
     m_dvListCtrl->AppendTextColumn(_("My Column"), wxDATAVIEW_CELL_INERT, WXC_FROM_DIP(-2), wxALIGN_LEFT,
                                    wxDATAVIEW_COL_RESIZABLE);
@@ -626,7 +630,9 @@ clSingleChoiceDialogBase::clSingleChoiceDialogBase(wxWindow* parent, wxWindowID 
     SetName(wxT("clSingleChoiceDialogBase"));
     SetMinClientSize(wxSize(400, 300));
     SetSize(wxDLG_UNIT(this, wxSize(400, 300)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
@@ -640,8 +646,6 @@ clSingleChoiceDialogBase::clSingleChoiceDialogBase(wxWindow* parent, wxWindowID 
     }
 #endif
     // Connect events
-    m_searchCtrl->Connect(wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler(clSingleChoiceDialogBase::OnFilter), NULL,
-                          this);
     m_dvListCtrl->Connect(wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED,
                           wxDataViewEventHandler(clSingleChoiceDialogBase::OnActivated), NULL, this);
     m_button185->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(clSingleChoiceDialogBase::OnOKUI), NULL, this);
@@ -649,8 +653,6 @@ clSingleChoiceDialogBase::clSingleChoiceDialogBase(wxWindow* parent, wxWindowID 
 
 clSingleChoiceDialogBase::~clSingleChoiceDialogBase()
 {
-    m_searchCtrl->Disconnect(wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler(clSingleChoiceDialogBase::OnFilter), NULL,
-                             this);
     m_dvListCtrl->Disconnect(wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED,
                              wxDataViewEventHandler(clSingleChoiceDialogBase::OnActivated), NULL, this);
     m_button185->Disconnect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(clSingleChoiceDialogBase::OnOKUI), NULL, this);
@@ -690,7 +692,9 @@ clImageViewerBase::clImageViewerBase(wxWindow* parent, wxWindowID id, const wxPo
 
     SetName(wxT("clImageViewerBase"));
     SetSize(wxDLG_UNIT(this, wxSize(500, 300)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
 }
 
 clImageViewerBase::~clImageViewerBase() {}
@@ -708,30 +712,39 @@ clEditorBarBase::clEditorBarBase(wxWindow* parent, wxWindowID id, const wxPoint&
     wxBoxSizer* boxSizer346 = new wxBoxSizer(wxHORIZONTAL);
     this->SetSizer(boxSizer346);
 
-    wxFlexGridSizer* flexGridSizer374 = new wxFlexGridSizer(0, 3, 0, 0);
+    wxFlexGridSizer* flexGridSizer374 = new wxFlexGridSizer(0, 4, 0, 0);
     flexGridSizer374->SetFlexibleDirection(wxBOTH);
     flexGridSizer374->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
+    flexGridSizer374->AddGrowableCol(0);
+    flexGridSizer374->AddGrowableCol(1);
+    flexGridSizer374->AddGrowableCol(2);
+    flexGridSizer374->AddGrowableCol(3);
 
     boxSizer346->Add(flexGridSizer374, 1, wxEXPAND, WXC_FROM_DIP(5));
 
-    m_buttonScope =
-        new clThemedButton(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(200, -1)), 0);
+    m_buttonScope = new clThemedButton(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
 
-    flexGridSizer374->Add(m_buttonScope, 1, wxRIGHT | wxEXPAND, WXC_FROM_DIP(5));
+    flexGridSizer374->Add(m_buttonScope, 1, wxALL | wxEXPAND, WXC_FROM_DIP(2));
 
     m_buttonFilePath =
-        new clThemedButton(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(200, -1)), 0);
+        new clThemedButton(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
 
-    flexGridSizer374->Add(m_buttonFilePath, 1, wxEXPAND, WXC_FROM_DIP(5));
+    flexGridSizer374->Add(m_buttonFilePath, 1, wxALL | wxEXPAND, WXC_FROM_DIP(2));
 
     m_buttonBookmarks =
-        new clThemedButton(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(200, -1)), 0);
+        new clThemedButton(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
 
-    flexGridSizer374->Add(m_buttonBookmarks, 0, wxLEFT, WXC_FROM_DIP(5));
+    flexGridSizer374->Add(m_buttonBookmarks, 0, wxALL, WXC_FROM_DIP(2));
+
+    m_labelText = new wxStaticText(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(200, -1)), 0);
+
+    flexGridSizer374->Add(m_labelText, 1, wxALL | wxEXPAND | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
 
     SetName(wxT("clEditorBarBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_buttonScope->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(clEditorBarBase::OnButtonScope), NULL,
                            this);
@@ -818,7 +831,9 @@ clTableLineEditorBaseDlg::clTableLineEditorBaseDlg(wxWindow* parent, wxWindowID 
 
     SetName(wxT("clTableLineEditorBaseDlg"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {

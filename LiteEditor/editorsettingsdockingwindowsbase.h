@@ -59,9 +59,11 @@ protected:
     wxChoice* m_choiceOutputTabsOrientation;
     wxStaticLine* m_staticLine61;
     wxCheckBox* m_checkBoxShowXButton;
+    wxCheckBox* m_checkBoxShowPath;
     wxCheckBox* m_checkBoxMouseScrollSwitchTabs;
     wxCheckBox* m_checkBoxSortTabsDropdownAlphabetically;
     wxCheckBox* m_checkBoxEnableTabSwitchingKey;
+    wxCheckBox* m_checkBoxHideTabBar;
     wxPanel* m_panel12;
     wxRadioBox* m_radioBoxHint;
     wxCheckBox* m_checkBoxCustomCaptionColour;
@@ -91,6 +93,7 @@ protected:
     wxCheckBox* m_checkBoxShowDebugOnRun;
 
 protected:
+    virtual void OnUsingNativeBookUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnUseCustomCaptionColourUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnEnsureCaptionsVisibleUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnHideOutputPaneNotIfDebugUI(wxUpdateUIEvent& event) { event.Skip(); }
@@ -108,9 +111,11 @@ public:
     wxChoice* GetChoiceOutputTabsOrientation() { return m_choiceOutputTabsOrientation; }
     wxStaticLine* GetStaticLine61() { return m_staticLine61; }
     wxCheckBox* GetCheckBoxShowXButton() { return m_checkBoxShowXButton; }
+    wxCheckBox* GetCheckBoxShowPath() { return m_checkBoxShowPath; }
     wxCheckBox* GetCheckBoxMouseScrollSwitchTabs() { return m_checkBoxMouseScrollSwitchTabs; }
     wxCheckBox* GetCheckBoxSortTabsDropdownAlphabetically() { return m_checkBoxSortTabsDropdownAlphabetically; }
     wxCheckBox* GetCheckBoxEnableTabSwitchingKey() { return m_checkBoxEnableTabSwitchingKey; }
+    wxCheckBox* GetCheckBoxHideTabBar() { return m_checkBoxHideTabBar; }
     wxPanel* GetPanelTabs() { return m_panelTabs; }
     wxRadioBox* GetRadioBoxHint() { return m_radioBoxHint; }
     wxCheckBox* GetCheckBoxCustomCaptionColour() { return m_checkBoxCustomCaptionColour; }

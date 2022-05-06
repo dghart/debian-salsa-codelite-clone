@@ -48,7 +48,9 @@ static ContinuousBuild* thePlugin = NULL;
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) { thePlugin = new ContinuousBuild(manager); }
+    if(thePlugin == 0) {
+        thePlugin = new ContinuousBuild(manager);
+    }
     return thePlugin;
 }
 
@@ -75,9 +77,11 @@ ContinuousBuild::ContinuousBuild(IManager* manager)
     m_view = new ContinousBuildPane(m_mgr->GetOutputPaneNotebook(), m_mgr, this);
 
     // add our page to the output pane notebook
-    m_mgr->GetOutputPaneNotebook()->AddPage(m_view, CONT_BUILD, false, m_mgr->GetStdIcons()->LoadBitmap("execute"));
+    auto book = m_mgr->GetOutputPaneNotebook();
+    auto images = book->GetBitmaps();
+    m_mgr->GetOutputPaneNotebook()->AddPage(m_view, CONT_BUILD, false, images->Add("execute"));
     m_tabHelper.reset(new clTabTogglerHelper(CONT_BUILD, m_view, "", NULL));
-    m_tabHelper->SetOutputTabBmp(m_mgr->GetStdIcons()->LoadBitmap("execute"));
+    m_tabHelper->SetOutputTabBmp(images->Add("execute"));
 
     m_topWin = m_mgr->GetTheApp();
     EventNotifier::Get()->Connect(wxEVT_FILE_SAVED, clCommandEventHandler(ContinuousBuild::OnFileSaved), NULL, this);
@@ -183,26 +187,25 @@ void ContinuousBuild::DoBuild(const wxString& fileName)
     // get the selected configuration to be build
     BuildConfigPtr bldConf = m_mgr->GetWorkspace()->GetProjBuildConf(project->GetName(), wxEmptyString);
     if(!bldConf) {
-        CL_DEBUG(wxT("Failed to locate build configuration\n"));
+        clDEBUG() << "Failed to locate build configuration\n" << endl;
         return;
     }
 
     BuilderPtr builder = bldConf->GetBuilder();
     if(!builder) {
-        CL_DEBUG(wxT("Failed to located builder\n"));
+        clDEBUG() << "Failed to located builder\n" << endl;
         return;
     }
 
     // Only normal file builds are supported
     if(bldConf->IsCustomBuild()) {
-        CL_DEBUG(wxT("Build is custom. Skipping\n"));
+        clDEBUG() << "Build is custom. Skipping\n" << endl;
         return;
     }
 
     // get the single file command to use
     wxString cmd =
         builder->GetSingleFileCmd(projectName, bldConf->GetName(), bldConf->GetBuildSystemArguments(), fileName);
-    WrapInShell(cmd);
 
     if(m_buildProcess.IsBusy()) {
         // add the build to the queue
@@ -215,22 +218,19 @@ void ContinuousBuild::DoBuild(const wxString& fileName)
         return;
     }
 
-    clCommandEvent event(wxEVT_SHELL_COMMAND_STARTED);
-
-    // Associate the build event details
-    BuildEventDetails* eventData = new BuildEventDetails();
-    eventData->SetProjectName(projectName);
-    eventData->SetConfiguration(bldConf->GetName());
-    eventData->SetIsCustomProject(bldConf->IsCustomBuild());
-    eventData->SetIsClean(false);
-
-    event.SetClientObject(eventData);
     // Fire it up
+    clBuildEvent event(wxEVT_BUILD_PROCESS_STARTED);
+    event.SetProjectName(projectName);
+    event.SetConfigurationName(bldConf->GetName());
+    event.SetFlag(clBuildEvent::kCustomProject, bldConf->IsCustomBuild());
+    event.SetFlag(clBuildEvent::kClean, false);
+    event.SetToolchain(bldConf->GetCompilerType());
     EventNotifier::Get()->AddPendingEvent(event);
 
     EnvSetter env(NULL, NULL, projectName, bldConf->GetName());
-    CL_DEBUG(wxString::Format(wxT("cmd:%s\n"), cmd.c_str()));
-    if(!m_buildProcess.Execute(cmd, fileName, project->GetFileName().GetPath(), this)) return;
+    clDEBUG() << "Continuous build:" << cmd << endl;
+    if(!m_buildProcess.Execute(cmd, fileName, project->GetFileName().GetPath(), this))
+        return;
 
     // Set some messages
     m_mgr->SetStatusMessage(
@@ -246,7 +246,7 @@ void ContinuousBuild::OnBuildProcessEnded(clProcessEvent& e)
     int pid = m_buildProcess.GetPid();
     m_view->RemoveFile(m_buildProcess.GetFileName());
 
-    clCommandEvent event(wxEVT_SHELL_COMMAND_PROCESS_ENDED);
+    clBuildEvent event(wxEVT_BUILD_PROCESS_ENDED);
     EventNotifier::Get()->AddPendingEvent(event);
 
     int exitCode(-1);
@@ -262,7 +262,6 @@ void ContinuousBuild::OnBuildProcessEnded(clProcessEvent& e)
 
         wxString fileName = m_files.Item(0);
         m_files.RemoveAt(0);
-
         DoBuild(fileName);
     }
 }
@@ -295,7 +294,7 @@ void ContinuousBuild::OnStopIgnoreFileSaved(wxCommandEvent& e)
 
 void ContinuousBuild::OnBuildProcessOutput(clProcessEvent& e)
 {
-    clCommandEvent event(wxEVT_SHELL_COMMAND_ADDLINE);
+    clBuildEvent event(wxEVT_BUILD_PROCESS_ADDLINE);
     event.SetString(e.GetOutput());
     EventNotifier::Get()->AddPendingEvent(event);
 }

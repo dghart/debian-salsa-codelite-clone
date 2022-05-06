@@ -128,6 +128,15 @@ EditorSettingsDockingWindowsBase::EditorSettingsDockingWindowsBase(wxWindow* par
 
     boxSizer56->Add(m_checkBoxShowXButton, 0, wxALL, WXC_FROM_DIP(5));
 
+    m_checkBoxShowPath = new wxCheckBox(m_panelTabs, wxID_ANY, _("Show filePath on tabs"), wxDefaultPosition,
+                                        wxDLG_UNIT(m_panelTabs, wxSize(-1, -1)), 0);
+    m_checkBoxShowPath->SetValue(true);
+    m_checkBoxShowPath->SetToolTip(
+        _("Label each tab with the last element of its path in addition to the filename.\nThis makes it easier to "
+          "distinguish between tabs of identically-named files\nbelonging to different folders."));
+
+    boxSizer56->Add(m_checkBoxShowPath, 0, wxALL, WXC_FROM_DIP(5));
+
     m_checkBoxMouseScrollSwitchTabs = new wxCheckBox(m_panelTabs, wxID_ANY, _("Mouse scroll switches between tabs"),
                                                      wxDefaultPosition, wxDLG_UNIT(m_panelTabs, wxSize(-1, -1)), 0);
     m_checkBoxMouseScrollSwitchTabs->SetValue(false);
@@ -149,6 +158,12 @@ EditorSettingsDockingWindowsBase::EditorSettingsDockingWindowsBase(wxWindow* par
     m_checkBoxEnableTabSwitchingKey->SetValue(true);
 
     boxSizer56->Add(m_checkBoxEnableTabSwitchingKey, 0, wxALL, WXC_FROM_DIP(5));
+
+    m_checkBoxHideTabBar = new wxCheckBox(m_panelTabs, wxID_ANY, _("Hide main tab bar"), wxDefaultPosition,
+                                          wxDLG_UNIT(m_panelTabs, wxSize(-1, -1)), 0);
+    m_checkBoxHideTabBar->SetValue(false);
+
+    boxSizer56->Add(m_checkBoxHideTabBar, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
     m_panel12 = new wxPanel(m_notebook10, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_notebook10, wxSize(-1, -1)),
                             wxTAB_TRAVERSAL);
@@ -404,8 +419,20 @@ EditorSettingsDockingWindowsBase::EditorSettingsDockingWindowsBase(wxWindow* par
 
     SetName(wxT("EditorSettingsDockingWindowsBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
+    m_choiceTabStyle->Connect(
+        wxEVT_UPDATE_UI, wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUsingNativeBookUI), NULL, this);
+    m_choiceTabHeight->Connect(
+        wxEVT_UPDATE_UI, wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUsingNativeBookUI), NULL, this);
+    m_colourPickerMarker->Connect(
+        wxEVT_UPDATE_UI, wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUsingNativeBookUI), NULL, this);
+    m_checkBoxShowXButton->Connect(
+        wxEVT_UPDATE_UI, wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUsingNativeBookUI), NULL, this);
+    m_checkBoxMouseScrollSwitchTabs->Connect(
+        wxEVT_UPDATE_UI, wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUsingNativeBookUI), NULL, this);
     m_cpCaptionColour->Connect(wxEVT_UPDATE_UI,
                                wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUseCustomCaptionColourUI),
                                NULL, this);
@@ -458,6 +485,16 @@ EditorSettingsDockingWindowsBase::EditorSettingsDockingWindowsBase(wxWindow* par
 
 EditorSettingsDockingWindowsBase::~EditorSettingsDockingWindowsBase()
 {
+    m_choiceTabStyle->Disconnect(
+        wxEVT_UPDATE_UI, wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUsingNativeBookUI), NULL, this);
+    m_choiceTabHeight->Disconnect(
+        wxEVT_UPDATE_UI, wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUsingNativeBookUI), NULL, this);
+    m_colourPickerMarker->Disconnect(
+        wxEVT_UPDATE_UI, wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUsingNativeBookUI), NULL, this);
+    m_checkBoxShowXButton->Disconnect(
+        wxEVT_UPDATE_UI, wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUsingNativeBookUI), NULL, this);
+    m_checkBoxMouseScrollSwitchTabs->Disconnect(
+        wxEVT_UPDATE_UI, wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUsingNativeBookUI), NULL, this);
     m_cpCaptionColour->Disconnect(wxEVT_UPDATE_UI,
                                   wxUpdateUIEventHandler(EditorSettingsDockingWindowsBase::OnUseCustomCaptionColourUI),
                                   NULL, this);

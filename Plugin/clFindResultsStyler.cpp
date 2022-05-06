@@ -1,5 +1,6 @@
-#include "ColoursAndFontsManager.h"
 #include "clFindResultsStyler.h"
+
+#include "ColoursAndFontsManager.h"
 #include "editor_config.h"
 #include "globals.h"
 #include "lexer_configuration.h"
@@ -22,13 +23,17 @@ clFindResultsStyler::clFindResultsStyler(wxStyledTextCtrl* stc)
 
 clFindResultsStyler::~clFindResultsStyler()
 {
-    if(m_stc) { m_stc->Unbind(wxEVT_STC_STYLENEEDED, &clFindResultsStyler::OnStyleNeeded, this); }
+    if(m_stc) {
+        m_stc->Unbind(wxEVT_STC_STYLENEEDED, &clFindResultsStyler::OnStyleNeeded, this);
+    }
 }
 
 void clFindResultsStyler::SetStyles(wxStyledTextCtrl* sci)
 {
     LexerConf::Ptr_t lexer = ColoursAndFontsManager::Get().GetLexer("c++");
-    if(!lexer) { lexer = ColoursAndFontsManager::Get().GetLexer("text"); }
+    if(!lexer) {
+        lexer = ColoursAndFontsManager::Get().GetLexer("text");
+    }
 
     const StyleProperty& defaultStyle = lexer->GetProperty(0);
     wxFont defaultFont = lexer->GetFontForSyle(0, sci);
@@ -45,25 +50,22 @@ void clFindResultsStyler::SetStyles(wxStyledTextCtrl* sci)
     // Set the whitespace colours
     sci->SetWhitespaceForeground(true, props[WHITE_SPACE_ATTR_ID].GetFgColour());
 
-    sci->StyleSetForeground(LEX_FIF_HEADER, props[11].GetFgColour());
-    sci->StyleSetBackground(LEX_FIF_HEADER, props[11].GetBgColour());
+    sci->StyleSetForeground(LEX_FIF_HEADER, props[0].GetFgColour());
+    sci->StyleSetBackground(LEX_FIF_HEADER, props[0].GetBgColour());
 
     // 33 is the style for line numbers
     sci->StyleSetForeground(LEX_FIF_LINE_NUMBER, props[33].GetFgColour());
 
-    // 11 is the style number for "identifier"
-    sci->StyleSetForeground(LEX_FIF_MATCH, props[11].GetFgColour());
-
-    // 16 is the stule for colouring classes
-    sci->StyleSetForeground(LEX_FIF_SCOPE, props[16].GetFgColour());
+    sci->StyleSetForeground(LEX_FIF_MATCH, props[wxSTC_C_IDENTIFIER].GetFgColour());
+    sci->StyleSetForeground(LEX_FIF_SCOPE, props[wxSTC_C_GLOBALCLASS].GetFgColour());
 
     sci->StyleSetForeground(LEX_FIF_MATCH_COMMENT, props[wxSTC_C_COMMENTLINE].GetFgColour());
 
     sci->StyleSetForeground(LEX_FIF_FILE, props[wxSTC_C_WORD].GetFgColour());
     sci->StyleSetEOLFilled(LEX_FIF_FILE, true);
 
-    sci->StyleSetForeground(LEX_FIF_DEFAULT, props[11].GetFgColour());
-    sci->StyleSetBackground(LEX_FIF_DEFAULT, props[11].GetBgColour());
+    sci->StyleSetForeground(LEX_FIF_DEFAULT, props[0].GetFgColour());
+    sci->StyleSetBackground(LEX_FIF_DEFAULT, props[0].GetBgColour());
 
     sci->StyleSetHotSpot(LEX_FIF_MATCH, true);
     sci->StyleSetHotSpot(LEX_FIF_FILE, true);
@@ -136,9 +138,11 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
     size_t matchStyleLen = 0;
     size_t i = 0;
     for(; iter != text.end(); ++iter) {
-        bool advance2Pos = false;
         const wxUniChar& ch = *iter;
-        if((long)ch >= 128) { advance2Pos = true; }
+        size_t chWidth = 1;
+        if(!ch.IsAscii()) {
+            chWidth = wxString(ch).mb_str(wxConvUTF8).length();
+        }
 
         switch(m_curstate) {
         default:
@@ -155,7 +159,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
                 ctrl->SetStyling(1, LEX_FIF_DEFAULT);
             } else {
                 // File name
-                filenameStyleLen = 1;
+                filenameStyleLen = chWidth;
                 m_curstate = kFile;
             }
             break;
@@ -174,8 +178,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
             }
             break;
         case kScope:
-            ++scopeStyleLen;
-
+            scopeStyleLen += chWidth;
             if(ch == ']') {
                 // end of scope
                 ctrl->SetStyling(scopeStyleLen, LEX_FIF_SCOPE);
@@ -184,8 +187,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
             }
             break;
         case kMatch:
-            ++matchStyleLen;
-            if(advance2Pos) { ++matchStyleLen; }
+            matchStyleLen += chWidth;
             if(ch == '\n') {
                 m_curstate = kStartOfLine;
                 ctrl->SetStyling(matchStyleLen, LEX_FIF_MATCH);
@@ -193,7 +195,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
             }
             break;
         case kFile:
-            ++filenameStyleLen;
+            filenameStyleLen += chWidth;
             if(ch == '\n') {
                 m_curstate = kStartOfLine;
                 ctrl->SetFoldLevel(ctrl->LineFromPosition(startPos + i), 2 | wxSTC_FOLDLEVELHEADERFLAG);
@@ -202,7 +204,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
             }
             break;
         case kHeader:
-            ++headerStyleLen;
+            headerStyleLen += chWidth;
             if(ch == '\n') {
                 m_curstate = kStartOfLine;
                 ctrl->SetFoldLevel(ctrl->LineFromPosition(startPos + i), 1 | wxSTC_FOLDLEVELHEADERFLAG);
@@ -211,11 +213,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
             }
             break;
         }
-        if(advance2Pos) {
-            i += 2;
-        } else {
-            ++i;
-        }
+        i += chWidth;
     }
 
     // Left overs...

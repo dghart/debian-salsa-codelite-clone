@@ -1,28 +1,35 @@
 #include "MainFrame.h"
-#include <wx/aboutdlg.h>
-#include "wxTerminalCtrl.h"
+
 #include "SettingsDlg.h"
+#include "wxTerminalCtrl.h"
 #include "wxTerminalOptions.h"
+
+#include <wx/aboutdlg.h>
+#include <wx/msgdlg.h>
 
 MainFrame::MainFrame(wxWindow* parent)
     : MainFrameBaseClass(parent)
 {
     wxTerminalOptions& options = wxTerminalOptions::Get();
     options.Load();
+
     m_terminal = new wxTerminalCtrl(GetMainPanel());
     m_terminal->SetWorkingDirectory(options.GetWorkingDirectory());
     m_terminal->SetPauseOnExit(options.IsWaitOnExit());
     m_terminal->SetPrintTTY(options.IsPrintTTY(), options.GetTtyfile());
     m_terminal->SetLogfile(options.GetLogfile());
     m_terminal->Start(options.GetCommand());
-
     GetMainPanel()->GetSizer()->Add(m_terminal, 1, wxEXPAND);
+
     GetSizer()->Fit(this);
     SetLabel(options.GetTitle().IsEmpty() ? "codelite-terminal" : options.GetTitle());
     m_terminal->Bind(wxEVT_TERMINAL_CTRL_DONE, &MainFrame::OnTerminalExit, this);
     m_terminal->Bind(wxEVT_TERMINAL_CTRL_SET_TITLE, &MainFrame::OnSetTitle, this);
     m_terminal->CallAfter(&wxTerminalCtrl::Focus);
     PostSizeEvent();
+
+    // ensure that this window is raised on startup
+    CallAfter(&wxFrame::Raise);
 }
 
 MainFrame::~MainFrame() {}
@@ -75,5 +82,5 @@ void MainFrame::OnClose(wxCloseEvent& event)
 }
 
 void MainFrame::OnSetTitle(clCommandEvent& event) { SetLabel(event.GetString()); }
-
 void MainFrame::OnClearScreen(wxCommandEvent& event) { m_terminal->ClearScreen(); }
+void MainFrame::OnButton93ButtonClicked(wxCommandEvent& event) {}

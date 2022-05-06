@@ -24,16 +24,17 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #ifdef __WXMSW__
+#include "winprocess_impl.h"
 #include "file_logger.h"
 #include "fileutils.h"
 #include "processreaderthread.h"
 #include "procutils.h"
 #include "smart_ptr.h"
-#include "winprocess_impl.h"
 #include <atomic>
 #include <memory>
 #include <wx/filefn.h>
 #include <wx/msgqueue.h>
+#include <wx/string.h>
 
 #ifdef _WIN32_WINNT
 #undef _WIN32_WINNT
@@ -92,12 +93,13 @@ template <typename T> bool WriteStdin(const T& buffer, HANDLE hStdin, HANDLE hPr
     DWORD dwMode;
 
     // Make the pipe to non-blocking mode
-    dwMode = PIPE_READMODE_BYTE | PIPE_NOWAIT;
+    dwMode = PIPE_READMODE_BYTE | PIPE_WAIT;
     SetNamedPipeHandleState(hStdin, &dwMode, NULL, NULL);
     DWORD bytesLeft = buffer.length();
     long offset = 0;
+    static constexpr int max_retry_count = 100;
     size_t retryCount = 0;
-    while(bytesLeft > 0 && (retryCount < 100)) {
+    while(bytesLeft > 0 && (retryCount < max_retry_count)) {
         DWORD dwWritten = 0;
         if(!WriteFile(hStdin, buffer.c_str() + offset, bytesLeft, &dwWritten, NULL)) {
             int errorCode = GetLastError();
@@ -108,11 +110,17 @@ template <typename T> bool WriteStdin(const T& buffer, HANDLE hStdin, HANDLE hPr
             return false;
         }
         if(dwWritten == 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         bytesLeft -= dwWritten;
         offset += dwWritten;
         ++retryCount;
+    }
+
+    if(retryCount >= max_retry_count) {
+        clERROR() << "Failed to write to process after" << max_retry_count << "retries. Written"
+                  << (buffer.length() - bytesLeft) << "/" << buffer.length() << "bytes" << endl;
+        return false;
     }
     return true;
 }
@@ -163,9 +171,55 @@ public:
     void Write(const std::string& buffer) { m_outgoingQueue.Post(buffer); }
 };
 
+static wxString __JoinArray(const wxArrayString& args, size_t flags)
+{
+    wxString command;
+    if(flags & IProcessWrapInShell) {
+        // CMD /C [command] ...
+        // Make sure that the first command is wrapped with "" if it contains spaces
+        clDEBUG1() << "==> __JoinArray called for" << args << endl;
+        clDEBUG1() << "args[2] is:" << args[2] << endl;
+        if((args.size() > 3) && (!args[2].StartsWith("\"")) && (args[2].Contains(" "))) {
+            clDEBUG() << "==> Fixing" << args << endl;
+            wxArrayString tmparr = args;
+            wxString& firstCommand = tmparr[2];
+            firstCommand.Prepend("\"").Append("\"");
+            command = wxJoin(tmparr, ' ', 0);
+        } else {
+            command = wxJoin(args, ' ', 0);
+        }
+    } else if(flags & IProcessCreateSSH) {
+        // simple join
+        command = wxJoin(args, ' ', 0);
+    } else {
+        wxArrayString arr;
+        arr.reserve(args.size());
+        arr = args;
+        for(auto& arg : arr) {
+            if(arg.Contains(" ")) {
+                // escape any " before we start escaping
+                arg.Replace("\"", "\\\"");
+                // now wrap with double quotes
+                arg.Prepend("\"").Append("\"");
+            }
+            command << arg << " ";
+        }
+    }
+    command.Trim().Trim(false);
+    return command;
+}
+
+IProcess* WinProcessImpl::Execute(wxEvtHandler* parent, const wxArrayString& args, size_t flags,
+                                  const wxString& workingDirectory, IProcessCallback* cb)
+{
+    wxString cmd = __JoinArray(args, flags);
+    clDEBUG1() << "Windows process starting:" << cmd << endl;
+    return Execute(parent, cmd, flags, workingDirectory, cb);
+}
+
 /*static*/
-IProcess* WinProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, wxString& errMsg, size_t flags,
-                                  const wxString& workingDir, IProcessCallback* cb)
+IProcess* WinProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, size_t flags, const wxString& workingDir,
+                                  IProcessCallback* cb)
 {
     SECURITY_ATTRIBUTES saAttr;
     BOOL fSuccess;
@@ -309,6 +363,7 @@ IProcess* WinProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, wxS
         siStartInfo.wShowWindow = SW_HIDE;
         creationFlags = CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP;
     }
+    clDEBUG1() << "Running process:" << cmd << endl;
 
     BOOL ret = CreateProcess(NULL,
                              cmd.wchar_str(),   // shell line execution command
@@ -363,7 +418,6 @@ IProcess* WinProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, wxS
 
 WinProcessImpl::WinProcessImpl(wxEvtHandler* parent)
     : IProcess(parent)
-    , m_thr(NULL)
 {
     hChildStdinRd = NULL;
     hChildStdinWrDup = NULL;
@@ -398,7 +452,7 @@ bool WinProcessImpl::Read(wxString& buff, wxString& buffErr)
     }
     if((le1 == ERROR_NO_DATA) && (le2 == ERROR_NO_DATA)) {
         if(IsAlive()) {
-            wxThread::Sleep(10);
+            wxThread::Sleep(5);
             return true;
         }
     }
@@ -507,28 +561,29 @@ void WinProcessImpl::StartReaderThread()
 
 bool WinProcessImpl::DoReadFromPipe(HANDLE pipe, wxString& buff)
 {
-    DWORD dwRead;
+    DWORD dwRead = 0;
     DWORD dwMode;
     DWORD dwTimeout;
 
     // Make the pipe to non-blocking mode
     dwMode = PIPE_READMODE_BYTE | PIPE_NOWAIT;
-    dwTimeout = 1000;
+    dwTimeout = 100;
     SetNamedPipeHandleState(pipe, &dwMode, NULL, &dwTimeout);
 
     bool read_something = false;
     while(true) {
-        BOOL bRes = ReadFile(pipe, m_buffer, sizeof(m_buffer) - 1, &dwRead, NULL);
-        if(bRes) {
+        BOOL bRes = ReadFile(pipe, m_buffer, BUFFER_SIZE - 1, &dwRead, NULL);
+        if(bRes && (dwRead > 0)) {
             wxString tmpBuff;
+            tmpBuff.reserve(dwRead * 2); // make enough room for the conversion
             // Success read
-            m_buffer[dwRead / sizeof(char)] = 0;
-            tmpBuff = wxString(m_buffer, wxConvUTF8);
+            tmpBuff = wxString(m_buffer, wxConvUTF8, dwRead);
             if(tmpBuff.IsEmpty() && dwRead > 0) {
                 // conversion failed
-                tmpBuff = wxString::From8BitData(m_buffer);
+                tmpBuff = wxString::From8BitData(m_buffer, dwRead);
             }
-            buff << tmpBuff;
+            buff.reserve(buff.size() + tmpBuff.size() + 1);
+            buff.Append(tmpBuff);
             read_something = true;
             continue;
         }
