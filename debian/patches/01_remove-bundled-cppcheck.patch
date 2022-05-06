@@ -3,21 +3,19 @@ Date: Mon, 21 Feb 2022 20:37:25 +0100
 Subject: Remove bundled cppcheck from CMakeLists.txt
 
 Forwarded: not-needed
-
-Forwarded: not-needed
 ---
  CMakeLists.txt | 1 -
  1 file changed, 1 deletion(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 66e764e..a873661 100644
+index 0c72f91..d4cc003 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -682,7 +682,6 @@ if(NOT SDK_ONLY)
-     add_subdirectory(codelite_make)
-     add_subdirectory(codelite_terminal)
-     add_subdirectory(sdk/codelite_indexer)
--    add_subdirectory(sdk/codelite_cppcheck)
-     add_subdirectory(codelite_echo)
-     if(DEBUG_BUILD)
-         add_subdirectory(CodeCompletionsTests)
+@@ -715,7 +715,6 @@ else()
+         add_subdirectory(codelitegcc)
+         add_subdirectory(codelite_make)
+         add_subdirectory(codelite_terminal)
+-        add_subdirectory(sdk/codelite_cppcheck)
+         add_subdirectory(codelite_echo)
+         add_subdirectory(ctagsd)
+     endif()

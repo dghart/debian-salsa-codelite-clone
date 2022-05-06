@@ -10,10 +10,10 @@ Subject: Move most helper binaries to /usr/lib/codelite
  4 files changed, 4 insertions(+), 7 deletions(-)
 
 diff --git a/CodeLite/cl_standard_paths.cpp b/CodeLite/cl_standard_paths.cpp
-index 0f49a08..bd669ef 100644
+index 036bcb6..23871df 100644
 --- a/CodeLite/cl_standard_paths.cpp
 +++ b/CodeLite/cl_standard_paths.cpp
-@@ -115,8 +115,7 @@ wxString clStandardPaths::GetDataDir() const
+@@ -119,8 +119,7 @@ wxString clStandardPaths::GetDataDir() const
  
  wxString clStandardPaths::GetBinFolder() const
  {
@@ -24,7 +24,7 @@ index 0f49a08..bd669ef 100644
  
  wxString clStandardPaths::GetBinaryFullPath(const wxString& toolname) const
 diff --git a/CodeLite/macros.h b/CodeLite/macros.h
-index efd8961..e794f99 100644
+index 04d9345..e19a21d 100644
 --- a/CodeLite/macros.h
 +++ b/CodeLite/macros.h
 @@ -110,7 +110,7 @@
@@ -37,10 +37,10 @@ index efd8961..e794f99 100644
  #define TERMINAL_CMD wxString::Format(wxT("%s/OpenTerm '$(CMD)'"), clStandardPaths::Get().GetDataDir().c_str())
  #else
 diff --git a/LiteEditor/app.cpp b/LiteEditor/app.cpp
-index 93752f3..ca0a2ce 100644
+index fd2a9f4..75629c5 100644
 --- a/LiteEditor/app.cpp
 +++ b/LiteEditor/app.cpp
-@@ -640,8 +640,7 @@ bool CodeLiteApp::OnInit()
+@@ -653,8 +653,7 @@ bool CodeLiteApp::OnInit()
  #endif
      wxString oldpath;
      wxGetEnv(wxT("PATH"), &oldpath);
@@ -51,16 +51,16 @@ index 93752f3..ca0a2ce 100644
      wxGetEnv(wxT("PATH"), &newpath);
  
 diff --git a/Plugin/pipedprocess.cpp b/Plugin/pipedprocess.cpp
-index 0fa2542..f286556 100644
+index 16613f6..cbfb515 100644
 --- a/Plugin/pipedprocess.cpp
 +++ b/Plugin/pipedprocess.cpp
-@@ -55,8 +55,7 @@ void PipedProcess::Terminate()
+@@ -49,8 +49,7 @@ void PipedProcess::Terminate()
  {
  #ifdef __WXGTK__
- 	wxString cmd;
--	wxFileName exePath(clStandardPaths::Get().GetExecutablePath());
--	wxFileName script(exePath.GetPath(), wxT("codelite_kill_children"));
-+	wxFileName script(clStandardPaths::Get().GetBinaryFullPath("codelite_kill_children"));
- 	cmd << wxT("/bin/bash -f ") << script.GetFullPath() << wxT(" ") << GetPid();
- 	wxExecute(cmd, wxEXEC_ASYNC);
+     wxString cmd;
+-    wxFileName exePath(clStandardPaths::Get().GetExecutablePath());
+-    wxFileName script(exePath.GetPath(), wxT("codelite_kill_children"));
++    wxFileName script(clStandardPaths::Get().GetBinaryFullPath("codelite_kill_children"));
+     cmd << wxT("/bin/bash -f ") << script.GetFullPath() << wxT(" ") << GetPid();
+     wxExecute(cmd, wxEXEC_ASYNC);
  #else

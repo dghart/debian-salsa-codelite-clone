@@ -12,10 +12,10 @@ Forwarded: not-needed
  1 file changed, 17 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 15b0c0d..ab1fb25 100644
+index fbeacfc..a030c69 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -386,20 +386,6 @@ else ()
+@@ -394,20 +394,6 @@ else ()
      set ( DEBUG_BUILD 0 )
      set(CMAKE_INSTALL_DO_STRIP TRUE)
      message("-- CMAKE_INSTALL_DO_STRIP is " ${CMAKE_INSTALL_DO_STRIP})
@@ -36,7 +36,7 @@ index 15b0c0d..ab1fb25 100644
  
      set( CL_PCH_FILE "${CL_SRC_ROOT}/PCH/precompiled_header_release.h")
      set( CL_PCH_TARGET "precompiled_header_release.h.gch")
-@@ -420,9 +406,6 @@ else ()
+@@ -428,9 +414,6 @@ else ()
      message("-- Shared Objects will be written into ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
  
      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")        ## Optimize

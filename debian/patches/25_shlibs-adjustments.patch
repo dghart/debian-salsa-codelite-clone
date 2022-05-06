@@ -2,48 +2,48 @@ From: James Cowgill <jcowgill@debian.org>
 Date: Mon, 21 Feb 2022 20:37:25 +0100
 Subject: Workarounds for dpkg-shlibdeps warnings
 
-Forwarded: not-needed
-
 This patch gives SONAMEs to liblibcodelite and libplugin. This fixes the
 dpkg-shlibdeps warnings and allows codelite-plugins to "properly" link against
 libraries from the codelite package.
 
 Converting the other libraries to static libs is ok since they are only used
 by one library. It also reduces the final size and fixes some more warnings.
+
 Forwarded: not-needed
 ---
  CodeLite/CMakeLists.txt             | 1 +
- Plugin/CMakeLists.txt               | 1 +
+ Plugin/CMakeLists.txt               | 2 +-
  sdk/databaselayer/CMakeLists.txt    | 2 +-
  sdk/wxshapeframework/CMakeLists.txt | 2 +-
- 4 files changed, 4 insertions(+), 2 deletions(-)
+ 4 files changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/CodeLite/CMakeLists.txt b/CodeLite/CMakeLists.txt
-index af33cf4..f778e8d 100644
+index 839eec6..adf2f39 100644
 --- a/CodeLite/CMakeLists.txt
 +++ b/CodeLite/CMakeLists.txt
-@@ -112,6 +112,7 @@ FILE(GLOB SRCS "*.cpp" "../sdk/codelite_indexer/network/*.cpp" "SocketAPI/*.cpp"
+@@ -115,6 +115,7 @@ endif()
  
  # Define the output
  add_library(libcodelite SHARED ${SRCS})
 +set_target_properties(libcodelite PROPERTIES SOVERSION 0)
- if (UNIX AND NOT APPLE )
-     target_link_libraries(libcodelite 
-                          ${LINKER_OPTIONS} 
+ target_link_libraries(libcodelite
+                       ${LINKER_OPTIONS}
+                       ${wxWidgets_LIBRARIES}
 diff --git a/Plugin/CMakeLists.txt b/Plugin/CMakeLists.txt
-index d890011..96e67df 100644
+index 08c3071..a8b0a25 100644
 --- a/Plugin/CMakeLists.txt
 +++ b/Plugin/CMakeLists.txt
-@@ -89,6 +89,7 @@ FILE(GLOB SRCS "*.cpp")
+@@ -86,7 +86,7 @@ FILE(GLOB SRCS "*.cpp")
  
  # Define the output
  add_library(plugin SHARED ${SRCS})
+-
 +set_target_properties(plugin PROPERTIES SOVERSION 0)
  if(GTK2_FOUND)
      target_link_libraries(plugin ${LINKER_OPTIONS} ${ADDITIONAL_LIBRARIES} ${GTK2_LIBRARIES} ${wxWidgets_LIBRARIES} -L"${CL_LIBPATH}" libcodelite)
  elseif (GTK3_FOUND)
 diff --git a/sdk/databaselayer/CMakeLists.txt b/sdk/databaselayer/CMakeLists.txt
-index 23907a5..eb0dbae 100644
+index 4097155..35cd79e 100644
 --- a/sdk/databaselayer/CMakeLists.txt
 +++ b/sdk/databaselayer/CMakeLists.txt
 @@ -71,7 +71,7 @@ endif(UNIX AND NOT APPLE)
@@ -52,11 +52,11 @@ index 23907a5..eb0dbae 100644
  # Define the output
 -add_library(databaselayersqlite SHARED ${SRCS} ${MYSQL_SRCS})
 +add_library(databaselayersqlite STATIC ${SRCS} ${MYSQL_SRCS})
- target_link_libraries(databaselayersqlite ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES})
+ target_link_libraries(databaselayersqlite ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES} ${SQLite3_LIBRARIES})
  
  if(APPLE)
 diff --git a/sdk/wxshapeframework/CMakeLists.txt b/sdk/wxshapeframework/CMakeLists.txt
-index 308cec4..e019737 100644
+index 95ca1ad..f4ef623 100644
 --- a/sdk/wxshapeframework/CMakeLists.txt
 +++ b/sdk/wxshapeframework/CMakeLists.txt
 @@ -36,7 +36,7 @@ endif()
@@ -65,6 +65,6 @@ index 308cec4..e019737 100644
  # Define the output
 -add_library(wxshapeframework SHARED ${SRCS})
 +add_library(wxshapeframework STATIC ${SRCS})
- target_link_libraries(wxshapeframework ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES})
  
- if (NOT MINGW)
+ 
+ target_link_libraries(wxshapeframework ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES})

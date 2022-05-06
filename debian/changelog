@@ -2,8 +2,13 @@ codelite (16.0.0+dfsg-1) UNRELEASED; urgency=medium
 
   * QA upload.
   * New upstream release.
-  * Convert patches to gbp-pq.
-  * Drop patch auto-gitignore, no longer needed.
+  * Rebase patches and convert to gbp-pq.
+  * Drop patches:
+    - 26_remove_hardcoded_x86.patch, included upstream
+    - 28_spelling.patch, included upstream
+    - 31_python3_upgrade.patch, included upstream
+    - 32_hunspell_unnest_2_nested_classes.patch, included upstream
+    - auto-gitignore, no longer needed.
 
  -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Fri, 06 May 2022 23:48:11 +0200
 

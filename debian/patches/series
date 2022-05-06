@@ -6,7 +6,3 @@
 10_move-helper-binaries.patch
 24_default_no_check_for_updates.patch
 25_shlibs-adjustments.patch
-26_remove_hardcoded_x86.patch
-28_spelling.patch
-31_python3_upgrade.patch
-32_hunspell_unnest_2_nested_classes.patch
