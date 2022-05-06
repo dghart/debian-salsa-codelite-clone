@@ -1,3 +1,5 @@
+#include "wxcrafter_plugin.h"
+
 #include "AboutDlg.h"
 #include "ColoursAndFontsManager.h"
 #include "DefineCustomControlWizard.h"
@@ -11,8 +13,15 @@
 #include "VirtualDirectorySelectorDlg.h"
 #include "allocator_mgr.h"
 #include "clKeyboardManager.h"
+#include "clStatusBar.h"
+#include "cl_command_event.h"
+#include "codelite_events.h"
+#include "ctags_manager.h"
+#include "editor_config.h"
+#include "entry.h"
 #include "event_notifier.h"
 #include "functions_parser.h"
+#include "globals.h"
 #include "gui.h"
 #include "import_from_wxFB.h"
 #include "import_from_wxSmith.h"
@@ -43,26 +52,18 @@
 #include "myxh_treebk.h"
 #include "myxh_treelist.h"
 #include "myxh_webview.h"
-#include "wxcNetworkThread.h"
+#include "plugin.h"
+#include "project.h"
+#include "workspace.h"
 #include "wxcSettingsDlg.h"
 #include "wxcTreeView.h"
 #include "wxc_bitmap_code_generator.h"
 #include "wxc_settings.h"
-#include "wxcrafter_plugin.h"
 #include "wxgui_bitmaploader.h"
 #include "wxgui_globals.h"
 #include "wxgui_helpers.h"
 #include "wxguicraft_main_view.h"
-#include <clStatusBar.h>
-#include <ctags_manager.h>
-#include <editor_config.h>
-#include <entry.h>
-#include <event_notifier.h>
-#include <globals.h>
-#include <parse_thread.h>
-#include <plugin.h>
-#include <project.h>
-#include <workspace.h>
+
 #include <wx/choicdlg.h>
 #include <wx/dataview.h>
 #include <wx/module.h>
@@ -88,7 +89,7 @@ CL_PLUGIN_API PluginInfo* GetPluginInfo()
     info.SetAuthor("Eran");
     info.SetName("wxcrafter");
     info.SetDescription(_("wxWidgets GUI Designer"));
-    info.SetVersion(wxT("v2.4"));
+    info.SetVersion("v2.4");
     return &info;
 }
 
@@ -102,7 +103,6 @@ wxCrafterPlugin::wxCrafterPlugin(IManager* manager, bool serverMode)
     , m_useFrame(true)
     , m_mainFrame(NULL)
     , m_serverMode(serverMode)
-    , m_networkThread(NULL)
 {
     Allocator::Initialize();
     Allocator::Instance()->SetPlugin(this);
@@ -167,23 +167,16 @@ wxCrafterPlugin::wxCrafterPlugin(IManager* manager, bool serverMode)
     wxXmlResource::Get()->AddHandler(new MyWxRibbonXmlHandler);
     wxXmlResource::Get()->AddHandler(new MyWxCommandLinkButtonXmlHandler);
     wxXmlResource::Get()->AddHandler(new MyTreeListCtrl);
-    // wxXmlResource::Get()->AddHandler(new MyWxAuiNotebookXmlHandler);
     wxXmlResource::Get()->AddHandler(new MyTextCtrlXrcHandler);
     wxXmlResource::Get()->AddHandler(new MyComboBoxXmlHandler);
     wxXmlResource::Get()->AddHandler(new MyRearrangeListXmlHandler);
-
     wxXmlResource::Get()->InitAllHandlers();
 
     // wxCrafter::ResourceLoader bmps;
     m_longName = _("wxWidgets GUI Designer");
-    m_shortName = wxT("wxCrafter");
+    m_shortName = "wxCrafter";
 
     m_useFrame = true;
-
-#if STANDALONE_BUILD
-    m_useFrame = true;
-#endif
-
     if(!m_useFrame) {
 
         Notebook* book = m_mgr->GetWorkspacePaneNotebook();
@@ -218,8 +211,7 @@ wxCrafterPlugin::wxCrafterPlugin(IManager* manager, bool serverMode)
                                   this);
     EventNotifier::Get()->Connect(wxEVT_PREVIEW_CTRL_SELECTED,
                                   wxCommandEventHandler(wxCrafterPlugin::OnDesignerItemSelected), NULL, this);
-    EventNotifier::Get()->Connect(wxEVT_WORKSPACE_CLOSED, wxCommandEventHandler(wxCrafterPlugin::OnWorkspaceClosed),
-                                  NULL, this);
+    EventNotifier::Get()->Bind(wxEVT_WORKSPACE_CLOSED, &wxCrafterPlugin::OnWorkspaceClosed, this);
     EventNotifier::Get()->Connect(wxEVT_BUILD_STARTING, wxCommandEventHandler(wxCrafterPlugin::OnBuildStarting), NULL,
                                   this);
     EventNotifier::Get()->Connect(wxEVT_ALL_EDITORS_CLOSING,
@@ -271,22 +263,15 @@ wxCrafterPlugin::wxCrafterPlugin(IManager* manager, bool serverMode)
     wxTheApp->Connect(XRCID("ID_SHOW_DESIGNER"), wxEVT_COMMAND_MENU_SELECTED,
                       wxCommandEventHandler(wxCrafterPlugin::OnShowDesigner), NULL, (wxEvtHandler*)this);
 
-    this->Connect(wxEVT_PARSE_THREAD_RETAGGING_COMPLETED,
-                  wxCommandEventHandler(wxCrafterPlugin::OnSourceFilesParsingDone), NULL, this);
 #if !STANDALONE_BUILD
     m_mgr->GetWorkspacePaneNotebook()->Bind(wxEVT_BOOK_PAGE_CHANGED, &wxCrafterPlugin::OnWorkspaceTabSelected, this);
-    clKeyboardManager::Get()->AddGlobalAccelerator("ID_SHOW_DESIGNER", "Ctrl-Shift-F12",
-                                                   _("Plugins::wxCrafter::Show the designer"));
+    clKeyboardManager::Get()->AddAccelerator("ID_SHOW_DESIGNER", _("wxCrafter"), _("Show the designer"),
+                                             "Ctrl-Shift-F12");
 #endif
 }
 
 wxCrafterPlugin::~wxCrafterPlugin()
 {
-    if(m_networkThread) {
-        m_networkThread->Stop();
-        wxDELETE(m_networkThread);
-    }
-
     Allocator::Release();
     wxcSettings::Get().Save();
 }
@@ -315,8 +300,7 @@ void wxCrafterPlugin::UnPlug()
                                      NULL, this);
     EventNotifier::Get()->Disconnect(wxEVT_PREVIEW_CTRL_SELECTED,
                                      wxCommandEventHandler(wxCrafterPlugin::OnDesignerItemSelected), NULL, this);
-    EventNotifier::Get()->Disconnect(wxEVT_WORKSPACE_CLOSED, wxCommandEventHandler(wxCrafterPlugin::OnWorkspaceClosed),
-                                     NULL, this);
+    EventNotifier::Get()->Unbind(wxEVT_WORKSPACE_CLOSED, &wxCrafterPlugin::OnWorkspaceClosed, this);
     EventNotifier::Get()->Disconnect(wxEVT_BUILD_STARTING, wxCommandEventHandler(wxCrafterPlugin::OnBuildStarting),
                                      NULL, this);
     EventNotifier::Get()->Disconnect(wxEVT_ALL_EDITORS_CLOSING,
@@ -365,8 +349,6 @@ void wxCrafterPlugin::UnPlug()
 #if !STANDALONE_BUILD
     m_mgr->GetWorkspacePaneNotebook()->Unbind(wxEVT_BOOK_PAGE_CHANGED, &wxCrafterPlugin::OnWorkspaceTabSelected, this);
 #endif
-    this->Disconnect(wxEVT_PARSE_THREAD_RETAGGING_COMPLETED,
-                     wxCommandEventHandler(wxCrafterPlugin::OnSourceFilesParsingDone), NULL, this);
     wxTheApp->Disconnect(XRCID("wxcp_new_form"), wxEVT_COMMAND_MENU_SELECTED,
                          wxCommandEventHandler(wxCrafterPlugin::OnNewForm), NULL, this);
 
@@ -532,14 +514,6 @@ void wxCrafterPlugin::OnBitmapCodeGenerationCompleted(wxCommandEvent& e)
             filesToRetag.push_back(f);
         }
 
-#if STANDALONE_BUILD
-        // Send reply that we got a list of modified files
-        wxcNetworkReply reply;
-        reply.SetFiles(filesToRetag);
-        reply.SetReplyType(wxCrafter::kReplyTypeFilesGenerated);
-        m_netManager.SendReply(reply);
-#endif
-
         m_generatedClassInfo.Clear();
         m_generatedClassInfo.classname = wxcProjectMetadata::Get().GetGeneratedClassName();
         m_generatedClassInfo.derivedHeader = derivedHeader;
@@ -550,10 +524,6 @@ void wxCrafterPlugin::OnBitmapCodeGenerationCompleted(wxCommandEvent& e)
         std::set<wxString> uniqueFiles;
         wxString sourceFilesVD;
         if(clCxxWorkspaceST::Get()->IsOpen()) {
-            // We will know that the retagging operation completed
-            // by handling the wxEVT_CMD_RETAG_COMPLETED event
-            TagsManagerST::Get()->RetagFiles(filesToRetag, TagsManager::Retag_Quick_No_Scan, this);
-
             wxString vd = wxcProjectMetadata::Get().GetVirtualFolder();
 
             wxString projectName;
@@ -565,7 +535,7 @@ void wxCrafterPlugin::OnBitmapCodeGenerationCompleted(wxCommandEvent& e)
                 projectName = m_mgr->GetProjectNameByFile(projectFile.GetFullPath());
 
             } else {
-                projectName = vd.BeforeFirst(wxT(':'));
+                projectName = vd.BeforeFirst(':');
             }
 
             projectName.Trim().Trim(false);
@@ -594,18 +564,19 @@ void wxCrafterPlugin::OnBitmapCodeGenerationCompleted(wxCommandEvent& e)
             sourceFilesVD.Trim().Trim(false);
 
             if(sourceFilesVD.IsEmpty()) {
-                sourceFilesVD << projectName << wxT(":src");
+                sourceFilesVD << projectName << ":src";
             }
 
-            baseFilesVD << projectName << wxT(":wxcrafter:base");
-            bitmapFilesVD << projectName << wxT(":wxcrafter:resources");
-            xrcVD << projectName << wxT(":wxcrafter:XRC");
+            baseFilesVD << projectName << ":wxcrafter:base";
+            bitmapFilesVD << projectName << ":wxcrafter:resources";
+            xrcVD << projectName << ":wxcrafter:XRC";
 
             //////////////////////////////////////////////////////////////
             // Add the bitmap resource files
             //////////////////////////////////////////////////////////////
-            if(uniqueFiles.find(bitmapSourceFile.GetFullPath()) == uniqueFiles.end())
+            if(uniqueFiles.find(bitmapSourceFile.GetFullPath()) == uniqueFiles.end()) {
                 filesToAdd.Add(bitmapSourceFile.GetFullPath());
+            }
 
             if(filesToAdd.IsEmpty() == false) {
                 DoCreateVirtualFolder(bitmapFilesVD);
@@ -616,8 +587,9 @@ void wxCrafterPlugin::OnBitmapCodeGenerationCompleted(wxCommandEvent& e)
             // Add the XRC files
             //////////////////////////////////////////////////////////////
             filesToAdd.Clear();
-            if(xrcFile.IsOk() && uniqueFiles.find(xrcFile.GetFullPath()) == uniqueFiles.end())
+            if(xrcFile.IsOk() && uniqueFiles.find(xrcFile.GetFullPath()) == uniqueFiles.end()) {
                 filesToAdd.Add(xrcFile.GetFullPath());
+            }
 
             if(filesToAdd.IsEmpty() == false) {
                 DoCreateVirtualFolder(xrcVD);
@@ -628,10 +600,12 @@ void wxCrafterPlugin::OnBitmapCodeGenerationCompleted(wxCommandEvent& e)
             // Add the base classes files
             //////////////////////////////////////////////////////////////
             filesToAdd.Clear();
-            if(uniqueFiles.find(headerFile.GetFullPath()) == uniqueFiles.end())
+            if(uniqueFiles.find(headerFile.GetFullPath()) == uniqueFiles.end()) {
                 filesToAdd.Add(headerFile.GetFullPath());
-            if(uniqueFiles.find(sourceFile.GetFullPath()) == uniqueFiles.end())
+            }
+            if(uniqueFiles.find(sourceFile.GetFullPath()) == uniqueFiles.end()) {
                 filesToAdd.Add(sourceFile.GetFullPath());
+            }
 
             // The additional files are added to the 'base'
             for(size_t i = 0; i < additionalFiles.GetCount(); ++i) {
@@ -656,11 +630,13 @@ void wxCrafterPlugin::OnBitmapCodeGenerationCompleted(wxCommandEvent& e)
 #if !STANDALONE_BUILD
             if(clCxxWorkspaceST::Get()->IsOpen()) {
                 filesToAdd.Clear();
-                if(uniqueFiles.find(derivedHeader.GetFullPath()) == uniqueFiles.end())
+                if(uniqueFiles.find(derivedHeader.GetFullPath()) == uniqueFiles.end()) {
                     filesToAdd.Add(derivedHeader.GetFullPath());
+                }
 
-                if(uniqueFiles.find(derivedSource.GetFullPath()) == uniqueFiles.end())
+                if(uniqueFiles.find(derivedSource.GetFullPath()) == uniqueFiles.end()) {
                     filesToAdd.Add(derivedSource.GetFullPath());
+                }
 
                 if(filesToAdd.IsEmpty() == false) {
                     DoCreateVirtualFolder(sourceFilesVD);
@@ -676,14 +652,11 @@ void wxCrafterPlugin::OnBitmapCodeGenerationCompleted(wxCommandEvent& e)
     msg << _("wxCrafter: code generation completed successfully!");
     wxCrafter::SetStatusMessage(msg);
 
-    // post event here to codelite to retag the workspace
-#if !STANDALONE_BUILD
-    wxCommandEvent eventRetag(wxEVT_COMMAND_MENU_SELECTED, XRCID("retag_workspace"));
-    EventNotifier::Get()->TopFrame()->GetEventHandler()->AddPendingEvent(eventRetag);
-#endif
+    // Restart ctagsd
+    clLanguageServerEvent restart_event{ wxEVT_LSP_RESTART };
+    restart_event.SetLspName("ctagsd");
+    EventNotifier::Get()->ProcessEvent(restart_event);
 }
-
-void wxCrafterPlugin::OnSourceFilesParsingDone(wxCommandEvent& e) { e.Skip(); }
 
 wxMenu* wxCrafterPlugin::DoCreateFolderMenu()
 {
@@ -694,7 +667,7 @@ wxMenu* wxCrafterPlugin::DoCreateFolderMenu()
 
     wxCrafter::ResourceLoader bmps;
     item = new wxMenuItem(menu, XRCID("wxcp_new_form"), _("Add wxWidgets UI Form..."), wxEmptyString, wxITEM_NORMAL);
-    item->SetBitmap(bmps.Bitmap(wxT("new-form")));
+    item->SetBitmap(bmps.Bitmap("new-form"));
     menu->Append(item);
 
     return menu;
@@ -752,13 +725,13 @@ void wxCrafterPlugin::DoGenerateCode(const NewFormDetails& fd)
 
     wxFileName wxcpFile = wxFileName(fd.wxcpFile);
     if(!wxcpFile.FileExists()) {
-        wxFFile fp(wxcpFile.GetFullPath(), wxT("w+b"));
+        wxFFile fp(wxcpFile.GetFullPath(), "w+b");
         if(fp.IsOpened()) {
             fp.Close();
 
         } else {
             wxString msg;
-            msg << _("Could not create resource file '") << wxcpFile.GetFullPath() << wxT("'");
+            msg << _("Could not create resource file '") << wxcpFile.GetFullPath() << "'";
             ::wxMessageBox(msg, _("wxCrafter"), wxOK | wxICON_WARNING | wxCENTRE);
             return;
         }
@@ -769,7 +742,7 @@ void wxCrafterPlugin::DoGenerateCode(const NewFormDetails& fd)
     if(clCxxWorkspaceST::Get()->IsOpen()) {
         // Step 1:
         // Check if we already got a virtual folder named 'wxcrafter'
-        wxString projectName = fd.virtualFolder.BeforeFirst(wxT(':'));
+        wxString projectName = fd.virtualFolder.BeforeFirst(':');
         ProjectPtr project = clCxxWorkspaceST::Get()->FindProjectByName(projectName, errMsg);
         if(!project) {
             ::wxMessageBox(errMsg, _("wxCrafter"), wxOK | wxICON_WARNING | wxCENTRE);
@@ -785,7 +758,7 @@ void wxCrafterPlugin::DoGenerateCode(const NewFormDetails& fd)
 
         if(!files.count(wxcpFile.GetFullPath())) {
 
-            if(!m_mgr->CreateVirtualDirectory(vdFullPath, wxT("wxcrafter"))) {
+            if(!m_mgr->CreateVirtualDirectory(vdFullPath, "wxcrafter")) {
                 ::wxMessageBox(_("Could not create virtual folder 'wxcrafter'"), _("wxCrafter"),
                                wxOK | wxICON_WARNING | wxCENTRE);
                 return;
@@ -794,7 +767,8 @@ void wxCrafterPlugin::DoGenerateCode(const NewFormDetails& fd)
             // Add the resource file to the newly created virtual folder
             wxArrayString f;
             f.Add(wxcpFile.GetFullPath());
-            vdFullPath << wxT(":") << wxT("wxcrafter");
+            vdFullPath << ":"
+                       << "wxcrafter";
             m_mgr->AddFilesToVirtualFolder(vdFullPath, f);
         }
     }
@@ -816,43 +790,26 @@ void wxCrafterPlugin::DoGenerateCode(const NewFormDetails& fd)
         DoSelectWorkspaceTab();
 
     } else {
-        // do it using event, or else the main frame will steal the focus
         wxCommandEvent evtShowDesigner(wxEVT_SHOW_WXCRAFTER_DESIGNER);
-        EventNotifier::Get()->AddPendingEvent(evtShowDesigner);
+        EventNotifier::Get()->ProcessEvent(evtShowDesigner);
     }
 }
 
 bool wxCrafterPlugin::DoShowDesigner(bool createIfNotExist)
 {
-    if(!m_mgr)
+    if(!m_mgr) {
         return false;
-
-    if(!IsTabMode()) {
-        m_mainFrame->DisplayDesigner();
-        return false;
-    } else {
-        if(m_mainPanel) {
-            m_mgr->SelectPage(m_mainPanel);
-            return false;
-        }
-
-        if(createIfNotExist) {
-            wxcImages images;
-            wxPanel* mainBookPanel = m_mgr->GetEditorPaneNotebook();
-            m_mainPanel = new GUICraftMainPanel(mainBookPanel, this, m_treeView->GetTree());
-            m_mgr->AddPage(m_mainPanel, _("[wxCrafter]"), _("wxCrafter Designer"), images.Bitmap("wxc_icon"), true);
-            DoSelectWorkspaceTab();
-            return true;
-        }
     }
+
+    m_mainFrame->DisplayDesigner();
     return false;
 }
 
 bool wxCrafterPlugin::DoCreateVirtualFolder(const wxString& vdFullPath)
 {
     CHECK_POINTER_RET_FALSE(m_mgr);
-    wxString name = vdFullPath.AfterLast(wxT(':'));
-    wxString parent = vdFullPath.BeforeLast(wxT(':'));
+    wxString name = vdFullPath.AfterLast(':');
+    wxString parent = vdFullPath.BeforeLast(':');
     return m_mgr->CreateVirtualDirectory(parent, name);
 }
 
@@ -889,8 +846,8 @@ void wxCrafterPlugin::OnProjectModified(wxCommandEvent& e)
     CHECK_POINTER(m_mgr);
 
     wxString title = m_mgr->GetPageTitle(m_mainPanel);
-    if(!title.StartsWith(wxT("*"))) {
-        title.Prepend(wxT("*"));
+    if(!title.StartsWith("*")) {
+        title.Prepend("*");
         m_mgr->SetPageTitle(m_mainPanel, title);
     }
 }
@@ -902,7 +859,7 @@ void wxCrafterPlugin::OnProjectSynched(wxCommandEvent& e)
     CHECK_POINTER(m_mgr);
 
     wxString title = m_mgr->GetPageTitle(m_mainPanel);
-    if(title.StartsWith(wxT("*"))) {
+    if(title.StartsWith("*")) {
         title.Remove(0, 1);
         m_mgr->SetPageTitle(m_mainPanel, title);
     }
@@ -940,7 +897,7 @@ void wxCrafterPlugin::OnDesignerItemSelected(wxCommandEvent& e)
     DoSelectWorkspaceTab();
 }
 
-void wxCrafterPlugin::OnWorkspaceClosed(wxCommandEvent& e)
+void wxCrafterPlugin::OnWorkspaceClosed(clWorkspaceEvent& e)
 {
     e.Skip();
     m_treeView->CloseProject(false);
@@ -951,11 +908,13 @@ void wxCrafterPlugin::DoUpdateDerivedClassEventHandlers()
     wxString headerContent, sourceContent;
     IEditor *headerEditor(NULL), *sourceEditor(NULL);
 
-    if(!DoReadFileContentAndPrompt(m_generatedClassInfo.derivedHeader, headerContent, &headerEditor))
+    if(!DoReadFileContentAndPrompt(m_generatedClassInfo.derivedHeader, headerContent, &headerEditor)) {
         return;
+    }
 
-    if(!DoReadFileContentAndPrompt(m_generatedClassInfo.derivedSource, sourceContent, &sourceEditor))
+    if(!DoReadFileContentAndPrompt(m_generatedClassInfo.derivedSource, sourceContent, &sourceEditor)) {
         return;
+    }
 
     CHECK_POINTER(m_mainPanel);
 
@@ -969,8 +928,9 @@ void wxCrafterPlugin::DoUpdateDerivedClassEventHandlers()
 
     wxString decl, impl;
     const wxcWidget::Map_t& newEvents = parser.GetAllEvents();
-    if(newEvents.empty())
+    if(newEvents.empty()) {
         return;
+    }
 
     wxcWidget::Map_t::const_iterator iter = newEvents.begin();
     for(; iter != newEvents.end(); ++iter) {
@@ -1257,13 +1217,7 @@ void wxCrafterPlugin::DoInitDone(wxObject* obj)
 #endif
 
     if(m_useFrame) {
-        m_mainFrame = new MainFrame(EventNotifier::Get()->TopFrame(), m_serverMode);
-
-        // Start the network thread if server mode is enabled
-        if(m_serverMode) {
-            m_networkThread = new wxcNetworkThread();
-            m_networkThread->Start();
-        }
+        m_mainFrame = new MainFrame(nullptr, m_serverMode);
 
         m_treeView = new wxcTreeView(m_mainFrame->GetTreeParent(), this);
         m_mainFrame->Add(m_treeView);
@@ -1366,8 +1320,9 @@ void wxCrafterPlugin::OnReGenerateForProject(wxCommandEvent& e)
         wxStringSet_t all_files;
         wxArrayString projects;
         ProjectPtr activeProject = clGetManager()->GetSelectedProject();
-        if(!activeProject)
+        if(!activeProject) {
             return;
+        }
         wxCrafter::GetProjectFiles(activeProject->GetName(), all_files);
 
         // Filter out and keep only wxcp files
@@ -1396,6 +1351,7 @@ void wxCrafterPlugin::OnToggleView(clCommandEvent& event)
         event.Skip();
         return;
     }
+#if 0
     if(event.IsSelected()) {
         // show it
         wxcImages images;
@@ -1406,6 +1362,7 @@ void wxCrafterPlugin::OnToggleView(clCommandEvent& event)
             m_mgr->GetWorkspacePaneNotebook()->RemovePage(where);
         }
     }
+#endif
 }
 
 void wxCrafterPlugin::OnSaveUI(clCommandEvent& event)

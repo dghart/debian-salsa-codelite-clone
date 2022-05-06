@@ -27,6 +27,7 @@
 #define GITCONSOLE_H
 #include "bitmap_loader.h"
 #include "clGenericSTCStyler.h"
+#include "clWorkspaceEvent.hpp"
 #include "gitui.h"
 #include <wx/dataview.h>
 
@@ -42,14 +43,18 @@ class GitConsole : public GitConsoleBase
     wxBitmap m_folderBmp;
     wxBitmap m_newBmp;
     wxBitmap m_deleteBmp;
-    clGenericSTCStyler::Ptr_t m_styler;
     size_t m_indent = 0;
+    std::unordered_set<wxString> m_errorPatterns;
+    std::unordered_set<wxString> m_successPatterns;
+    std::unordered_set<wxString> m_warningPatterns;
+    wxString m_buffer;
 
 public:
     GitConsole(wxWindow* parent, GitPlugin* git);
     virtual ~GitConsole();
-    void AddRawText(const wxString& text);
     void AddText(const wxString& text);
+    void AddLine(const wxString& line);
+    void PrintPrompt();
     bool IsVerbose() const;
     void UpdateTreeView(const wxString& output);
 
@@ -87,11 +92,14 @@ protected:
     virtual void OnStopGitProcess(wxCommandEvent& event);
     virtual void OnOpenUnversionedFiles(wxCommandEvent& event);
     virtual void OnAddUnversionedFiles(wxCommandEvent& event);
+    void OnSysColoursChanged(clCommandEvent& event);
 
     void OnOpenFile(wxCommandEvent& e);
-    void OnCloseView(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnConfigurationChanged(wxCommandEvent& e);
+    wxString GetPrompt() const;
+    bool IsPatternFound(const wxString& buffer, const std::unordered_set<wxString>& m) const;
+    bool HasAnsiEscapeSequences(const wxString& buffer) const;
 
     void OnGitPullDropdown(wxCommandEvent& event) { DoOnDropdown("git_pull", XRCID("git_pull")); }
     void OnGitRebaseDropdown(wxCommandEvent& event) { DoOnDropdown("git_rebase", XRCID("git_rebase")); }

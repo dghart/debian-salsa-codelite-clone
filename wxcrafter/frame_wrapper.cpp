@@ -26,14 +26,14 @@ FrameWrapper::FrameWrapper()
     PREPEND_STYLE(wxDEFAULT_FRAME_STYLE, true);
 
     SetPropertyString(_("Common Settings"), "wxFrame");
-    DoSetPropertyStringValue(PROP_TITLE, wxT("My Frame"));
+    DoSetPropertyStringValue(PROP_TITLE, _("My Frame"));
 
     RegisterEvent(wxT("wxEVT_CLOSE_WINDOW"), wxT("wxCloseEvent"),
-                  wxT("Process a close event. This event applies to wxFrame and wxDialog classes"));
-    RegisterEvent(wxT("wxEVT_ACTIVATE"), wxT("wxActivateEvent"), wxT("Process a wxEVT_ACTIVATE event"));
-    RegisterEvent(wxT("wxEVT_ACTIVATE_APP"), wxT("wxActivateEvent"), wxT("Process a wxEVT_ACTIVATE_APP event"));
+                  _("Process a close event. This event applies to wxFrame and wxDialog classes"));
+    RegisterEvent(wxT("wxEVT_ACTIVATE"), wxT("wxActivateEvent"), _("Process a wxEVT_ACTIVATE event"));
+    RegisterEvent(wxT("wxEVT_ACTIVATE_APP"), wxT("wxActivateEvent"), _("Process a wxEVT_ACTIVATE_APP event"));
 
-    AddCategory("Frame Type");
+    AddCategory(_("Frame Type"));
     wxArrayString frameTypes;
     frameTypes.Add("wxFrame");
     frameTypes.Add("wxDocMDIParentFrame");
@@ -74,7 +74,8 @@ void FrameWrapper::ToXRC(wxString& text, XRC_TYPE type) const
         xrcPrefix = "wxMiniFrame";
     }
     
-    text << XRCPrefix("wxFrame") << wxT("<title>") << PropertyString(PROP_TITLE) << wxT("</title>") << centred
+    text << XRCPrefix("wxFrame") << wxT("<title>") << wxCrafter::CDATA(PropertyString(PROP_TITLE)) << wxT("</title>")
+         << centred
          << XRCStyle(type != wxcWidget::XRC_LIVE) // The parameter is to add the wxSTAY_ON_TOP, but not if we're 'live'
          << XRCSize() << XRCCommonAttributes();
 

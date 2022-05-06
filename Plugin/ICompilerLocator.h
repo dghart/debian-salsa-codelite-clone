@@ -28,7 +28,7 @@
 
 #include "codelite_exports.h"
 #include "compiler.h"
-#include <compiler.h>
+
 #include <vector>
 #include <wx/sharedptr.h>
 
@@ -37,6 +37,7 @@
 #define COMPILER_FAMILY_GCC "GCC"
 #define COMPILER_FAMILY_VC "Visual C++"
 #define COMPILER_FAMILY_CYGWIN "Cygwin"
+#define COMPILER_FAMILY_MSYS2 "MSYS2"
 
 #ifdef __WXMSW__
 #define COMPILER_DEFAULT_FAMILY COMPILER_FAMILY_MINGW
@@ -56,6 +57,18 @@ public:
 protected:
     ICompilerLocator::CompilerVec_t m_compilers;
     wxArrayString GetPaths() const;
+
+    /**
+     * @brief windows only: scan registry for uninstall information
+     */
+    void ScanUninstRegKeys();
+    virtual void CheckUninstRegKey(const wxString& displayName, const wxString& installFolder,
+                                   const wxString& displayVersion)
+    {
+        wxUnusedVar(displayName);
+        wxUnusedVar(installFolder);
+        wxUnusedVar(displayVersion);
+    }
 
 public:
     ICompilerLocator();

@@ -3,9 +3,9 @@
 
 // main wxWidgets header file
 #include "gui.h"
-#include "wxcEvent.h"
 #include "wxcTreeView.h"
 #include "wxguicraft_main_view.h"
+
 #include <wx/cmdline.h>
 #include <wx/fdrepdlg.h>
 #include <wx/stc/stc.h>
@@ -14,13 +14,11 @@
 class MainFrame : public MainFrameBase
 {
 protected:
-    GUICraftMainPanel* m_wxcView;
-    wxcTreeView* m_treeView;
-    wxString m_titlePrefix;
-    wxFindReplaceDialog* m_findReplaceDialog;
+    GUICraftMainPanel* m_wxcView = nullptr;
+    wxcTreeView* m_treeView = nullptr;
+    wxFindReplaceDialog* m_findReplaceDialog = nullptr;
     wxFindReplaceData m_findData;
-    bool m_exiting;
-    BitmapLoader* m_bitmaps = NULL;
+    bool m_exiting = false;
 
 protected:
     virtual void OnFileOpen(wxCommandEvent& event);
@@ -46,7 +44,6 @@ protected:
     virtual void OnSettings(wxCommandEvent& event);
     virtual void OnProjectClosed(wxCommandEvent& event);
     virtual void OnHide(wxCommandEvent& event);
-    virtual void OnRestoreFrame(wxCommandEvent& event);
     virtual void OnAbout(wxCommandEvent& event);
     virtual void OnImportFB(wxCommandEvent& event);
     virtual void OnImportSmith(wxCommandEvent& event);
@@ -72,23 +69,13 @@ protected:
     virtual void OnProjectModified(wxCommandEvent& e);
     virtual void OnProjectSynched(wxCommandEvent& e);
     virtual void OnProjectLoaded(wxCommandEvent& e);
-    virtual void OnWorkspaceClosed(wxCommandEvent& e);
+    virtual void OnWorkspaceClosed(clWorkspaceEvent& e);
     virtual void OnCodeLiteGotFocus(wxCommandEvent& e);
-    virtual void OnLicenseUpdatedSuccessfully(wxCommandEvent& e);
-    virtual void OnLicenseUpdatedUnSuccessfully(wxCommandEvent& e);
     void OnCodeEditorSelected(wxCommandEvent& e);
-
-    // Events arrived from the network
-    void OnNetCommandExit(wxcNetworkEvent& event);
-    void OnNetShowDesigner(wxcNetworkEvent& event);
-    void OnNetOpenFile(wxcNetworkEvent& event);
-    void OnNetGenerateCode(wxcNetworkEvent& event);
-    void OnNetNewForm(wxcNetworkEvent& event);
 
 protected:
     wxTextCtrl* GetActiveTextCtrl();
     wxStyledTextCtrl* GetActiveSTC();
-    void DoUpdateTitle();
     bool DoFindText(wxStyledTextCtrl* stc, const wxFindReplaceData& frd, bool findNext);
     void EnsureVisibile();
     void DoOpenWxcpProject();
@@ -108,6 +95,9 @@ public:
     wxWindow* GetDesignerParent() { return m_splitterPageDesigner; }
 
     void DisplayDesigner();
+    void MinimizeDesigner();
+    void HideDesigner();
+
     void SetStatusMessage(const wxString& message);
 
 protected:

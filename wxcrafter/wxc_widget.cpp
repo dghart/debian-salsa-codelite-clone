@@ -1,5 +1,5 @@
 #include "wxc_widget.h"
-#include "FreeTrialVersionDlg.h"
+
 #include "allocator_mgr.h"
 #include "bool_property.h"
 #include "category_property.h"
@@ -21,6 +21,7 @@
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
+
 #include <wx/app.h>
 #include <wx/regex.h>
 
@@ -86,8 +87,8 @@ wxcWidget::wxcWidget(int type)
     m_sizerItem.SetBorder(DEFAULT_SIZER_BORDER);
     m_sizerItem.SetProportion(DEFAULT_SIZER_PROPORTION);
 
-    m_gbSpan = wxT("1,1");
-    m_gbPos = wxT("0,0");
+    m_gbSpan = "1,1";
+    m_gbPos = "0,0";
 
     // This will act as the separator between the basic styles and the control scpecific ones
     ADD_STYLE(0, false);
@@ -129,17 +130,17 @@ wxcWidget::wxcWidget(int type)
 
     AddProperty(new CategoryProperty(_("Common Settings")));
     AddProperty(new WinIdProperty());
-    AddProperty(new StringProperty(PROP_SIZE, wxT("-1,-1"),
+    AddProperty(new StringProperty(PROP_SIZE, "-1,-1",
                                    _("The control's size. It is recommended to leave it as -1,-1 and "
                                      "let\nthe sizers calculate the best size for the window")));
-    AddProperty(new StringProperty(PROP_MINSIZE, wxT("-1,-1"),
+    AddProperty(new StringProperty(PROP_MINSIZE, "-1,-1",
                                    _("The control's minimum size, to indicate to the sizer layout "
                                      "mechanism that this is the minimum required size")));
-    AddProperty(new StringProperty(PROP_NAME, wxT(""), _("C++ member name")));
-    AddProperty(new MultiStringsProperty(PROP_TOOLTIP, _("Tooltip"), wxT("\\n"), _("Tooltip text:")));
-    AddProperty(new ColorProperty(PROP_BG, wxT("<Default>"), _("Set the control's background colour")));
-    AddProperty(new ColorProperty(PROP_FG, wxT("<Default>"), _("Set the control's foreground colour")));
-    AddProperty(new FontProperty(PROP_FONT, wxT(""), _("Set the control's font")));
+    AddProperty(new StringProperty(PROP_NAME, "", _("C++ member name")));
+    AddProperty(new MultiStringsProperty(PROP_TOOLTIP, _("Tooltip"), "\\n", _("Tooltip text:")));
+    AddProperty(new ColorProperty(PROP_BG, "<Default>", _("Set the control's background colour")));
+    AddProperty(new ColorProperty(PROP_FG, "<Default>", _("Set the control's foreground colour")));
+    AddProperty(new FontProperty(PROP_FONT, "", _("Set the control's font")));
 
     AddProperty(new CategoryProperty(_("Initial State")));
     AddProperty(new BoolProperty(PROP_STATE_HIDDEN, false, _("Sets the control initial state to 'Hidden'")));
@@ -147,10 +148,11 @@ wxcWidget::wxcWidget(int type)
     AddProperty(new BoolProperty(PROP_HAS_FOCUS, false, _("This control should have keyboard focus")));
 
     AddProperty(new CategoryProperty(_("Subclass")));
-    AddProperty(new StringProperty(PROP_SUBCLASS_NAME, wxT(""),
+    AddProperty(new StringProperty(PROP_SUBCLASS_NAME, "",
                                    _("The name of the derived class. Used both for C++ and XRC generated code.")));
-    AddProperty(new StringProperty(PROP_SUBCLASS_INCLUDE, wxT(""),
-                                   _("(C++ only) The name of any extra header file to be #included e.g. mydialog.h")));
+    AddProperty(
+        new StringProperty(PROP_SUBCLASS_INCLUDE, "",
+                           _("(C++ only) The name of any extra header file to be #included e.g. mydialog.hpp")));
     AddText(PROP_SUBCLASS_STYLE,
             _("Override the default class style with the content of this field.\nThe style should be | separated"));
     AddProperty(new CategoryProperty(_("Control Specific Settings")));
@@ -158,10 +160,13 @@ wxcWidget::wxcWidget(int type)
 
 wxcWidget::~wxcWidget()
 {
-    if(GetParent()) { GetParent()->RemoveChild(this); }
+    if(GetParent()) {
+        GetParent()->RemoveChild(this);
+    }
     DeleteAllChildren();
     wxDELETE(m_eventsMenu);
     m_properties.DeleteValues();
+    m_controlEvents.Clear();
 }
 
 void wxcWidget::DeleteAllChildren()
@@ -179,7 +184,7 @@ void wxcWidget::DeleteAllChildren()
 
 wxString wxcWidget::GetWindowParent() const
 {
-    wxString parentName = wxT("NULL");
+    wxString parentName = "NULL";
     const NotebookPageWrapper* nbPage = dynamic_cast<const NotebookPageWrapper*>(this);
 
     wxcWidget* pParent = m_parent;
@@ -191,7 +196,7 @@ wxString wxcWidget::GetWindowParent() const
 
             if(pParent->IsValidParent()) {
                 if(pParent->IsTopWindow()) {
-                    parentName = wxT("this");
+                    parentName = "this";
 
                 } else {
                     parentName = pParent->GetName();
@@ -238,7 +243,9 @@ wxString wxcWidget::SizerFlags(const wxString& defaultFlags) const
     wxString s;
     MapStyles_t::ConstIterator iter = m_sizerFlags.Begin();
     for(; iter != m_sizerFlags.End(); iter++) {
-        if(iter->second.is_set) { s << iter->second.style_name << wxT("|"); }
+        if(iter->second.is_set) {
+            s << iter->second.style_name << "|";
+        }
     }
     // For aesthetic reasons, remove the individual border flags if wxALL is present
     // First check it's there if it should be (it won't always be in legacy files)
@@ -256,7 +263,9 @@ wxString wxcWidget::SizerFlags(const wxString& defaultFlags) const
     s = wxCrafter::Join(wxCrafter::Split(s, "|"), "|");
 
     s.Trim().Trim(false);
-    if(s.IsEmpty()) { s = defaultFlags; }
+    if(s.IsEmpty()) {
+        s = defaultFlags;
+    }
     return s;
 }
 
@@ -269,51 +278,65 @@ wxString wxcWidget::WrapInSizerXRC(const wxString& objXRC) const
     // Minimum size is an object property, but XRC plonks it in sizeritem :/
     wxString minsize;
     wxSize minSize = wxCrafter::DecodeSize(PropertyString(PROP_MINSIZE));
-    if(minSize != wxDefaultSize) { minsize = wxT("<minsize>") + wxCrafter::EncodeSize(minSize) + wxT("</minsize>"); }
+    if(minSize != wxDefaultSize) {
+        minsize = "<minsize>" + wxCrafter::EncodeSize(minSize) + "</minsize>";
+    }
 
     // There's a backdoor way if IDing sizers/spacers: putting their 'name' in the sizeritem
     // See http://trac.wxwidgets.org/changeset/48718 and wxSizerItem::GetId and wxSizer::GetItemById
     wxString name;
-    if((isSizer || isSpacer) && !GetName().empty()) { name << " name=\"" << wxCrafter::XMLEncode(GetName()) << "\""; }
+    if((isSizer || isSpacer) && !GetName().empty()) {
+        name << " name=\"" << wxCrafter::XMLEncode(GetName()) << "\"";
+    }
 
     wxString strXRC;
     if(!isSpacer) {
-        strXRC << wxT("<object class=\"sizeritem\"") << name << wxT(" >");
+        strXRC << "<object class=\"sizeritem\"" << name << " >";
 
     } else {
-        strXRC << wxT("<object class=\"spacer\"") << name << wxT(" >");
+        strXRC << "<object class=\"spacer\"" << name << " >";
 
-        if(GetSize() != wxSize(0, 0)) { strXRC << XRCSize(); }
+        if(GetSize() != wxSize(0, 0)) {
+            strXRC << XRCSize();
+        }
     }
 
-    strXRC << wxT("   <flag>") << SizerFlags(wxT("")) << wxT("</flag>");
+    strXRC << "   <flag>" << SizerFlags("") << "</flag>";
 
     // Don't pointlessly output <border>0</border>
-    if(m_sizerItem.GetBorder() > 0) { strXRC << wxT("   <border>") << m_sizerItem.GetBorder() << wxT("</border>"); }
+    if(m_sizerItem.GetBorder() > 0) {
+        strXRC << "   <border>" << m_sizerItem.GetBorder() << "</border>";
+    }
 
     strXRC << minsize;
     if(m_sizerItem.GetProportion() > 0) {
-        strXRC << wxT("   <option>") << m_sizerItem.GetProportion() << wxT("</option>");
+        strXRC << "   <option>" << m_sizerItem.GetProportion() << "</option>";
     }
 
     if(isGBSizerItem) {
-        strXRC << wxT("<cellpos>") << m_gbPos << wxT("</cellpos>");
-        strXRC << wxT("<cellspan>") << m_gbSpan << wxT("</cellspan>");
+        strXRC << "<cellpos>" << m_gbPos << "</cellpos>";
+        strXRC << "<cellspan>" << m_gbSpan << "</cellspan>";
     }
 
-    if(!isSpacer) { strXRC << objXRC; }
+    if(!isSpacer) {
+        strXRC << objXRC;
+    }
 
-    strXRC << wxT("</object>");
+    strXRC << "</object>";
     return strXRC;
 }
 
 bool wxcWidget::HasMainSizer() const
 {
-    if(IsSizer()) return false;
+    if(IsSizer()) {
+        return false;
+    }
 
     wxcWidget::List_t::const_iterator iter = m_children.begin();
     for(; iter != m_children.end(); iter++) {
-        if((*iter)->IsSizer()) return true;
+        if((*iter)->IsSizer()) {
+            return true;
+        }
     }
     return false;
 }
@@ -332,7 +355,7 @@ void wxcWidget::AddProperty(PropertyBase* prop)
         m_properties.PushBack(prop->GetLabel(), prop);
 
     } else {
-        m_properties.PushBack(wxT(""), NULL);
+        m_properties.PushBack("", NULL);
     }
 }
 
@@ -348,12 +371,18 @@ wxString wxcWidget::StyleFlags(const wxString& deafultStyle) const
         MapStyles_t::ConstIterator iter = m_styles.Begin();
         for(; iter != m_styles.End(); iter++) {
             wxString style_name = iter->second.style_name;
-            if(iter->second.is_set) { s << style_name << wxT("|"); }
+            if(iter->second.is_set) {
+                s << style_name << "|";
+            }
         }
 
-        if(s.EndsWith(wxT("|"))) s.RemoveLast();
+        if(s.EndsWith("|")) {
+            s.RemoveLast();
+        }
 
-        if(s.IsEmpty()) { s = deafultStyle; }
+        if(s.IsEmpty()) {
+            s = deafultStyle;
+        }
 
         return s;
     }
@@ -377,15 +406,15 @@ wxString wxcWidget::PropertyBool(const wxString& propname) const
     if(m_properties.Contains(propname)) {
         wxString value = m_properties.Item(propname)->GetValue();
 
-        if(value == wxT("1")) {
-            return wxT("true");
+        if(value == "1") {
+            return "true";
 
         } else {
-            return wxT("false");
+            return "false";
         }
 
     } else {
-        return wxT("false");
+        return "false";
     }
 }
 
@@ -395,12 +424,12 @@ wxString wxcWidget::PropertyFile(const wxString& propname) const
         wxString value = m_properties.Item(propname)->GetValue();
 
         // FIXME:: Expand codelite's macros here
-        value.Replace(wxT("\\"), wxT("/"));
+        value.Replace("\\", "/");
         value = wxCrafter::XMLEncode(value);
         return value;
 
     } else {
-        return wxT("");
+        return "";
     }
 }
 
@@ -409,7 +438,9 @@ wxString wxcWidget::PropertyString(const wxString& propname, const wxString& def
     if(m_properties.Contains(propname)) {
         wxString v = m_properties.Item(propname)->GetValue();
         v.Trim();
-        if(v.IsEmpty()) { return defaultValue; }
+        if(v.IsEmpty()) {
+            return defaultValue;
+        }
         return v;
 
     } else {
@@ -436,8 +467,10 @@ void wxcWidget::DoTraverseAndGenCode(wxArrayString& headers, wxString& ctorCode,
 
     GetIncludeFile(headers);
     if(!subinclude.empty()) {
-        // 'subinclude' will probably be just "myfoo.h", but check:
-        if(!subinclude.Contains("#include")) { subinclude = "#include \"" + subinclude + "\""; }
+        // 'subinclude' will probably be just "myfoo.hpp", but check:
+        if(!subinclude.Contains("#include")) {
+            subinclude = "#include \"" + subinclude + "\"";
+        }
         headers.Add(subinclude);
     }
 
@@ -445,14 +478,16 @@ void wxcWidget::DoTraverseAndGenCode(wxArrayString& headers, wxString& ctorCode,
     GenerateAdditionalFiles(additionalFiles);
 
     // ctor
-    ctorCode << DoGenerateCppCtorCode() << wxT("\n");
+    ctorCode << DoGenerateCppCtorCode() << "\n";
 
     // dtor
     wxString dtor = DoGenerateCppDtorCode();
-    if(dtor.IsEmpty() == false) { dtorCode << dtor << wxT("\n"); }
+    if(dtor.IsEmpty() == false) {
+        dtorCode << dtor << "\n";
+    }
 
-    wxArrayString existsFunctionsArr = wxCrafter::Split(eventFunctions, wxT("\r\n"));
-    wxArrayString newEventFuncArr = wxCrafter::Split(DoGenerateEventStubs(), wxT("\r\n"));
+    wxArrayString existsFunctionsArr = wxCrafter::Split(eventFunctions, "\r\n");
+    wxArrayString newEventFuncArr = wxCrafter::Split(DoGenerateEventStubs(), "\r\n");
 
     // Append the array
     existsFunctionsArr.insert(existsFunctionsArr.end(), newEventFuncArr.begin(), newEventFuncArr.end());
@@ -462,12 +497,14 @@ void wxcWidget::DoTraverseAndGenCode(wxArrayString& headers, wxString& ctorCode,
 
     // And finally convert the wxArrayString to wxString
     eventFunctions.Clear();
-    eventFunctions << wxCrafter::Join(existsFunctionsArr, wxT("\n"));
+    eventFunctions << wxCrafter::Join(existsFunctionsArr, "\n");
 
     eventConnectCode << DoGenerateConnectCode();
 
     wxString memberCode = DoGenerateClassMember();
-    if(memberCode.IsEmpty() == false) { members << memberCode << wxT("\n"); }
+    if(memberCode.IsEmpty() == false) {
+        members << memberCode << "\n";
+    }
 
     List_t::const_iterator iter = m_children.begin();
     for(; iter != m_children.end(); iter++) {
@@ -476,11 +513,10 @@ void wxcWidget::DoTraverseAndGenCode(wxArrayString& headers, wxString& ctorCode,
         if((*iter)->IsSizerItem()) {
             wxSize minSize = wxCrafter::DecodeSize((*iter)->PropertyString(PROP_MINSIZE));
             if(minSize != wxDefaultSize) {
-                if(ctorCode.Right(2) == wxT("\n\n")) {
+                if(ctorCode.Right(2) == "\n\n") {
                     ctorCode.RemoveLast(); // Otherwise the SetMinSize() feels lonely
                 }
-                ctorCode << (*iter)->GetName() << wxT("->SetMinSize(wxSize(") << wxCrafter::EncodeSize(minSize)
-                         << wxT("));\n\n");
+                ctorCode << (*iter)->GetName() << "->SetMinSize(wxSize(" << wxCrafter::EncodeSize(minSize) << "));\n\n";
                 ;
             }
         }
@@ -523,8 +559,10 @@ wxString wxcWidget::DoGenerateCppCtorCode() const
     if(GetType() == ID_WXSTDBUTTON) {
         // standard button
         wxString extraCode;
-        extraCode << GetParent()->GetName() << wxT("->AddButton(") << GetName() << wxT(");\n");
-        if(IsLastChild()) { extraCode << GetParent()->GetName() << wxT("->Realize();\n"); }
+        extraCode << GetParent()->GetName() << "->AddButton(" << GetName() << ");\n";
+        if(IsLastChild()) {
+            extraCode << GetParent()->GetName() << "->Realize();\n";
+        }
         code << extraCode;
 
     } else if(GetType() == ID_WXSPACER) {
@@ -534,34 +572,41 @@ wxString wxcWidget::DoGenerateCppCtorCode() const
         // Control is being added to the toolbar
         wxString tbCode;
 
-        tbCode << GetWindowParent() << wxT("->AddControl(") << GetName() << wxT(");");
-        code << tbCode << wxT("\n");
+        tbCode << GetWindowParent() << "->AddControl(" << GetName() << ");";
+        code << tbCode << "\n";
 
-        if(IsLastChild()) { code << GetWindowParent() << wxT("->Realize();\n"); }
+        if(IsLastChild()) {
+            code << GetWindowParent() << "->Realize();\n";
+        }
 
     } else if(IsParentToolbar() && IsToolBarTool()) {
-        if(IsLastChild()) { code << GetWindowParent() << wxT("->Realize();\n"); }
+        if(IsLastChild()) {
+            code << GetWindowParent() << "->Realize();\n";
+        }
 
     } else if(IsGridBagSizerItem()) {
 
         wxString sizerCode;
-        sizerCode << GetParent()->GetName() << wxT("->Add(") << GetName() << wxT(", ") << wxT("wxGBPosition(")
-                  << m_gbPos << wxT("), ") << wxT("wxGBSpan(") << m_gbSpan << wxT("), ") << SizerFlags(wxT("0"))
-                  << wxT(", ") << m_sizerItem.GetBorderScaled() << wxT(");");
-        code << wxT("\n") << sizerCode << wxT("\n");
+        sizerCode << GetParent()->GetName() << "->Add(" << GetName() << ", "
+                  << "wxGBPosition(" << m_gbPos << "), "
+                  << "wxGBSpan(" << m_gbSpan << "), " << SizerFlags("0") << ", " << m_sizerItem.GetBorderScaled()
+                  << ");";
+        code << "\n" << sizerCode << "\n";
 
     } else if(IsAuiPane()) {
         wxString auiPaneCode;
         auiPaneCode << GetParent()->GetName() << "->AddPane(" << GetName() << ", " << m_auiPaneInfo.ToCppCode() << ");";
-        code << wxT("\n") << auiPaneCode << wxT("\n");
+        code << "\n" << auiPaneCode << "\n";
 
-        if(IsLastChild()) { code << GetParent()->GetName() << "->Update();\n"; }
+        if(IsLastChild()) {
+            code << GetParent()->GetName() << "->Update();\n";
+        }
 
     } else if(IsSizerItem()) {
         wxString sizerCode;
-        sizerCode << GetParent()->GetName() << wxT("->Add(") << GetName() << wxT(", ") << m_sizerItem.GetProportion()
-                  << wxT(", ") << SizerFlags(wxT("0")) << wxT(", ") << m_sizerItem.GetBorderScaled() << wxT(");");
-        code << wxT("\n") << sizerCode << wxT("\n");
+        sizerCode << GetParent()->GetName() << "->Add(" << GetName() << ", " << m_sizerItem.GetProportion() << ", "
+                  << SizerFlags("0") << ", " << m_sizerItem.GetBorderScaled() << ");";
+        code << "\n" << sizerCode << "\n";
     }
     WrapInIfBlockIfNeeded(code);
     return code;
@@ -571,55 +616,67 @@ wxString wxcWidget::DoGenerateClassMember() const { return BaseDoGenerateClassMe
 
 bool wxcWidget::IsSizerFlagChecked(const wxString& style) const
 {
-    if(!m_sizerFlags.Contains(style)) return false;
+    if(!m_sizerFlags.Contains(style)) {
+        return false;
+    }
 
     return m_sizerFlags.Item(style).is_set;
 }
 
 void wxcWidget::DoEnableStyle(wxcWidget::MapStyles_t& mp, const wxString& style, bool enable)
 {
-    if(mp.Contains(style)) { mp.Item(style).is_set = enable; }
+    if(mp.Contains(style)) {
+        mp.Item(style).is_set = enable;
+    }
 }
 
 void wxcWidget::Serialize(JSONElement& json) const
 {
-    json.addProperty(wxT("m_type"), m_type);
-    json.addProperty(wxT("proportion"), m_sizerItem.GetProportion());
-    json.addProperty(wxT("border"), m_sizerItem.GetBorder());
-    json.addProperty(wxT("gbSpan"), m_gbSpan);
-    json.addProperty(wxT("gbPosition"), m_gbPos);
+    json.addProperty("m_type", m_type);
+    json.addProperty("proportion", m_sizerItem.GetProportion());
+    json.addProperty("border", m_sizerItem.GetBorder());
+    json.addProperty("gbSpan", m_gbSpan);
+    json.addProperty("gbPosition", m_gbPos);
 
-    JSONElement styles = JSONElement::createArray(wxT("m_styles"));
+    JSONElement styles = JSONElement::createArray("m_styles");
     MapStyles_t::const_iterator iter = m_styles.begin();
     for(; iter != m_styles.end(); iter++) {
-        if(iter->second.is_set) { styles.arrayAppend(iter->second.style_name); }
+        if(iter->second.is_set) {
+            styles.arrayAppend(iter->second.style_name);
+        }
     }
     json.append(styles);
 
-    if(IsAuiPane()) { json.append(m_auiPaneInfo.ToJSON()); }
+    if(IsAuiPane()) {
+        json.append(m_auiPaneInfo.ToJSON());
+    }
 
-    JSONElement sizerFlags = JSONElement::createArray(wxT("m_sizerFlags"));
+    JSONElement sizerFlags = JSONElement::createArray("m_sizerFlags");
     iter = m_sizerFlags.begin();
     for(; iter != m_sizerFlags.end(); iter++) {
-        if(iter->second.is_set) { sizerFlags.arrayAppend(iter->second.style_name); }
+        if(iter->second.is_set) {
+            sizerFlags.arrayAppend(iter->second.style_name);
+        }
     }
     json.append(sizerFlags);
 
-    JSONElement properties = JSONElement::createArray(wxT("m_properties"));
+    JSONElement properties = JSONElement::createArray("m_properties");
     MapProperties_t::const_iterator prop_iter = m_properties.begin();
     for(; prop_iter != m_properties.end(); prop_iter++) {
-        if(prop_iter->second) { properties.arrayAppend(prop_iter->second->Serialize()); }
+        if(prop_iter->second) {
+            properties.arrayAppend(prop_iter->second->Serialize());
+        }
     }
     json.append(properties);
 
-    JSONElement events = JSONElement::createArray(wxT("m_events"));
+    JSONElement events = JSONElement::createArray("m_events");
     MapEvents_t::const_iterator events_iter = m_connectedEvents.begin();
     for(; events_iter != m_connectedEvents.end(); events_iter++) {
         events.arrayAppend(events_iter->second.ToJSON());
     }
     json.append(events);
 
-    JSONElement children = JSONElement::createArray(wxT("m_children"));
+    JSONElement children = JSONElement::createArray("m_children");
     List_t::const_iterator child_iter = m_children.begin();
     for(; child_iter != m_children.end(); child_iter++) {
         JSONElement child = JSONElement::createObject();
@@ -632,10 +689,10 @@ void wxcWidget::Serialize(JSONElement& json) const
 
 void wxcWidget::UnSerialize(const JSONElement& json)
 {
-    m_sizerItem.SetBorder(json.namedObject(wxT("border")).toInt(5));
-    m_sizerItem.SetProportion(json.namedObject(wxT("proportion")).toInt(0));
-    m_gbSpan = json.namedObject(wxT("gbSpan")).toString();
-    m_gbPos = json.namedObject(wxT("gbPosition")).toString();
+    m_sizerItem.SetBorder(json.namedObject("border").toInt(5));
+    m_sizerItem.SetProportion(json.namedObject("proportion").toInt(0));
+    m_gbSpan = json.namedObject("gbSpan").toString();
+    m_gbPos = json.namedObject("gbPosition").toString();
 
     m_auiPaneInfo.FromJSON(json.namedObject("wxAuiPaneInfo"));
 
@@ -645,14 +702,14 @@ void wxcWidget::UnSerialize(const JSONElement& json)
 
     m_connectedEvents.Clear();
 
-    JSONElement styles = json.namedObject(wxT("m_styles"));
+    JSONElement styles = json.namedObject("m_styles");
     int nCount = styles.arraySize();
     for(int i = 0; i < nCount; i++) {
         wxString styleName = styles.arrayItem(i).toString();
         EnableStyle(styleName, true);
     }
 
-    JSONElement sizerFlags = json.namedObject(wxT("m_sizerFlags"));
+    JSONElement sizerFlags = json.namedObject("m_sizerFlags");
     nCount = sizerFlags.arraySize();
     for(int i = 0; i < nCount; i++) {
         wxString styleName = sizerFlags.arrayItem(i).toString();
@@ -660,16 +717,18 @@ void wxcWidget::UnSerialize(const JSONElement& json)
     }
 
     // Unserialize the properties
-    JSONElement properties = json.namedObject(wxT("m_properties"));
+    JSONElement properties = json.namedObject("m_properties");
     nCount = properties.arraySize();
     for(int i = 0; i < nCount; i++) {
         JSONElement jsonProp = properties.arrayItem(i);
-        wxString propLabel = jsonProp.namedObject(wxT("m_label")).toString();
-        if(m_properties.Contains(propLabel)) { m_properties.Item(propLabel)->UnSerialize(jsonProp); }
+        wxString propLabel = jsonProp.namedObject("m_label").toString();
+        if(m_properties.Contains(propLabel)) {
+            m_properties.Item(propLabel)->UnSerialize(jsonProp);
+        }
     }
 
     // Unserialize the events
-    JSONElement events = json.namedObject(wxT("m_events"));
+    JSONElement events = json.namedObject("m_events");
     nCount = events.arraySize();
     for(int i = 0; i < nCount; i++) {
         JSONElement jsonEvent = events.arrayItem(i);
@@ -686,12 +745,14 @@ void wxcWidget::UnSerialize(const JSONElement& json)
         m_connectedEvents.PushBack(details.GetEventName(), details);
     }
 
-    JSONElement children = json.namedObject(wxT("m_children"));
+    JSONElement children = json.namedObject("m_children");
     int nChildren = children.arraySize();
     for(int i = 0; i < nChildren; i++) {
         JSONElement child = children.arrayItem(i);
         wxcWidget* wrapper = Allocator::Instance()->CreateWrapperFromJSON(child);
-        if(wrapper) { AddChild(wrapper); }
+        if(wrapper) {
+            AddChild(wrapper);
+        }
     }
 }
 
@@ -700,54 +761,78 @@ void wxcWidget::LoadPropertiesFromXRC(const wxXmlNode* node)
     wxString value;
 
     // Start with 2 possible strings in node itself
-    value = XmlUtils::ReadString(node, wxT("name"));
-    if(!value.empty()) { SetName(value); }
+    value = XmlUtils::ReadString(node, "name");
+    if(!value.empty()) {
+        SetName(value);
+    }
 
-    wxString subclass = XmlUtils::ReadString(node, wxT("subclass"));
-    if(!subclass.empty()) { SetPropertyString(PROP_SUBCLASS_NAME, subclass); }
+    wxString subclass = XmlUtils::ReadString(node, "subclass");
+    if(!subclass.empty()) {
+        SetPropertyString(PROP_SUBCLASS_NAME, subclass);
+    }
 
-    wxXmlNode* propertynode = XmlUtils::FindFirstByTagName(node, wxT("size"));
-    if(propertynode) { SetPropertyString(PROP_SIZE, propertynode->GetNodeContent()); }
+    wxXmlNode* propertynode = XmlUtils::FindFirstByTagName(node, "size");
+    if(propertynode) {
+        SetPropertyString(PROP_SIZE, propertynode->GetNodeContent());
+    }
 
-    /*    propertynode = XmlUtils::FindFirstByTagName(node, wxT("pos"));
+    /*    propertynode = XmlUtils::FindFirstByTagName(node, "pos");
         if (propertynode) {
            // wxC doesn't do positions
         }*/
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("tooltip"));
-    if(propertynode) { SetPropertyString(PROP_TOOLTIP, propertynode->GetNodeContent()); }
+    propertynode = XmlUtils::FindFirstByTagName(node, "tooltip");
+    if(propertynode) {
+        SetPropertyString(PROP_TOOLTIP, propertynode->GetNodeContent());
+    }
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("font"));
-    if(propertynode) { SetPropertyString(PROP_FONT, wxCrafter::XRCToFontstring(propertynode)); }
+    propertynode = XmlUtils::FindFirstByTagName(node, "font");
+    if(propertynode) {
+        SetPropertyString(PROP_FONT, wxCrafter::XRCToFontstring(propertynode));
+    }
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("fg"));
-    if(propertynode) { SetPropertyString(PROP_FG, wxCrafter::ValueToColourString(propertynode->GetNodeContent())); }
+    propertynode = XmlUtils::FindFirstByTagName(node, "fg");
+    if(propertynode) {
+        SetPropertyString(PROP_FG, wxCrafter::ValueToColourString(propertynode->GetNodeContent()));
+    }
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("bg"));
-    if(propertynode) { SetPropertyString(PROP_BG, wxCrafter::ValueToColourString(propertynode->GetNodeContent())); }
+    propertynode = XmlUtils::FindFirstByTagName(node, "bg");
+    if(propertynode) {
+        SetPropertyString(PROP_BG, wxCrafter::ValueToColourString(propertynode->GetNodeContent()));
+    }
 
     propertynode = XmlUtils::FindFirstByTagName(node, "hidden");
-    if(propertynode && propertynode->GetNodeContent() == "1") { SetPropertyString(PROP_STATE_HIDDEN, "1"); }
+    if(propertynode && propertynode->GetNodeContent() == "1") {
+        SetPropertyString(PROP_STATE_HIDDEN, "1");
+    }
 
     propertynode = XmlUtils::FindFirstByTagName(node, "enabled");
-    if(propertynode && propertynode->GetNodeContent() == "0") { SetPropertyString(PROP_STATE_DISABLED, "1"); }
+    if(propertynode && propertynode->GetNodeContent() == "0") {
+        SetPropertyString(PROP_STATE_DISABLED, "1");
+    }
 
     propertynode = XmlUtils::FindFirstByTagName(node, "focused");
-    if(propertynode && propertynode->GetNodeContent() == "1") { SetPropertyString(PROP_HAS_FOCUS, "1"); }
+    if(propertynode && propertynode->GetNodeContent() == "1") {
+        SetPropertyString(PROP_HAS_FOCUS, "1");
+    }
 
     // The Label property has a default, so we must clear it even if the node is absent
     PropertyBase* labelprop = GetProperty(PROP_LABEL);
     if(labelprop) {
         wxString labelvalue;
-        propertynode = XmlUtils::FindFirstByTagName(node, wxT("label"));
-        if(propertynode) { labelvalue = propertynode->GetNodeContent(); }
+        propertynode = XmlUtils::FindFirstByTagName(node, "label");
+        if(propertynode) {
+            labelvalue = propertynode->GetNodeContent();
+        }
         labelprop->SetValue(labelvalue);
     }
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("title"));
-    if(propertynode) { SetTitle(propertynode->GetNodeContent()); }
+    propertynode = XmlUtils::FindFirstByTagName(node, "title");
+    if(propertynode) {
+        SetTitle(propertynode->GetNodeContent());
+    }
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("style"));
+    propertynode = XmlUtils::FindFirstByTagName(node, "style");
     if(propertynode) {
         wxString styles = propertynode->GetNodeContent();
         styles.Replace("wxRESIZE_BOX", "wxMAXIMIZE_BOX"); // Deprecated (removed?) in wx2.9 but still likely to be seen
@@ -770,7 +855,9 @@ void wxcWidget::LoadPropertiesFromXRC(const wxXmlNode* node)
     propertynode = XmlUtils::FindFirstByTagName(node, "XRCED");
     if(propertynode) {
         wxXmlNode* eventsnode = XmlUtils::FindFirstByTagName(propertynode, "events");
-        if(eventsnode) { ImportEventsFromXRC(eventsnode->GetNodeContent()); }
+        if(eventsnode) {
+            ImportEventsFromXRC(eventsnode->GetNodeContent());
+        }
     }
 }
 
@@ -779,58 +866,78 @@ void wxcWidget::LoadPropertiesFromwxSmith(const wxXmlNode* node)
     wxString value;
 
     // Start with 2 possible strings in node itself
-    value = XmlUtils::ReadString(node, wxT("name"));
-    if(!value.empty()) { SetName(value); }
+    value = XmlUtils::ReadString(node, "name");
+    if(!value.empty()) {
+        SetName(value);
+    }
 
-    wxString subclass = XmlUtils::ReadString(node, wxT("subclass"));
-    if(!subclass.empty()) { SetPropertyString(PROP_SUBCLASS_NAME, subclass); }
+    wxString subclass = XmlUtils::ReadString(node, "subclass");
+    if(!subclass.empty()) {
+        SetPropertyString(PROP_SUBCLASS_NAME, subclass);
+    }
 
-    wxXmlNode* propertynode = XmlUtils::FindFirstByTagName(node, wxT("size"));
-    if(propertynode) { SetPropertyString(PROP_SIZE, propertynode->GetNodeContent()); }
+    wxXmlNode* propertynode = XmlUtils::FindFirstByTagName(node, "size");
+    if(propertynode) {
+        SetPropertyString(PROP_SIZE, propertynode->GetNodeContent());
+    }
 
-    /*    propertynode = XmlUtils::FindFirstByTagName(node, wxT("pos"));
+    /*    propertynode = XmlUtils::FindFirstByTagName(node, "pos");
         if (propertynode) {
            // wxC doesn't do positions
         }*/
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("tooltip"));
-    if(propertynode) { SetPropertyString(PROP_TOOLTIP, wxCrafter::ESCAPE(propertynode->GetNodeContent())); }
+    propertynode = XmlUtils::FindFirstByTagName(node, "tooltip");
+    if(propertynode) {
+        SetPropertyString(PROP_TOOLTIP, wxCrafter::ESCAPE(propertynode->GetNodeContent()));
+    }
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("font"));
+    propertynode = XmlUtils::FindFirstByTagName(node, "font");
     if(propertynode) {
         SetPropertyString(PROP_FONT, wxCrafter::XRCToFontstring(propertynode)); // wxS behaves like XRC here
     }
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("fg"));
+    propertynode = XmlUtils::FindFirstByTagName(node, "fg");
     if(propertynode) {
         SetPropertyString(PROP_FG, wxCrafter::ValueToColourString(propertynode->GetNodeContent())); // and here
     }
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("bg"));
-    if(propertynode) { SetPropertyString(PROP_BG, wxCrafter::ValueToColourString(propertynode->GetNodeContent())); }
+    propertynode = XmlUtils::FindFirstByTagName(node, "bg");
+    if(propertynode) {
+        SetPropertyString(PROP_BG, wxCrafter::ValueToColourString(propertynode->GetNodeContent()));
+    }
 
     propertynode = XmlUtils::FindFirstByTagName(node, "hidden");
-    if(propertynode && propertynode->GetNodeContent() == "1") { SetPropertyString(PROP_STATE_HIDDEN, "1"); }
+    if(propertynode && propertynode->GetNodeContent() == "1") {
+        SetPropertyString(PROP_STATE_HIDDEN, "1");
+    }
 
     propertynode = XmlUtils::FindFirstByTagName(node, "enabled");
-    if(propertynode && propertynode->GetNodeContent() == "0") { SetPropertyString(PROP_STATE_DISABLED, "1"); }
+    if(propertynode && propertynode->GetNodeContent() == "0") {
+        SetPropertyString(PROP_STATE_DISABLED, "1");
+    }
 
     propertynode = XmlUtils::FindFirstByTagName(node, "focused");
-    if(propertynode && propertynode->GetNodeContent() == "1") { SetPropertyString(PROP_HAS_FOCUS, "1"); }
+    if(propertynode && propertynode->GetNodeContent() == "1") {
+        SetPropertyString(PROP_HAS_FOCUS, "1");
+    }
 
     // The Label property has a default, so we must clear it even if the node is absent
     PropertyBase* labelprop = GetProperty(PROP_LABEL);
     if(labelprop) {
         wxString labelvalue;
-        propertynode = XmlUtils::FindFirstByTagName(node, wxT("label"));
-        if(propertynode) { labelvalue = wxCrafter::ESCAPE(propertynode->GetNodeContent()); }
+        propertynode = XmlUtils::FindFirstByTagName(node, "label");
+        if(propertynode) {
+            labelvalue = wxCrafter::ESCAPE(propertynode->GetNodeContent());
+        }
         labelprop->SetValue(labelvalue);
     }
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("title"));
-    if(propertynode) { SetTitle(wxCrafter::ESCAPE(propertynode->GetNodeContent())); }
+    propertynode = XmlUtils::FindFirstByTagName(node, "title");
+    if(propertynode) {
+        SetTitle(wxCrafter::ESCAPE(propertynode->GetNodeContent()));
+    }
 
-    propertynode = XmlUtils::FindFirstByTagName(node, wxT("style"));
+    propertynode = XmlUtils::FindFirstByTagName(node, "style");
     if(propertynode) {
         wxString styles = propertynode->GetNodeContent();
         styles.Replace("wxRESIZE_BOX", "wxMAXIMIZE_BOX"); // Deprecated (removed?) in wx2.9 but still likely to be seen
@@ -854,9 +961,8 @@ void wxcWidget::LoadPropertiesFromwxSmith(const wxXmlNode* node)
     // i.e. possible multiple child nodes, so we can't use FindFirstByTagName()
     wxXmlNode* child = node->GetChildren();
     while(child) {
-        if(child->GetName() == wxT("handler")) {
-            ImportEventFromwxSmith(XmlUtils::ReadString(child, wxT("entry")),
-                                   XmlUtils::ReadString(child, wxT("function")));
+        if(child->GetName() == "handler") {
+            ImportEventFromwxSmith(XmlUtils::ReadString(child, "entry"), XmlUtils::ReadString(child, "function"));
         }
         child = child->GetNext();
     }
@@ -900,73 +1006,101 @@ void wxcWidget::LoadPropertiesFromwxFB(const wxXmlNode* node)
             wxString classname = arr.Item(0).Trim().Trim(false);
             if(!classname.empty()) {
                 SetPropertyString(PROP_SUBCLASS_NAME, classname);
-                if(arr.GetCount() > 1) { SetPropertyString(PROP_SUBCLASS_INCLUDE, arr.Item(1).Trim().Trim(false)); }
+                if(arr.GetCount() > 1) {
+                    SetPropertyString(PROP_SUBCLASS_INCLUDE, arr.Item(1).Trim().Trim(false));
+                }
             }
         }
     }
 
     propertynode = XmlUtils::FindNodeByName(node, "property", "id");
-    if(propertynode) { SetPropertyString(PROP_WINDOW_ID, propertynode->GetNodeContent()); }
-
-    propertynode = XmlUtils::FindNodeByName(node, "property", "size");
-    if(propertynode) { SetPropertyString(PROP_SIZE, propertynode->GetNodeContent()); }
-
-    propertynode = XmlUtils::FindNodeByName(node, "property", "tooltip");
-    if(propertynode) { SetPropertyString(PROP_TOOLTIP, wxCrafter::ESCAPE(propertynode->GetNodeContent())); }
-
-    propertynode = XmlUtils::FindNodeByName(node, "property", wxT("font"));
     if(propertynode) {
-        wxString fontasstring = wxCrafter::FBToFontstring(propertynode->GetNodeContent());
-        if(!fontasstring.empty()) { SetPropertyString(PROP_FONT, fontasstring); }
+        SetPropertyString(PROP_WINDOW_ID, propertynode->GetNodeContent());
     }
 
-    propertynode = XmlUtils::FindNodeByName(node, "property", wxT("fg"));
+    propertynode = XmlUtils::FindNodeByName(node, "property", "size");
+    if(propertynode) {
+        SetPropertyString(PROP_SIZE, propertynode->GetNodeContent());
+    }
+
+    propertynode = XmlUtils::FindNodeByName(node, "property", "tooltip");
+    if(propertynode) {
+        SetPropertyString(PROP_TOOLTIP, wxCrafter::ESCAPE(propertynode->GetNodeContent()));
+    }
+
+    propertynode = XmlUtils::FindNodeByName(node, "property", "font");
+    if(propertynode) {
+        wxString fontasstring = wxCrafter::FBToFontstring(propertynode->GetNodeContent());
+        if(!fontasstring.empty()) {
+            SetPropertyString(PROP_FONT, fontasstring);
+        }
+    }
+
+    propertynode = XmlUtils::FindNodeByName(node, "property", "fg");
     if(propertynode) {
         wxString value = propertynode->GetNodeContent();
         if(!value.empty()) {
             wxString col = wxCrafter::ValueToColourString(value);
-            if(!col.empty()) { SetPropertyString(PROP_FG, col); }
+            if(!col.empty()) {
+                SetPropertyString(PROP_FG, col);
+            }
         }
     }
 
-    propertynode = XmlUtils::FindNodeByName(node, "property", wxT("bg"));
+    propertynode = XmlUtils::FindNodeByName(node, "property", "bg");
     if(propertynode) {
         wxString value = propertynode->GetNodeContent();
         if(!value.empty()) {
             wxString col = wxCrafter::ValueToColourString(propertynode->GetNodeContent());
-            if(!col.empty()) { SetPropertyString(PROP_BG, col); }
+            if(!col.empty()) {
+                SetPropertyString(PROP_BG, col);
+            }
         }
     }
 
     propertynode = XmlUtils::FindNodeByName(node, "property", "hidden");
     if(propertynode) {
         wxString value = propertynode->GetNodeContent();
-        if(value == "1") { SetPropertyString(PROP_STATE_HIDDEN, "1"); }
+        if(value == "1") {
+            SetPropertyString(PROP_STATE_HIDDEN, "1");
+        }
     }
 
     propertynode = XmlUtils::FindNodeByName(node, "property", "enabled");
     if(propertynode) {
         wxString value = propertynode->GetNodeContent();
-        if(value == "0") { SetPropertyString(PROP_STATE_DISABLED, "1"); }
+        if(value == "0") {
+            SetPropertyString(PROP_STATE_DISABLED, "1");
+        }
     }
 
     // wxFB doesn't do Focused
 
     propertynode = XmlUtils::FindNodeByName(node, "property", "label");
-    if(propertynode) { SetPropertyString(PROP_LABEL, wxCrafter::ESCAPE(propertynode->GetNodeContent())); }
+    if(propertynode) {
+        SetPropertyString(PROP_LABEL, wxCrafter::ESCAPE(propertynode->GetNodeContent()));
+    }
 
     propertynode = XmlUtils::FindNodeByName(node, "property", "title");
-    if(propertynode) { SetTitle(wxCrafter::ESCAPE(propertynode->GetNodeContent())); }
+    if(propertynode) {
+        SetTitle(wxCrafter::ESCAPE(propertynode->GetNodeContent()));
+    }
 
     propertynode = XmlUtils::FindNodeByName(node, "property", "minimum_size");
-    if(propertynode) { SetPropertyString(PROP_MINSIZE, propertynode->GetNodeContent()); }
+    if(propertynode) {
+        SetPropertyString(PROP_MINSIZE, propertynode->GetNodeContent());
+    }
 
     // Special 'two for the price of one' offer :)
     propertynode = XmlUtils::FindNodeByName(node, "property", "style"); // the derived-class styles
-    if(propertynode) { value = propertynode->GetNodeContent(); }
+    if(propertynode) {
+        value = propertynode->GetNodeContent();
+    }
     propertynode = XmlUtils::FindNodeByName(node, "property", "window_style"); // the standard ones
     if(propertynode) {
-        if(!value.empty()) { value << '|'; }
+        if(!value.empty()) {
+            value << '|';
+        }
         value << propertynode->GetNodeContent();
     }
     if(!value.empty()) {
@@ -988,9 +1122,11 @@ void wxcWidget::LoadPropertiesFromwxFB(const wxXmlNode* node)
     //    <event name="OnButtonClick">whatever-the-user-typed</event>
     wxXmlNode* child = node->GetChildren();
     while(child) {
-        if(child->GetName() == wxT("event")) {
+        if(child->GetName() == "event") {
             wxString value = child->GetNodeContent();
-            if(!value.empty()) { ImportEventFromFB(XmlUtils::ReadString(child, wxT("name")), value); }
+            if(!value.empty()) {
+                ImportEventFromFB(XmlUtils::ReadString(child, "name"), value);
+            }
         }
         child = child->GetNext();
     }
@@ -1081,19 +1217,25 @@ void wxcWidget::RemoveChild(wxcWidget* child)
 
 void wxcWidget::RemoveFromParent()
 {
-    if(m_parent) { m_parent->RemoveChild(this); }
+    if(m_parent) {
+        m_parent->RemoveChild(this);
+    }
     m_parent = NULL;
 }
 
 void wxcWidget::MoveDown()
 {
-    if(!m_parent) return;
+    if(!m_parent) {
+        return;
+    }
 
     // Locate our pointer in the parent children list
     List_t& list = m_parent->m_children;
     List_t::iterator iter = list.begin();
     for(; iter != list.end(); iter++) {
-        if((*iter) == this) { break; }
+        if((*iter) == this) {
+            break;
+        }
     }
 
     // Now move your element two positions forward
@@ -1109,13 +1251,17 @@ void wxcWidget::MoveDown()
 
 void wxcWidget::MoveUp()
 {
-    if(!m_parent) return;
+    if(!m_parent) {
+        return;
+    }
 
     // Locate our pointer in the parent children list
     List_t& list = m_parent->m_children;
     List_t::iterator iter = list.begin();
     for(; iter != list.end(); iter++) {
-        if((*iter) == this) { break; }
+        if((*iter) == this) {
+            break;
+        }
     }
 
     // Now move your element two positions back (let's assume you have the elements in
@@ -1188,16 +1334,22 @@ void wxcWidget::InsertWidgetInto(wxcWidget* oldWidget, wxcWidget* newWidget) // 
 
 bool wxcWidget::CanMoveDown() const
 {
-    if(!m_parent) return false;
+    if(!m_parent) {
+        return false;
+    }
 
     // Locate our pointer in the parent children list
     List_t& list = m_parent->m_children;
     List_t::iterator iter = list.begin();
     for(; iter != list.end(); iter++) {
-        if((*iter) == this) { break; }
+        if((*iter) == this) {
+            break;
+        }
     }
 
-    if(iter == list.end()) return false;
+    if(iter == list.end()) {
+        return false;
+    }
 
     // Return true of this iterator is not the last one
     return (++iter) != list.end();
@@ -1205,16 +1357,22 @@ bool wxcWidget::CanMoveDown() const
 
 bool wxcWidget::CanMoveUp() const
 {
-    if(!m_parent) return false;
+    if(!m_parent) {
+        return false;
+    }
 
     // Locate our pointer in the parent children list
     List_t& list = m_parent->m_children;
     List_t::iterator iter = list.begin();
     for(; iter != list.end(); iter++) {
-        if((*iter) == this) { break; }
+        if((*iter) == this) {
+            break;
+        }
     }
 
-    if(iter == list.end()) return false;
+    if(iter == list.end()) {
+        return false;
+    }
 
     return (*iter) != *(list.begin());
 }
@@ -1224,12 +1382,16 @@ wxcWidget::GetAdjacentSiblingSizer(bool* isAbove /*=NULL*/) const // Return an a
 {
     wxcWidget* adjacent = GetAdjacentSibling(true);
     if(adjacent && adjacent->IsSizer()) {
-        if(isAbove) { *isAbove = true; }
+        if(isAbove) {
+            *isAbove = true;
+        }
         return adjacent;
     }
     adjacent = GetAdjacentSibling(false);
     if(adjacent && adjacent->IsSizer()) {
-        if(isAbove) { *isAbove = false; }
+        if(isAbove) {
+            *isAbove = false;
+        }
         return adjacent;
     }
     return NULL;
@@ -1238,22 +1400,32 @@ wxcWidget::GetAdjacentSiblingSizer(bool* isAbove /*=NULL*/) const // Return an a
 wxcWidget*
 wxcWidget::GetAdjacentSibling(bool previous) const // i.e. the previous (or next) control with the same parent
 {
-    if(!m_parent) return NULL;
+    if(!m_parent) {
+        return NULL;
+    }
 
     // Locate our pointer in the parent children list
     List_t& list = m_parent->m_children;
     List_t::iterator iter = list.begin();
     for(; iter != list.end(); ++iter) {
-        if((*iter) == this) { break; }
+        if((*iter) == this) {
+            break;
+        }
     }
 
-    if(iter == list.end()) return NULL;
+    if(iter == list.end()) {
+        return NULL;
+    }
 
     if(previous) {
-        if(iter == list.begin()) { return NULL; }
+        if(iter == list.begin()) {
+            return NULL;
+        }
         --iter;
     } else {
-        if(++iter == list.end()) { return NULL; }
+        if(++iter == list.end()) {
+            return NULL;
+        }
     }
 
     return *iter;
@@ -1265,8 +1437,10 @@ wxString wxcWidget::SizeAsString() const
     wxString size = PropertyString(PROP_SIZE);
     size.Trim().Trim(false);
 
-    if(size.IsEmpty()) { size = wxT("-1, -1"); }
-    size.Prepend(wxT("wxSize(")).Append(wxT(")"));
+    if(size.IsEmpty()) {
+        size = "-1, -1";
+    }
+    size.Prepend("wxSize(").Append(")");
     if(!parentStr.IsEmpty() && (parentStr != "NULL")) {
         wxString dlgUnits;
         dlgUnits << "wxDLG_UNIT(" << parentStr << ", " << size << ")";
@@ -1278,7 +1452,7 @@ wxString wxcWidget::SizeAsString() const
 wxString wxcWidget::ValueAsString() const
 {
     wxString value = PropertyString(PROP_VALUE);
-    value.Prepend(wxT("wxT(\"")).Append(wxT("\")"));
+    value.Prepend("wxT(\"").Append("\")");
     return value;
 }
 
@@ -1289,7 +1463,7 @@ wxString wxcWidget::CPPLabel() const { return wxCrafter::UNDERSCORE(PropertyStri
 wxString wxcWidget::Label() const
 {
     wxString label = PropertyString(PROP_LABEL);
-    label.Replace(wxT("&amp;"), wxT("&"));
+    label.Replace("&amp;", "&");
     return wxCrafter::UNDERSCORE(label);
 }
 
@@ -1298,7 +1472,9 @@ wxString wxcWidget::Size() const
     wxString size = PropertyString(PROP_SIZE);
     size.Trim().Trim(false);
 
-    if(size.IsEmpty()) { size = wxT("-1, -1"); }
+    if(size.IsEmpty()) {
+        size = "-1, -1";
+    }
     return size;
 }
 
@@ -1320,10 +1496,11 @@ bool wxcWidget::HasEvent(const wxString& eventName) const { return m_connectedEv
 
 wxString wxcWidget::GetCppName() const
 {
-    if(IsTopWindow())
-        return wxT("this");
-    else
+    if(IsTopWindow()) {
+        return "this";
+    } else {
         return GetName();
+    }
 }
 
 wxString wxcWidget::CreateBaseclassName() const
@@ -1339,13 +1516,14 @@ wxString wxcWidget::DoGenerateEventStubs() const
     MapEvents_t::const_iterator iter = m_connectedEvents.begin();
     for(; iter != m_connectedEvents.end(); iter++) {
         ConnectDetails eventDetails = iter->second;
-        if(eventDetails.GetFunctionNameAndSignature().IsEmpty()) { eventDetails.GenerateFunctionName(GetName()); }
+        if(eventDetails.GetFunctionNameAndSignature().IsEmpty()) {
+            eventDetails.GenerateFunctionName(GetName());
+        }
 
         if(eventDetails.GetNoBody()) {
-            stubsCode << wxT("virtual void ") << eventDetails.GetFunctionNameAndSignature() << wxT(";\n");
+            stubsCode << "virtual void " << eventDetails.GetFunctionNameAndSignature() << ";\n";
         } else {
-            stubsCode << wxT("virtual void ") << eventDetails.GetFunctionNameAndSignature()
-                      << wxT(" { event.Skip(); }\n");
+            stubsCode << "virtual void " << eventDetails.GetFunctionNameAndSignature() << " { event.Skip(); }\n";
         }
     }
     WrapInIfBlockIfNeeded(stubsCode);
@@ -1354,14 +1532,16 @@ wxString wxcWidget::DoGenerateEventStubs() const
 
 wxString wxcWidget::DoGenerateConnectCode() const
 {
-    wxString connectCode;
+    wxString bind_code;
     wxString scopeName = DoGetScopeName();
 
     MapEvents_t::const_iterator iter = m_connectedEvents.begin();
     for(; iter != m_connectedEvents.end(); iter++) {
         ConnectDetails eventDetails = iter->second;
 
-        if(eventDetails.GetFunctionNameAndSignature().IsEmpty()) { eventDetails.GenerateFunctionName(GetName()); }
+        if(eventDetails.GetFunctionNameAndSignature().IsEmpty()) {
+            eventDetails.GenerateFunctionName(GetName());
+        }
 
         wxString funcNameOnly = eventDetails.GetFunctionNameAndSignature().BeforeFirst(wxT('('));
         bool isMenuItem = (GetType() == ID_WXMENUITEM);
@@ -1370,59 +1550,63 @@ wxString wxcWidget::DoGenerateConnectCode() const
         if(isMenuItem) {
             // This item is a menu item
             // dont generate code for separator item
-            if(this->PropertyString(PROP_WINDOW_ID) != wxT("wxID_SEPARATOR") &&
+            if(this->PropertyString(PROP_WINDOW_ID) != "wxID_SEPARATOR" &&
                wxCrafter::GetToolType(PropertyString(PROP_KIND)) != wxCrafter::TOOL_TYPE_SEPARATOR) {
-                connectCode << wxT("this->Connect(") << GetName() << wxT("->GetId(), ") << eventDetails.GetEventName()
-                            << wxT(", ") << eventDetails.GetEventHandler() << wxT("(") << scopeName << wxT("::")
-                            << funcNameOnly << wxT(")") << wxT(", ") << wxT("NULL") << wxT(", ") << wxT("this);\n");
+                wxString menu_id = GetName() + "->GetId()";
+                bind_code << "this->Bind(" << eventDetails.GetEventName() << ", "
+                          << "&" << scopeName << "::" << funcNameOnly << ", "
+                          << "this," << menu_id << ");\n";
             }
 
         } else if(isInfoBarButton) {
             // Toolbar item connect
-            connectCode << GetParent()->GetName() << "->Connect(" << WindowID() << wxT(", ")
-                        << eventDetails.GetEventName() << wxT(", ") << eventDetails.GetEventHandler() << wxT("(")
-                        << scopeName << wxT("::") << funcNameOnly << wxT(")") << wxT(", ") << wxT("NULL") << wxT(", ")
-                        << wxT("this);\n");
+            wxString menu_id = WindowID();
+            bind_code << GetParent()->GetName() << "->Bind(" << eventDetails.GetEventName() << ", &" << scopeName
+                      << "::" << funcNameOnly << ", "
+                      << "this, " << menu_id << ");\n";
 
         } else if(isToolbarItem) {
             // Toolbar item connect
-            connectCode << wxT("this->Connect(") << WindowID() << wxT(", ") << eventDetails.GetEventName() << wxT(", ")
-                        << eventDetails.GetEventHandler() << wxT("(") << scopeName << wxT("::") << funcNameOnly
-                        << wxT(")") << wxT(", ") << wxT("NULL") << wxT(", ") << wxT("this);\n");
+            bind_code << "this->Bind(" << eventDetails.GetEventName() << ", "
+                      << "&" << scopeName << "::" << funcNameOnly << ", "
+                      << "this, " << WindowID() << ");\n";
 
         } else {
-            connectCode << GetCppName() << wxT("->Connect(");
-
-            if(UseIdInConnect()) { connectCode << GetId() << ", "; }
-
-            connectCode << eventDetails.GetEventName() << wxT(", ") << eventDetails.GetEventHandler() << wxT("(")
-                        << scopeName << wxT("::") << funcNameOnly << wxT(")") << wxT(", ") << wxT("NULL") << wxT(", ")
-                        << wxT("this);\n");
+            bind_code << GetCppName() << "->Bind(";
+            if(!UseIdInConnect()) {
+                bind_code << eventDetails.GetEventName() << ", "
+                          << "&" << scopeName << "::" << funcNameOnly << ", "
+                          << "this);\n";
+            } else {
+                bind_code << eventDetails.GetEventName() << ", "
+                          << "&" << scopeName << "::" << funcNameOnly << ", "
+                          << "this, " << GetId() << ");\n";
+            }
         }
     }
 
-    WrapInIfBlockIfNeeded(connectCode);
-    return connectCode;
+    WrapInIfBlockIfNeeded(bind_code);
+    return bind_code;
 }
 
 wxString wxcWidget::DoGetScopeName() const
 {
     const wxcWidget* wrapper = this;
     do {
-        if(wrapper->IsTopWindow()) { return wrapper->CreateBaseclassName(); }
+        if(wrapper->IsTopWindow()) {
+            return wrapper->CreateBaseclassName();
+        }
         wrapper = wrapper->GetParent();
     } while(wrapper);
 
-    return wxT("");
+    return "";
 }
 
 void wxcWidget::RegisterEvent(const wxString& eventName, const wxString& className, const wxString& description,
                               const wxString& handlerName /*=""*/, const wxString& functionNameAndSig /*=""*/,
                               bool noBody /*=false*/)
 {
-    wxString handler = handlerName;
-    if(handler.IsEmpty()) { handler << className << wxT("Handler"); }
-    m_controlEvents.Add(eventName, className, description, handler, functionNameAndSig, noBody);
+    m_controlEvents.Add(eventName, className, description, functionNameAndSig, noBody);
 }
 
 wxString wxcWidget::XRCPrefix(const wxString& class_name) const
@@ -1437,7 +1621,7 @@ wxString wxcWidget::XRCPrefix(const wxString& class_name) const
     return text;
 }
 
-wxString wxcWidget::XRCSuffix() const { return wxT("</object>"); }
+wxString wxcWidget::XRCSuffix() const { return "</object>"; }
 
 wxString wxcWidget::XRCStyle(bool forPreview) const
 {
@@ -1445,13 +1629,13 @@ wxString wxcWidget::XRCStyle(bool forPreview) const
     wxString style = StyleFlags();
 
     if(forPreview && style.IsEmpty()) {
-        style << wxT("wxSTAY_ON_TOP");
+        style << "wxSTAY_ON_TOP";
 
     } else if(forPreview) {
-        style << wxT("|wxSTAY_ON_TOP");
+        style << "|wxSTAY_ON_TOP";
     }
 
-    text << wxT("<style>") << wxCrafter::XMLEncode(style) << wxT("</style>");
+    text << "<style>" << wxCrafter::XMLEncode(style) << "</style>";
     return text;
 }
 
@@ -1459,7 +1643,7 @@ wxString wxcWidget::XRCSize(bool dontEmitDefault /*=true*/) const
 {
     wxString text;
     if(!dontEmitDefault || GetSize() != wxSize(-1, -1)) {
-        text << wxT("<size>") << wxCrafter::XMLEncode(Size()) << wxT("</size>");
+        text << "<size>" << wxCrafter::XMLEncode(Size()) << "</size>";
     }
     return text;
 }
@@ -1481,23 +1665,25 @@ wxString wxcWidget::XRCLabel() const
     wxString text;
     // Don't use wxCrafter::CDATA here because of http://trac.wxwidgets.org/ticket/10552
     // which in < wx3 results in "foo" -> "\nfoo" and very strange-looking buttons!
-    text << wxT("<label>") << wxCrafter::XMLEncode(PropertyString(PROP_LABEL)) << wxT("</label>");
+    text << "<label>" << wxCrafter::XMLEncode(PropertyString(PROP_LABEL)) << "</label>";
     return text;
 }
 
 wxString wxcWidget::XRCContentItems(bool ensureAtLeastOneEntry) const
 {
-    wxArrayString options = wxCrafter::Split(PropertyString(PROP_OPTIONS), wxT(";"));
-    if(options.IsEmpty() && ensureAtLeastOneEntry) { options.Add("Dummy Option"); }
+    wxArrayString options = wxCrafter::Split(PropertyString(PROP_OPTIONS), ";");
+    if(options.IsEmpty() && ensureAtLeastOneEntry) {
+        options.Add("Dummy Option");
+    }
 
     wxString text;
-    text << wxT("<content>");
+    text << "<content>";
     for(size_t i = 0; i < options.GetCount(); i++) {
         // Don't use wxCrafter::CDATA here because of http://trac.wxwidgets.org/ticket/10552
         // which in < wx3 results in "foo" -> "\nfoo" and very strange-looking buttons!
-        text << wxT("<item>") << wxCrafter::XMLEncode(options.Item(i)) << wxT("</item>");
+        text << "<item>" << wxCrafter::XMLEncode(options.Item(i)) << "</item>";
     }
-    text << wxT("</content>");
+    text << "</content>";
     return text;
 }
 
@@ -1506,20 +1692,24 @@ wxString wxcWidget::XRCSelection() const
     wxString text;
     // Don't use wxCrafter::CDATA here because of http://trac.wxwidgets.org/ticket/10552
     // which in < wx3 results in "foo" -> "\nfoo" and very strange-looking buttons!
-    text << wxT("<selection>") << wxCrafter::XMLEncode(PropertyString(PROP_SELECTION)) << wxT("</selection>");
+    text << "<selection>" << wxCrafter::XMLEncode(PropertyString(PROP_SELECTION)) << "</selection>";
     return text;
 }
 
 ConnectDetails wxcWidget::GetEventMetaData(const wxString& eventName) const
 {
-    if(!m_controlEvents.GetEvents().Contains(eventName)) return ConnectDetails();
+    if(!m_controlEvents.GetEvents().Contains(eventName)) {
+        return ConnectDetails();
+    }
 
     return m_controlEvents.GetEvents().Item(eventName);
 }
 
 ConnectDetails wxcWidget::GetEvent(const wxString& eventName) const
 {
-    if(m_connectedEvents.Contains(eventName)) return m_connectedEvents.Item(eventName);
+    if(m_connectedEvents.Contains(eventName)) {
+        return m_connectedEvents.Item(eventName);
+    }
     return ConnectDetails();
 }
 
@@ -1527,9 +1717,8 @@ wxString wxcWidget::CPPStandardWxCtor(const wxString& defaultStyle) const
 {
     // For subclassed controls we must use the subclass name
     wxString cpp;
-    cpp << GetName() << wxT(" = new ") << GetRealClassName() << wxT("(") << GetWindowParent() << wxT(", ") << WindowID()
-        << wxT(", ") << wxT("wxDefaultPosition, ") << SizeAsString() << wxT(", ") << StyleFlags(defaultStyle)
-        << wxT(");\n");
+    cpp << GetName() << " = new " << GetRealClassName() << "(" << GetWindowParent() << ", " << WindowID() << ", "
+        << "wxDefaultPosition, " << SizeAsString() << ", " << StyleFlags(defaultStyle) << ");\n";
     cpp << CPPCommonAttributes();
     return cpp;
 }
@@ -1538,9 +1727,9 @@ wxString wxcWidget::CPPStandardWxCtorWithValue(const wxString& defaultStyle) con
 {
     // For subclassed controls we must use the subclass name
     wxString cpp;
-    cpp << GetName() << wxT(" = new ") << GetRealClassName() << wxT("(") << GetWindowParent() << wxT(", ") << WindowID()
-        << wxT(", ") << ValueAsString() << wxT(", ") << wxT("wxDefaultPosition, ") << SizeAsString() << wxT(", ")
-        << StyleFlags(defaultStyle) << wxT(");\n");
+    cpp << GetName() << " = new " << GetRealClassName() << "(" << GetWindowParent() << ", " << WindowID() << ", "
+        << ValueAsString() << ", "
+        << "wxDefaultPosition, " << SizeAsString() << ", " << StyleFlags(defaultStyle) << ");\n";
 
     cpp << CPPCommonAttributes();
     return cpp;
@@ -1549,9 +1738,9 @@ wxString wxcWidget::CPPStandardWxCtorWithValue(const wxString& defaultStyle) con
 wxString wxcWidget::CPPStandardWxCtorWithLabel(const wxString& defaultStyle) const
 {
     wxString cpp;
-    cpp << GetName() << wxT(" = new ") << GetRealClassName() << wxT("(") << GetWindowParent() << wxT(", ") << WindowID()
-        << wxT(", ") << Label() << wxT(", ") << wxT("wxDefaultPosition, ") << SizeAsString() << wxT(", ")
-        << StyleFlags(defaultStyle) << wxT(");\n");
+    cpp << GetName() << " = new " << GetRealClassName() << "(" << GetWindowParent() << ", " << WindowID() << ", "
+        << Label() << ", "
+        << "wxDefaultPosition, " << SizeAsString() << ", " << StyleFlags(defaultStyle) << ");\n";
     cpp << CPPCommonAttributes();
     return cpp;
 }
@@ -1559,7 +1748,7 @@ wxString wxcWidget::CPPStandardWxCtorWithLabel(const wxString& defaultStyle) con
 wxString wxcWidget::XRCUnknown() const
 {
     wxString xrc;
-    xrc << wxT("<object class=\"unknown\" name=\"") << GetName() << wxT("\">");
+    xrc << "<object class=\"unknown\" name=\"" << GetName() << "\">";
     xrc << XRCSize() << XRCCommonAttributes() << XRCSuffix();
     return xrc;
 }
@@ -1568,28 +1757,42 @@ wxString wxcWidget::XRCCommonAttributes() const
 {
     wxString xrc;
     wxString colorname = PropertyString(PROP_BG);
-    if(colorname != wxT("<Default>")) { xrc << wxT("<bg>") << wxCrafter::GetColourForXRC(colorname) << wxT("</bg>"); }
+    if(colorname != "<Default>") {
+        xrc << "<bg>" << wxCrafter::GetColourForXRC(colorname) << "</bg>";
+    }
 
     colorname = PropertyString(PROP_FG);
-    if(colorname != wxT("<Default>")) { xrc << wxT("<fg>") << wxCrafter::GetColourForXRC(colorname) << wxT("</fg>"); }
+    if(colorname != "<Default>") {
+        xrc << "<fg>" << wxCrafter::GetColourForXRC(colorname) << "</fg>";
+    }
 
     wxString font = wxCrafter::FontToXRC(PropertyString(PROP_FONT));
-    if(!font.IsEmpty()) { xrc << wxT("<font>") << font << wxT("</font>"); }
+    if(!font.IsEmpty()) {
+        xrc << "<font>" << font << "</font>";
+    }
 
     wxString tip = PropertyString(PROP_TOOLTIP);
     tip.Trim().Trim(false);
 
-    if(!tip.IsEmpty()) { xrc << wxT("<tooltip>") << wxCrafter::CDATA(tip) << wxT("</tooltip>"); }
+    if(!tip.IsEmpty()) {
+        xrc << "<tooltip>" << wxCrafter::CDATA(tip) << "</tooltip>";
+    }
 
     // Enable / Disable + Hidden support
     bool bHide = (PropertyBool(PROP_STATE_HIDDEN) == "true");
     bool bDisable = (PropertyBool(PROP_STATE_DISABLED) == "true");
-    if(bHide) xrc << "<hidden>1</hidden>";
+    if(bHide) {
+        xrc << "<hidden>1</hidden>";
+    }
 
-    if(bDisable) xrc << "<enabled>0</enabled>";
+    if(bDisable) {
+        xrc << "<enabled>0</enabled>";
+    }
 
     bool bFocused = (PropertyBool(PROP_HAS_FOCUS) == "true");
-    if(bFocused) xrc << "<focused>1</focused>";
+    if(bFocused) {
+        xrc << "<focused>1</focused>";
+    }
 
     return xrc;
 }
@@ -1603,34 +1806,44 @@ wxString wxcWidget::CPPCommonAttributes() const
     } else {
         instanceName = GetName();
     }
-    
+
     wxString colorname = wxCrafter::ColourToCpp(PropertyString(PROP_BG));
-    if(colorname.IsEmpty() == false) { cpp << instanceName << wxT("->SetBackgroundColour(") << colorname << wxT(");\n"); }
+    if(colorname.IsEmpty() == false) {
+        cpp << instanceName << "->SetBackgroundColour(" << colorname << ");\n";
+    }
 
     colorname = wxCrafter::ColourToCpp(PropertyString(PROP_FG));
-    if(colorname.IsEmpty() == false) { cpp << instanceName << wxT("->SetForegroundColour(") << colorname << wxT(");\n"); }
+    if(colorname.IsEmpty() == false) {
+        cpp << instanceName << "->SetForegroundColour(" << colorname << ");\n";
+    }
 
-    wxString fontMemberName = instanceName + wxT("Font");
+    wxString fontMemberName = instanceName + "Font";
     wxString font = wxCrafter::FontToCpp(PropertyString(PROP_FONT), fontMemberName);
-    if(font.IsEmpty() == false && font != wxT("wxNullFont")) {
+    if(font.IsEmpty() == false && font != "wxNullFont") {
         cpp << font;
-        cpp << instanceName << wxT("->SetFont(") << fontMemberName << wxT(");\n");
+        cpp << instanceName << "->SetFont(" << fontMemberName << ");\n";
     }
 
     wxString tip = PropertyString(PROP_TOOLTIP);
     tip.Trim().Trim(false);
     if(tip.IsEmpty() == false) {
-        cpp << instanceName << wxT("->SetToolTip(") << wxCrafter::UNDERSCORE(tip) << wxT(");\n");
+        cpp << instanceName << "->SetToolTip(" << wxCrafter::UNDERSCORE(tip) << ");\n";
     }
 
     bool bHide = (PropertyBool(PROP_STATE_HIDDEN) == "true");
-    if(bHide) { cpp << instanceName << wxT("->Hide();\n"); }
+    if(bHide) {
+        cpp << instanceName << "->Hide();\n";
+    }
 
     bool bDisable = (PropertyBool(PROP_STATE_DISABLED) == "true");
-    if(bDisable) { cpp << instanceName << wxT("->Enable(false);\n"); }
+    if(bDisable) {
+        cpp << instanceName << "->Enable(false);\n";
+    }
 
     bool bFocused = (PropertyBool(PROP_HAS_FOCUS) == "true");
-    if(bFocused) { cpp << instanceName << wxT("->SetFocus();\n"); }
+    if(bFocused) {
+        cpp << instanceName << "->SetFocus();\n";
+    }
 
     return cpp;
 }
@@ -1873,7 +2086,9 @@ bool wxcWidget::IsDirectOrIndirectChildOf(wxcWidget* p) const
 {
     wxcWidget* parent = this->GetParent();
     while(parent) {
-        if(parent == p) { return true; }
+        if(parent == p) {
+            return true;
+        }
         parent = parent->GetParent();
     }
     return false;
@@ -1910,7 +2125,9 @@ void wxcWidget::InsertAfter(wxcWidget* item, wxcWidget* insertAfter)
         }
     }
 
-    if(insert_next && !inserted) { m_children.push_back(item); }
+    if(insert_next && !inserted) {
+        m_children.push_back(item);
+    }
 }
 void wxcWidget::FixPaths(const wxString& cwd)
 {
@@ -1918,7 +2135,9 @@ void wxcWidget::FixPaths(const wxString& cwd)
     for(; prop_iter != m_properties.end(); prop_iter++) {
         if(prop_iter->second) {
             FilePickerProperty* pb = dynamic_cast<FilePickerProperty*>(prop_iter->second);
-            if(pb) { pb->FixPaths(cwd); }
+            if(pb) {
+                pb->FixPaths(cwd);
+            }
         }
     }
 
@@ -1938,7 +2157,9 @@ bool wxcWidget::IsParentToolbar() const
 bool wxcWidget::IsLastChild() const
 {
     wxcWidget* parent = GetParent();
-    if(!parent) { return false; }
+    if(!parent) {
+        return false;
+    }
 
     const List_t& siblings = parent->GetChildren();
     const wxcWidget* lastChild = siblings.back();
@@ -1961,7 +2182,9 @@ bool wxcWidget::HasMenuBar() const
     const List_t& children = GetChildren();
     List_t::const_iterator iter = children.begin();
     for(; iter != children.end(); ++iter) {
-        if((*iter)->GetType() == ID_WXMENUBAR) return true;
+        if((*iter)->GetType() == ID_WXMENUBAR) {
+            return true;
+        }
     }
     return false;
 }
@@ -1971,7 +2194,9 @@ bool wxcWidget::HasStatusBar() const
     const List_t& children = GetChildren();
     List_t::const_iterator iter = children.begin();
     for(; iter != children.end(); ++iter) {
-        if((*iter)->GetType() == ID_WXSTATUSBAR) return true;
+        if((*iter)->GetType() == ID_WXSTATUSBAR) {
+            return true;
+        }
     }
     return false;
 }
@@ -1981,7 +2206,9 @@ bool wxcWidget::HasToolBar() const
     const List_t& children = GetChildren();
     List_t::const_iterator iter = children.begin();
     for(; iter != children.end(); ++iter) {
-        if((*iter)->GetType() == ID_WXTOOLBAR) return true;
+        if((*iter)->GetType() == ID_WXTOOLBAR) {
+            return true;
+        }
     }
     return false;
 }
@@ -1991,7 +2218,9 @@ wxString wxcWidget::XRCBitmap(const wxString& label, const wxString& bitmap) con
     wxString file = bitmap;
     file.Trim().Trim(false);
 
-    if(file.IsEmpty()) return "";
+    if(file.IsEmpty()) {
+        return "";
+    }
 
     wxString artId, clientId, sizeHint;
     wxString xrc;
@@ -2013,7 +2242,9 @@ wxString wxcWidget::XRCBitmap(const wxString& labelname) const
     wxString file = PropertyFile(PROP_BITMAP_PATH);
     file.Trim().Trim(false);
 
-    if(file.IsEmpty()) return "";
+    if(file.IsEmpty()) {
+        return "";
+    }
 
     wxString artId, clientId, sizeHint;
     wxString xrc;
@@ -2034,12 +2265,16 @@ const wxcWidget* wxcWidget::FindChildByName(const wxString& name) const { return
 
 const wxcWidget* wxcWidget::DoFindByName(const wxcWidget* parent, const wxString& name) const
 {
-    if(parent->GetName() == name) return parent;
+    if(parent->GetName() == name) {
+        return parent;
+    }
 
     List_t::const_iterator iter = parent->GetChildren().begin();
     for(; iter != parent->GetChildren().end(); ++iter) {
         const wxcWidget* match = DoFindByName(*iter, name);
-        if(match) return match;
+        if(match) {
+            return match;
+        }
     }
     return NULL;
 }
@@ -2048,7 +2283,9 @@ const wxcWidget* wxcWidget::FindFirstDirectChildOfType(int type) const
 {
     List_t::const_iterator iter = GetChildren().begin();
     for(; iter != GetChildren().end(); ++iter) {
-        if((*iter)->GetType() == type) return (*iter);
+        if((*iter)->GetType() == type) {
+            return (*iter);
+        }
     }
     return NULL;
 }
@@ -2065,7 +2302,9 @@ void wxcWidget::DoGetConnectedEventsRecrusively(wxcWidget::Map_t& events, const 
     wxcWidget::MapEvents_t::const_iterator iter = wb->m_connectedEvents.begin();
     for(; iter != wb->m_connectedEvents.end(); ++iter) {
         wxString fooname = iter->second.GetFunctionNameAndSignature().BeforeFirst(wxT('('));
-        if(events.count(fooname) == 0) { events.insert(std::make_pair(fooname, iter->second)); }
+        if(events.count(fooname) == 0) {
+            events.insert(std::make_pair(fooname, iter->second));
+        }
     }
 
     wxcWidget::List_t::const_iterator childIter = wb->m_children.begin();
@@ -2083,7 +2322,9 @@ wxcWidget::Map_t wxcWidget::GetConnectedEventsRecrusively() const
 
 PropertyBase* wxcWidget::GetProperty(const wxString& name)
 {
-    if(m_properties.Contains(name)) { return m_properties.Item(name); }
+    if(m_properties.Contains(name)) {
+        return m_properties.Item(name);
+    }
     return NULL;
 }
 
@@ -2100,7 +2341,9 @@ size_t wxcWidget::SizerFlagsAsInteger() const
     size_t flags = 0;
     MapStyles_t::const_iterator iter = m_sizerFlags.begin();
     for(; iter != m_sizerFlags.end(); ++iter) {
-        if(iter->second.is_set) { flags |= iter->second.style_bit; }
+        if(iter->second.is_set) {
+            flags |= iter->second.style_bit;
+        }
     }
     return flags;
 }
@@ -2133,7 +2376,9 @@ void wxcWidget::EnableSizerFlag(const wxString& flag, bool enable)
 
 int wxcWidget::SizerFakeValue(int realValue)
 {
-    if(s_sizerFlagsValue.count(realValue) == 0) return 0;
+    if(s_sizerFlagsValue.count(realValue) == 0) {
+        return 0;
+    }
     return s_sizerFlagsValue[realValue];
 }
 
@@ -2148,7 +2393,9 @@ size_t wxcWidget::StyleFlagsAsInteger() const
     size_t flags = 0;
     MapStyles_t::const_iterator iter = m_styles.begin();
     for(; iter != m_styles.end(); ++iter) {
-        if(iter->second.is_set) { flags |= iter->second.style_bit; }
+        if(iter->second.is_set) {
+            flags |= iter->second.style_bit;
+        }
     }
     return flags;
 }
@@ -2168,7 +2415,9 @@ bool wxcWidget::IsAuiManaged() const
 {
     wxcWidget::List_t::const_iterator iter = m_children.begin();
     for(; iter != m_children.end(); ++iter) {
-        if((*iter)->GetType() == ID_WXAUIMANAGER) { return true; }
+        if((*iter)->GetType() == ID_WXAUIMANAGER) {
+            return true;
+        }
     }
     return false;
 }
@@ -2178,7 +2427,9 @@ void wxcWidget::DoGetCustomControlsName(const wxcWidget* widget, wxArrayString& 
     if(widget->GetType() == ID_WXCUSTOMCONTROL) {
         const CustomControlWrapper* cs = dynamic_cast<const CustomControlWrapper*>(widget);
         if(cs) {
-            if(controls.Index(cs->GetTemplInfoName()) == wxNOT_FOUND) controls.Add(cs->GetTemplInfoName());
+            if(controls.Index(cs->GetTemplInfoName()) == wxNOT_FOUND) {
+                controls.Add(cs->GetTemplInfoName());
+            }
         }
     }
 
@@ -2195,20 +2446,25 @@ wxString wxcWidget::GetRealClassName() const
     wxString subclass = PropertyString(PROP_SUBCLASS_NAME);
     subclass.Trim().Trim(false);
 
-    if(!subclass.IsEmpty())
+    if(!subclass.IsEmpty()) {
         return subclass;
-    else
+    } else {
         return GetWxClassName();
+    }
 }
 
 bool wxcWidget::DoCheckNameUniqueness(const wxString& name, const wxcWidget* widget) const
 {
-    if(widget->GetRealName() == name) { return false; }
+    if(widget->GetRealName() == name) {
+        return false;
+    }
 
     const wxcWidget::List_t& children = widget->GetChildren();
     wxcWidget::List_t::const_iterator iter = children.begin();
     for(; iter != children.end(); ++iter) {
-        if(!DoCheckNameUniqueness(name, *iter)) return false;
+        if(!DoCheckNameUniqueness(name, *iter)) {
+            return false;
+        }
     }
     return true;
 }
@@ -2233,7 +2489,9 @@ void wxcWidget::DoCopyChildren(wxcWidget* widget, enum DuplicatingOptions namety
         wxcWidget* child = (*iter)->Clone();
         child->DoDeepCopy(*(*iter), nametypesToChange, existingNames);
         widget->AddChild(child);
-        if(!(*iter)->GetChildren().empty()) { (*iter)->DoCopyChildren(child, nametypesToChange, existingNames); }
+        if(!(*iter)->GetChildren().empty()) {
+            (*iter)->DoCopyChildren(child, nametypesToChange, existingNames);
+        }
     }
 }
 
@@ -2271,7 +2529,9 @@ void wxcWidget::DoDeepCopy(const wxcWidget& rhs, enum DuplicatingOptions nametyp
                 } else {
                     filename << propIter->second->GetValue();
 
-                    if(!filename.empty() && (nametypesToChange != DO_renameNone)) { filename << ++m_copyCounter; }
+                    if(!filename.empty() && (nametypesToChange != DO_renameNone)) {
+                        filename << ++m_copyCounter;
+                    }
                 }
 
                 // update the file name property
@@ -2312,7 +2572,9 @@ void wxcWidget::DoDeepCopy(const wxcWidget& rhs, enum DuplicatingOptions nametyp
 
     MapStyles_t::const_iterator styleIter = rhs.m_styles.begin();
     for(; styleIter != rhs.m_styles.end(); ++styleIter) {
-        if(this->m_styles.Contains(styleIter->first)) { this->m_styles.Item(styleIter->first) = styleIter->second; }
+        if(this->m_styles.Contains(styleIter->first)) {
+            this->m_styles.Item(styleIter->first) = styleIter->second;
+        }
     }
 
     MapStyles_t::const_iterator sizerIter = rhs.m_sizerFlags.begin();
@@ -2342,7 +2604,9 @@ wxString wxcWidget::GetId() const
     }
 
     /// Not an XRCID string, check if it is one of the stock Id
-    if(WinIdProperty::m_winIdSet.count(winId)) { return winId; }
+    if(WinIdProperty::m_winIdSet.count(winId)) {
+        return winId;
+    }
 
     /// Is it a number?
     long nWinID = -1;
@@ -2359,7 +2623,9 @@ wxString wxcWidget::GetId() const
 void wxcWidget::Reparent(wxcWidget* parent)
 {
     // detach us from the old parent
-    if(GetParent()) { GetParent()->RemoveChild(this); }
+    if(GetParent()) {
+        GetParent()->RemoveChild(this);
+    }
 
     parent->AddChild(this);
 }
@@ -2378,14 +2644,18 @@ bool wxcWidget::HasStyle(int styleBit) const
 {
     MapStyles_t::ConstIterator iter = m_styles.Begin();
     for(; iter != m_styles.End(); ++iter) {
-        if(iter->second.style_bit == styleBit && iter->second.is_set) { return true; }
+        if(iter->second.style_bit == styleBit && iter->second.is_set) {
+            return true;
+        }
     }
     return false;
 }
 
 void wxcWidget::WrapInIfBlockIfNeeded(wxString& code) const
 {
-    if(!GetCondname().IsEmpty()) { wxCrafter::WrapInIfBlock(GetCondname(), code); }
+    if(!GetCondname().IsEmpty()) {
+        wxCrafter::WrapInIfBlock(GetCondname(), code);
+    }
 }
 
 void wxcWidget::SetIfBlockCond(const wxString& condname)
@@ -2404,17 +2674,13 @@ wxString wxcWidget::BaseDoGenerateClassMember() const
 {
     wxString memberCode;
 
-    // For subclasses controls we must use the subclass name
-    wxString classname = GetRealClassName();
-    if(!IsTopWindow() && !classname.IsEmpty()) {
+    if(KeepAsClassMember()) {
 
-        bool sizersAsMembers = wxcSettings::Get().HasFlag(wxcSettings::SIZERS_AS_MEMBERS);
-        if(IsSizer() && sizersAsMembers) {
-            memberCode << wxT("    ") << classname << wxT("* ") << GetName() << wxT(";");
+        // For subclasses controls we must use the subclass name
+        wxString classname = GetRealClassName();
+        if(!IsTopWindow() && !classname.IsEmpty()) {
 
-        } else if(!IsSizer()) {
-
-            memberCode << wxT("    ") << classname << wxT("* ") << GetName() << wxT(";");
+            memberCode << "    " << classname << "* " << GetName() << ";";
             WrapInIfBlockIfNeeded(memberCode);
         }
     }
@@ -2429,7 +2695,7 @@ bool wxcWidget::IsParentAuiToolbar() const
 
 void wxcWidget::DoGenerateGetters(wxString& decl) const
 {
-    if(wxcSettings::Get().IsLicensed2()) {
+    if(KeepAsClassMember()) {
         switch(GetWidgetType()) {
         case TYPE_CONTROL:
         case TYPE_LIST_CTRL:
@@ -2477,7 +2743,5 @@ void wxcWidget::DoGenerateGetters(wxString& decl) const
         }
     }
 }
-
-bool wxcWidget::IsLicensed() const { return wxcSettings::Get().IsLicensed(); }
 
 wxString wxcSizerItem::GetBorderScaled() const { return wxString() << "WXC_FROM_DIP(" << GetBorder() << ")"; }

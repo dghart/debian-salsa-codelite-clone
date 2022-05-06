@@ -23,20 +23,26 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 #include "formatoptions.h"
+
+#include "JSON.h"
 #include "PHPFormatterBuffer.h"
 #include "clClangFormatLocator.h"
+#include "clRustLocator.hpp"
+#include "cl_standard_paths.h"
 #include "editor_config.h"
 #include "file_logger.h"
+#include "fileutils.h"
 #include "globals.h"
-#include "JSON.h"
+#include "macromanager.h"
 #include "phpoptions.h"
 
 FormatOptions::FormatOptions()
     : m_astyleOptions(AS_DEFAULT | AS_INDENT_USES_TABS)
     , m_engine(kCxxFormatEngineClangFormat)
     , m_phpEngine(kPhpFormatEngineBuiltin)
+    , m_rustEngine(kRustFormatEngineRustfmt)
     , m_clangFormatOptions(kClangFormatWebKit | kAlignTrailingComments | kBreakConstructorInitializersBeforeComma |
-                           kSpaceBeforeAssignmentOperators | kAlignEscapedNewlinesLeft)
+                           kSpaceBeforeAssignmentOperators | kAlignEscapedNewlinesLeft | kClangFormatFile)
     , m_clangBreakBeforeBrace(kLinux)
     , m_clangColumnLimit(120)
     , m_phpFormatOptions(kPFF_Defaults)
@@ -48,9 +54,18 @@ FormatOptions::FormatOptions()
     , m_phpcbfSeverity(0)
     , m_PhpcbfPharOptions(0)
 {
+    // We need something unique to identity the preview file
+    m_previewFileName = FileUtils::CreateTempFileName(clStandardPaths::Get().GetTempDir(), "preview", "sample");
 }
 
 FormatOptions::~FormatOptions() {}
+
+#define READ_ENGINE_PROPERTY(property, default_value)           \
+    {                                                           \
+        int tmp_engine = default_value;                         \
+        arch.Read(#property, tmp_engine);                       \
+        property = static_cast<decltype(property)>(tmp_engine); \
+    }
 
 void FormatOptions::DeSerialize(Archive& arch)
 {
@@ -58,17 +73,17 @@ void FormatOptions::DeSerialize(Archive& arch)
     arch.Read(wxT("m_customFlags"), m_customFlags);
 
     // By default, use clang-format as it is more robust and advanced
-    int engine = kCxxFormatEngineClangFormat;
-    arch.Read("m_engine", engine);
-    m_engine = static_cast<CXXFormatterEngine>(engine);
-
-    engine = kPhpFormatEngineBuiltin;
-    arch.Read("m_phpEngine", engine);
-    m_phpEngine = static_cast<PHPFormatterEngine>(engine);
+    READ_ENGINE_PROPERTY(m_engine, kCxxFormatEngineClangFormat);
+    READ_ENGINE_PROPERTY(m_rustEngine, kRustFormatEngineRustfmt);
+    READ_ENGINE_PROPERTY(m_phpEngine, kPhpFormatEngineBuiltin);
+    READ_ENGINE_PROPERTY(m_xmlEngine, kXmlFormatEngineBuiltin);
+    READ_ENGINE_PROPERTY(m_javaScriptEngine, kJSFormatEngineClangFormat);
+    READ_ENGINE_PROPERTY(m_jsonEngine, kJSONFormatEngineBuiltin);
 
     arch.Read("m_clangFormatOptions", m_clangFormatOptions);
     arch.Read("m_clangFormatExe", m_clangFormatExe);
     arch.Read("m_clangBreakBeforeBrace", m_clangBreakBeforeBrace);
+    arch.Read("m_clangBraceWrap", m_clangBraceWrap);
     arch.Read("m_clangColumnLimit", m_clangColumnLimit);
     arch.Read("m_phpFormatOptions", m_phpFormatOptions);
     arch.Read("m_generalFlags", m_generalFlags);
@@ -78,7 +93,9 @@ void FormatOptions::DeSerialize(Archive& arch)
     arch.Read("m_PHPCSFixerPharRules", m_PHPCSFixerPharRules);
     arch.Read("m_PhpcbfPhar", m_PhpcbfPhar);
     arch.Read("m_PhpcbfPharOptions", m_PhpcbfPharOptions);
-
+    arch.Read("m_rustCommand", m_rustCommand);
+    arch.Read("m_rustConfigFile", m_rustConfigFile);
+    arch.Read("m_rustConfigContent", m_rustConfigContent);
     AutodetectSettings();
 }
 
@@ -127,6 +144,21 @@ void FormatOptions::AutodetectSettings()
         }
         m_PhpcbfPhar = ""; // Clear the non existed executable
     }
+
+    // locate rustfmt
+    clRustLocator rustLocator;
+    if(!rustLocator.Locate()) {
+        clDEBUG() << "Could not locate rust" << endl;
+        return;
+    } else {
+        clDEBUG() << "cargo is installed under:" << rustLocator.GetRustTool("cargo") << endl;
+    }
+
+    if(m_rustCommand.empty()) {
+        wxString rustfmt = rustLocator.GetRustTool("cargo-fmt");
+        m_rustCommand = rustfmt;
+        clDEBUG() << "rustfmt command is set to" << rustfmt << endl;
+    }
 }
 
 void FormatOptions::Serialize(Archive& arch)
@@ -135,9 +167,14 @@ void FormatOptions::Serialize(Archive& arch)
     arch.Write(wxT("m_customFlags"), m_customFlags);
     arch.Write("m_engine", static_cast<int>(m_engine));
     arch.Write("m_phpEngine", static_cast<int>(m_phpEngine));
+    arch.Write("m_rustEngine", static_cast<int>(m_rustEngine));
+    arch.Write("m_xmlEngine", static_cast<int>(m_xmlEngine));
+    arch.Write("m_javaScriptEngine", static_cast<int>(m_javaScriptEngine));
+    arch.Write("m_jsonEngine", static_cast<int>(m_jsonEngine));
     arch.Write("m_clangFormatOptions", m_clangFormatOptions);
     arch.Write("m_clangFormatExe", m_clangFormatExe);
     arch.Write("m_clangBreakBeforeBrace", m_clangBreakBeforeBrace);
+    arch.Write("m_clangBraceWrap", m_clangBraceWrap);
     arch.Write("m_clangColumnLimit", m_clangColumnLimit);
     arch.Write("m_phpFormatOptions", m_phpFormatOptions);
     arch.Write("m_generalFlags", m_generalFlags);
@@ -147,6 +184,9 @@ void FormatOptions::Serialize(Archive& arch)
     arch.Write("m_PHPCSFixerPharRules", m_PHPCSFixerPharRules);
     arch.Write("m_PhpcbfPhar", m_PhpcbfPhar);
     arch.Write("m_PhpcbfPharOptions", m_PhpcbfPharOptions);
+    arch.Write("m_rustCommand", m_rustCommand);
+    arch.Write("m_rustConfigFile", m_rustConfigFile);
+    arch.Write("m_rustConfigContent", m_rustConfigContent);
 }
 
 wxString FormatOptions::AstyleOptionsAsString() const
@@ -270,100 +310,161 @@ wxString FormatOptions::ClangFormatCommand(const wxFileName& fileName, wxString 
         command << " -offset=" << selStart << " -length=" << (selEnd - selStart);
     }
 
-    command << " -style=" << GetClangFormatStyleAsString(fileName);
-
+    if((m_clangFormatOptions & kClangFormatFile) && !fileName.GetName().StartsWith(m_previewFileName.GetName()) &&
+       HasConfigForFile(fileName, ".clang-format", nullptr)) {
+        command << " -style=file";
+    } else {
+        // Please note that it must be -style={key: value}, not -style="{key: value}" or -style={key:value}
+        // so we have to wrap the -style switch as well
+        command << " \"-style=" << GenerateClangFormat(true, fileName) << "\"";
+    }
     command << " " << filePath;
-
     return command;
 }
 
-wxString FormatOptions::GetClangFormatStyleAsString(const wxFileName& fileName) const
+wxString FormatOptions::RustfmtCommand(const wxFileName& fileName) const
 {
-    // If the rules file option is enabled it overrides everything here
-    if(m_clangFormatOptions & kClangFormatFile) {
-        // Even if the user specified to use rules file, we only enable it incase it exists
-        if(HasConfigForFile(fileName, ".clang-format")) {
-            return "file";
-        }
-    }
+    wxString command, filePath;
+    command << GetRustCommand();
 
-    wxString style = "\"{ BasedOnStyle: ";
+    // replace environment variables + macros
+    command = MacroManager::Instance()->Expand(command, nullptr, wxEmptyString);
+    ::WrapWithQuotes(command);
+
+    filePath = fileName.GetFullPath();
+    ::WrapWithQuotes(filePath);
+    command << " -- " << filePath;
+    return command;
+}
+
+FormatOptions::ClangFormatMap FormatOptions::CompileClangFormat(const wxFileName& fileName) const
+{
+    ClangFormatMap root;
+
     if(m_clangFormatOptions & kClangFormatChromium) {
-        style << "Chromium";
+        root["BasedOnStyle"] = "Chromium";
     } else if(m_clangFormatOptions & kClangFormatGoogle) {
-        style << "Google";
+        root["BasedOnStyle"] = "Google";
     } else if(m_clangFormatOptions & kClangFormatLLVM) {
-        style << "LLVM";
+        root["BasedOnStyle"] = "LLVM";
     } else if(m_clangFormatOptions & kClangFormatMozilla) {
-        style << "Mozilla";
+        root["BasedOnStyle"] = "Mozilla";
+    } else if(m_clangFormatOptions & kClangFormatMicrosoft) {
+        root["BasedOnStyle"] = "Microsoft";
+    } else if(m_clangFormatOptions & kClangFormatGNU) {
+        root["BasedOnStyle"] = "GNU";
     } else {
         // Default style
-        style << "WebKit";
+        root["BasedOnStyle"] = "WebKit";
     }
 
     // add tab width and space vs tabs based on the global editor settings
-    style << ClangGlobalSettings();
+    ClangFormatMap globalSettings = ClangGlobalSettings();
+    root.insert(globalSettings.begin(), globalSettings.end());
 
-    // Language
-    clClangFormatLocator locator;
-    double clangFormatVersion = locator.GetVersion(GetClangFormatExe());
-    if(clangFormatVersion >= 3.5) {
-        wxString forceLanguage;
-
+    if(fileName.IsOk()) {
         if(FileExtManager::IsJavascriptFile(fileName)) {
-            forceLanguage << "Language : JavaScript";
-
+            root["Language"] = "JavaScript";
         } else if(FileExtManager::IsCxxFile(fileName)) {
-            forceLanguage << "Language : Cpp";
-
+            root["Language"] = "Cpp";
         } else if(FileExtManager::IsJavaFile(fileName)) {
-            forceLanguage << "Language : Java";
-        }
-
-        if(!forceLanguage.IsEmpty()) {
-            style << ", " << forceLanguage << " ";
+            root["Language"] = "Java";
         }
     }
 
-    style << ", AlignEscapedNewlinesLeft: " << ClangFlagToBool(kAlignEscapedNewlinesLeft);
-    style << ", AlignTrailingComments : " << ClangFlagToBool(kAlignTrailingComments);
-    style << ", AllowAllParametersOfDeclarationOnNextLine : "
-          << ClangFlagToBool(kAllowAllParametersOfDeclarationOnNextLine);
-    if(clangFormatVersion >= 3.5) {
-        style << ", AllowShortFunctionsOnASingleLine : " << ClangFlagToBool(kAllowShortFunctionsOnASingleLine);
-        style << ", AllowShortBlocksOnASingleLine : " << ClangFlagToBool(kAllowShortBlocksOnASingleLine);
+    root["AlignEscapedNewlinesLeft"] = bool(m_clangFormatOptions & kAlignEscapedNewlinesLeft);
+    root["AlignTrailingComments"] = bool(m_clangFormatOptions & kAlignTrailingComments);
+    root["AllowAllParametersOfDeclarationOnNextLine"] =
+        bool(m_clangFormatOptions & kAllowAllParametersOfDeclarationOnNextLine);
+    root["AllowShortFunctionsOnASingleLine"] = bool(m_clangFormatOptions & kAllowShortFunctionsOnASingleLine);
+    root["AllowShortBlocksOnASingleLine"] = bool(m_clangFormatOptions & kAllowShortBlocksOnASingleLine);
+    root["AllowShortLoopsOnASingleLine"] = bool(m_clangFormatOptions & kAllowShortLoopsOnASingleLine);
+    root["AllowShortIfStatementsOnASingleLine"] = bool(m_clangFormatOptions & kAllowShortIfStatementsOnASingleLine);
+    root["AlwaysBreakBeforeMultilineStrings"] = bool(m_clangFormatOptions & kAlwaysBreakBeforeMultilineStrings);
+    root["AlwaysBreakTemplateDeclarations"] = bool(m_clangFormatOptions & kAlwaysBreakTemplateDeclarations);
+    root["BinPackParameters"] = bool(m_clangFormatOptions & kBinPackParameters);
+    root["BreakBeforeBinaryOperators"] = bool(m_clangFormatOptions & kBreakBeforeBinaryOperators);
+    root["BreakBeforeTernaryOperators"] = bool(m_clangFormatOptions & kBreakBeforeTernaryOperators);
+    root["BreakConstructorInitializersBeforeComma"] =
+        bool(m_clangFormatOptions & kBreakConstructorInitializersBeforeComma);
+    root["IndentCaseLabels"] = bool(m_clangFormatOptions & kIndentCaseLabels);
+    root["IndentFunctionDeclarationAfterType"] = bool(m_clangFormatOptions & kIndentFunctionDeclarationAfterType);
+    root["SpaceBeforeAssignmentOperators"] = bool(m_clangFormatOptions & kSpaceBeforeAssignmentOperators);
+    root["SpaceBeforeParens"] = (m_clangFormatOptions & kSpaceBeforeParens ? "Always" : "Never");
+    root["SpacesInParentheses"] = bool(m_clangFormatOptions & kSpacesInParentheses);
+    root["BreakBeforeBraces"] = ClangBreakBeforeBrace();
+    if(m_clangBreakBeforeBrace & kCustom) {
+        ClangFormatMap braceWrapping;
+        braceWrapping["AfterCaseLabel"] = bool(m_clangBraceWrap & kAfterCaseLabel);
+        braceWrapping["AfterClass"] = bool(m_clangBraceWrap & kAfterClass);
+        braceWrapping["AfterControlStatement"] = (m_clangBraceWrap & kAfterControlStatement ? "Always" : "Never");
+        braceWrapping["AfterEnum"] = bool(m_clangBraceWrap & kAfterEnum);
+        braceWrapping["AfterFunction"] = bool(m_clangBraceWrap & kAfterFunction);
+        braceWrapping["AfterObjCDeclaration"] = bool(m_clangBraceWrap & kAfterObjCDeclaration);
+        braceWrapping["AfterStruct"] = bool(m_clangBraceWrap & kAfterStruct);
+        braceWrapping["AfterUnion"] = bool(m_clangBraceWrap & kAfterUnion);
+        braceWrapping["AfterExternBlock"] = bool(m_clangBraceWrap & kAfterExternBlock);
+        braceWrapping["BeforeCatch"] = bool(m_clangBraceWrap & kBeforeCatch);
+        braceWrapping["BeforeElse"] = bool(m_clangBraceWrap & kBeforeElse);
+        braceWrapping["BeforeLambdaBody"] = bool(m_clangBraceWrap & kBeforeLambdaBody);
+        braceWrapping["BeforeWhile"] = bool(m_clangBraceWrap & kBeforeWhile);
+        braceWrapping["IndentBraces"] = bool(m_clangBraceWrap & kIndentBraces);
+        braceWrapping["SplitEmptyFunction"] = bool(m_clangBraceWrap & kSplitEmptyFunction);
+        braceWrapping["SplitEmptyRecord"] = bool(m_clangBraceWrap & kSplitEmptyRecord);
+        braceWrapping["SplitEmptyNamespace"] = bool(m_clangBraceWrap & kSplitEmptyNamespace);
+        root["BraceWrapping"] = braceWrapping;
     }
-    style << ", AllowShortLoopsOnASingleLine : " << ClangFlagToBool(kAllowShortLoopsOnASingleLine);
-    style << ", AllowShortIfStatementsOnASingleLine : " << ClangFlagToBool(kAllowShortIfStatementsOnASingleLine);
-    style << ", AlwaysBreakBeforeMultilineStrings : " << ClangFlagToBool(kAlwaysBreakBeforeMultilineStrings);
-    style << ", AlwaysBreakTemplateDeclarations : " << ClangFlagToBool(kAlwaysBreakTemplateDeclarations);
-    style << ", BinPackParameters : " << ClangFlagToBool(kBinPackParameters);
-    style << ", BreakBeforeBinaryOperators : " << ClangFlagToBool(kBreakBeforeBinaryOperators);
-    style << ", BreakBeforeTernaryOperators : " << ClangFlagToBool(kBreakBeforeTernaryOperators);
-    style << ", BreakConstructorInitializersBeforeComma : "
-          << ClangFlagToBool(kBreakConstructorInitializersBeforeComma);
-    style << ", IndentCaseLabels : " << ClangFlagToBool(kIndentCaseLabels);
-    style << ", IndentFunctionDeclarationAfterType : " << ClangFlagToBool(kIndentFunctionDeclarationAfterType);
-    style << ", SpaceBeforeAssignmentOperators : " << ClangFlagToBool(kSpaceBeforeAssignmentOperators);
-    if(clangFormatVersion >= 3.5) {
-        style << ", SpaceBeforeParens : " << (m_clangFormatOptions & kSpaceBeforeParens ? "Always" : "Never");
-    }
-    style << ", SpacesInParentheses : " << ClangFlagToBool(kSpacesInParentheses);
-    style << ", BreakBeforeBraces : " << ClangBreakBeforeBrace();
-    style << ", ColumnLimit : " << m_clangColumnLimit;
-    if(clangFormatVersion >= 3.5) {
-        style << ", PointerAlignment : " << (m_clangFormatOptions & kPointerAlignmentRight ? "Right" : "Left");
-    }
-    style << " }\"";
-    return style;
+    root["ColumnLimit"] = m_clangColumnLimit;
+    root["PointerAlignment"] = (m_clangFormatOptions & kPointerAlignmentRight ? "Right" : "Left");
+
+    return root;
 }
 
-wxString FormatOptions::ClangFlagToBool(ClangFormatStyle flag) const
+wxString FormatOptions::ClangFormatMapToYAML(const ClangFormatMap& compiledMap, bool inlineNotation,
+                                             size_t nestLevel) const
 {
-    if(m_clangFormatOptions & flag)
-        return "true";
-    else
-        return "false";
+    wxString content;
+
+    for(const auto& element : compiledMap) {
+        const wxString& key = element.first;
+        const wxAny& value = element.second;
+
+        if(!content.IsEmpty()) {
+            if(inlineNotation) {
+                content << ", ";
+            } else {
+                content << "\n";
+                content.Append(' ', nestLevel * 2);
+            }
+        }
+        content << key << ": ";
+
+        if(value.CheckType<ClangFormatMap>()) {
+            content << ClangFormatMapToYAML(value.As<ClangFormatMap>(), inlineNotation, nestLevel + 1);
+        } else {
+            content << value.As<wxString>();
+        }
+    }
+
+    if(inlineNotation) {
+        content.Prepend("{").Append("}");
+    }
+    return content;
+}
+
+wxString FormatOptions::GenerateClangFormat(bool inlineNotation, const wxFileName& fileName) const
+{
+    ClangFormatMap compiledMap = CompileClangFormat(fileName);
+    return ClangFormatMapToYAML(compiledMap, inlineNotation);
+}
+
+#define CLANG_FORMAT_CONF_FILE_HEADER "# .clang-format generated by CodeLite"
+bool FormatOptions::ExportClangFormatFile(const wxFileName& clangFormatFile) const
+{
+    wxString content = CLANG_FORMAT_CONF_FILE_HEADER;
+    content << "\n" << GenerateClangFormat(false) << "\n";
+    clDEBUG() << "Generating .clang-format file...: " << clangFormatFile << endl;
+    return FileUtils::WriteFileContent(clangFormatFile, content);
 }
 
 wxString FormatOptions::ClangBreakBeforeBrace() const
@@ -376,21 +477,23 @@ wxString FormatOptions::ClangBreakBeforeBrace() const
         return "GNU";
     } else if(m_clangBreakBeforeBrace & kAttach) {
         return "Attach";
+    } else if(m_clangBreakBeforeBrace & kMozilla) {
+        return "Mozilla";
+    } else if(m_clangBreakBeforeBrace & kWhitesmiths) {
+        return "Whitesmiths";
+    } else if(m_clangBreakBeforeBrace & kCustom) {
+        return "Custom";
     } else {
         // the default
         return "Linux";
     }
 }
 
-wxString FormatOptions::ClangGlobalSettings() const
+FormatOptions::ClangFormatMap FormatOptions::ClangGlobalSettings() const
 {
     int indentWidth = EditorConfigST::Get()->GetOptions()->GetIndentWidth();
     bool useTabs = EditorConfigST::Get()->GetOptions()->GetIndentUsesTabs();
-
-    wxString options;
-    options << ", IndentWidth: " << indentWidth;
-    options << ", UseTab: " << (useTabs ? "ForIndentation" : "Never");
-    return options;
+    return { { "IndentWidth", indentWidth }, { "UseTab", (useTabs ? "ForIndentation" : "Never") } };
 }
 
 bool FormatOptions::GetPhpFixerCommand(const wxFileName& fileName, wxString& command)
@@ -433,8 +536,9 @@ wxString FormatOptions::GetPhpFixerRules(const wxFileName& fileName)
 {
     // If the rules file option is enabled it overrides everything here
     if(m_PHPCSFixerPharSettings & kPHPFixserFormatFile) {
+        wxFileName fileLoc;
         // Even if the user specified to use rules file, we only enable it incase it exists
-        if(HasConfigForFile(fileName, ".php_cs") || HasConfigForFile(fileName, ".php_cs.dist")) {
+        if(HasConfigForFile(fileName, ".php_cs", &fileLoc) || HasConfigForFile(fileName, ".php_cs.dist", &fileLoc)) {
             return "";
         }
     }
@@ -478,15 +582,14 @@ wxString FormatOptions::GetPhpFixerRules(const wxFileName& fileName)
         JSONItem binary_operator_spaces = JSONItem::createObject("binary_operator_spaces");
         if(m_PHPCSFixerPharRules & (kPcfAlignDoubleArrow | kPcfStripDoubleArrow | kPcfIgnoreDoubleArrow)) {
             binary_operator_spaces.addProperty("align_double_arrow",
-                                               m_PHPCSFixerPharRules & kPcfIgnoreDoubleArrow
-                                               ? cJSON_NULL
-                                               : m_PHPCSFixerPharRules & kPcfAlignDoubleArrow ? true : false);
+                                               m_PHPCSFixerPharRules & kPcfIgnoreDoubleArrow  ? cJSON_NULL
+                                               : m_PHPCSFixerPharRules & kPcfAlignDoubleArrow ? true
+                                                                                              : false);
         }
         if(m_PHPCSFixerPharRules & (kPcfAlignEquals | kPcfStripEquals | kPcfIgnoreEquals)) {
-            binary_operator_spaces.addProperty("align_equals",
-                                               m_PHPCSFixerPharRules & kPcfIgnoreEquals
-                                               ? cJSON_NULL
-                                               : m_PHPCSFixerPharRules & kPcfAlignEquals ? true : false);
+            binary_operator_spaces.addProperty("align_equals", m_PHPCSFixerPharRules & kPcfIgnoreEquals  ? cJSON_NULL
+                                                               : m_PHPCSFixerPharRules & kPcfAlignEquals ? true
+                                                                                                         : false);
         }
         rules.addProperty("binary_operator_spaces", binary_operator_spaces);
     }
@@ -585,8 +688,9 @@ wxString FormatOptions::GetPhpcbfStandard(const wxFileName& fileName)
 {
     // If the rules file option is enabled it overrides everything here
     if(m_PhpcbfPharOptions & kPhpbcfFormatFile) {
+        wxFileName fileLoc;
         // Even if the user specified to use rules file, we only enable it incase it exists
-        if(HasConfigForFile(fileName, "phpcs.xml")) {
+        if(HasConfigForFile(fileName, "phpcs.xml", &fileLoc)) {
             return "";
         }
     }
@@ -594,14 +698,40 @@ wxString FormatOptions::GetPhpcbfStandard(const wxFileName& fileName)
     return " --standard=" + m_PhpcbfStandard;
 }
 
-bool FormatOptions::HasConfigForFile(const wxFileName& fileName, const wxString& configName) const
+bool FormatOptions::HasConfigForFile(const wxFileName& fileName, const wxString& configName, wxFileName* fileloc) const
 {
     wxFileName configFile(fileName.GetPath(), configName);
     while(configFile.GetDirCount()) {
         if(configFile.FileExists()) {
+            if(fileloc) {
+                *fileloc = configFile;
+            }
             return true;
         }
         configFile.RemoveLastDir();
     }
     return false;
+}
+
+#define RUSTFMT_CONF_FILE_HEADER "# .rustfmt.toml generated by CodeLite"
+void FormatOptions::GenerateRustfmtTomlFile(const wxFileName& sourceToFormat, wxFileName configFile) const
+{
+    if(configFile.FileExists()) {
+        wxString oldContent;
+        if(FileUtils::ReadFileContent(configFile, oldContent) && !oldContent.Contains(RUSTFMT_CONF_FILE_HEADER)) {
+            clDEBUG() << "No need to generate rustfmt config file" << endl;
+            // this was file was not generated by CodeLite, do not override its content
+            return;
+        }
+    }
+
+    // write the content (override if needed)
+    wxString content;
+    content << RUSTFMT_CONF_FILE_HEADER << "\n";
+    content << GetRustConfigContent();
+    if(!configFile.DirExists()) {
+        configFile.Mkdir(wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+    }
+    FileUtils::WriteFileContent(configFile, content);
+    clDEBUG() << "Generated file:" << configFile << endl;
 }

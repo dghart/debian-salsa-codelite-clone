@@ -1,6 +1,8 @@
 #ifndef CLCONFIGURATIONSELECTIONCTRL_H
 #define CLCONFIGURATIONSELECTIONCTRL_H
 
+#include "clWorkspaceEvent.hpp"
+#include "cl_command_event.h"
 #include <wx/arrstr.h>
 #include <wx/panel.h>
 
@@ -17,6 +19,18 @@ class clConfigurationSelectionCtrl : public wxPanel
 
 protected:
     void OnChoice(wxCommandEvent& event);
+    void OnWorkspaceLoaded(clWorkspaceEvent& event);
+    void OnWorkspaceClosed(clWorkspaceEvent& event);
+    void OnProjectAdded(clCommandEvent& event);
+    void OnProjectRemoved(clCommandEvent& event);
+    void OnConfigurationManager(wxCommandEvent& e);
+    void OnActiveProjectChanged(clProjectSettingsEvent& event);
+
+protected:
+    void DoUpdateChoiceWithProjects();
+    void DoWorkspaceConfig();
+    void DoOpenConfigurationManagerDlg();
+    void DoConfigChanged(const wxString& newConfigName);
 
 public:
     clConfigurationSelectionCtrl(wxWindow* parent, wxWindowID winid = wxID_ANY, const wxPoint& pos = wxDefaultPosition,

@@ -25,56 +25,11 @@ SFTPStatusPageBase::SFTPStatusPageBase(wxWindow* parent, wxWindowID id, const wx
     wxBoxSizer* boxSizer2 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(boxSizer2);
 
-    m_notebook = new Notebook(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), wxBK_DEFAULT);
+    m_notebook =
+        new clGenericNotebook(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), kNotebook_LeftTabs);
     m_notebook->SetName(wxT("m_notebook"));
 
     boxSizer2->Add(m_notebook, 1, wxEXPAND, WXC_FROM_DIP(5));
-
-    m_panelSearch =
-        new wxPanel(m_notebook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_notebook, wxSize(-1, -1)), wxTAB_TRAVERSAL);
-    m_notebook->AddPage(m_panelSearch, _("Search"), false);
-
-    wxBoxSizer* boxSizer197 = new wxBoxSizer(wxVERTICAL);
-    m_panelSearch->SetSizer(boxSizer197);
-
-    m_stcSearch = new wxStyledTextCtrl(m_panelSearch, wxID_ANY, wxDefaultPosition,
-                                       wxDLG_UNIT(m_panelSearch, wxSize(-1, -1)), wxBORDER_NONE);
-    // Configure the fold margin
-    m_stcSearch->SetMarginType(4, wxSTC_MARGIN_SYMBOL);
-    m_stcSearch->SetMarginMask(4, wxSTC_MASK_FOLDERS);
-    m_stcSearch->SetMarginSensitive(4, true);
-    m_stcSearch->SetMarginWidth(4, 0);
-
-    // Configure the tracker margin
-    m_stcSearch->SetMarginWidth(1, 0);
-
-    // Configure the symbol margin
-    m_stcSearch->SetMarginType(2, wxSTC_MARGIN_SYMBOL);
-    m_stcSearch->SetMarginMask(2, ~(wxSTC_MASK_FOLDERS));
-    m_stcSearch->SetMarginWidth(2, 0);
-    m_stcSearch->SetMarginSensitive(2, true);
-
-    // Configure the line numbers margin
-    m_stcSearch->SetMarginType(0, wxSTC_MARGIN_NUMBER);
-    m_stcSearch->SetMarginWidth(0, 0);
-
-    // Configure the line symbol margin
-    m_stcSearch->SetMarginType(3, wxSTC_MARGIN_FORE);
-    m_stcSearch->SetMarginMask(3, 0);
-    m_stcSearch->SetMarginWidth(3, 0);
-    // Select the lexer
-    m_stcSearch->SetLexer(wxSTC_LEX_NULL);
-    // Set default font / styles
-    m_stcSearch->StyleClearAll();
-    m_stcSearch->SetWrapMode(0);
-    m_stcSearch->SetIndentationGuides(0);
-    m_stcSearch->SetKeyWords(0, wxT(""));
-    m_stcSearch->SetKeyWords(1, wxT(""));
-    m_stcSearch->SetKeyWords(2, wxT(""));
-    m_stcSearch->SetKeyWords(3, wxT(""));
-    m_stcSearch->SetKeyWords(4, wxT(""));
-
-    boxSizer197->Add(m_stcSearch, 1, wxEXPAND, WXC_FROM_DIP(5));
 
     m_panelLog =
         new wxPanel(m_notebook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_notebook, wxSize(-1, -1)), wxTAB_TRAVERSAL);
@@ -122,9 +77,57 @@ SFTPStatusPageBase::SFTPStatusPageBase(wxWindow* parent, wxWindowID id, const wx
 
     boxSizer195->Add(m_stcOutput, 1, wxALL | wxEXPAND, WXC_FROM_DIP(0));
 
+    m_panelSearch =
+        new wxPanel(m_notebook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_notebook, wxSize(-1, -1)), wxTAB_TRAVERSAL);
+    m_notebook->AddPage(m_panelSearch, _("Search"), false);
+
+    wxBoxSizer* boxSizer197 = new wxBoxSizer(wxVERTICAL);
+    m_panelSearch->SetSizer(boxSizer197);
+
+    m_stcSearch = new wxStyledTextCtrl(m_panelSearch, wxID_ANY, wxDefaultPosition,
+                                       wxDLG_UNIT(m_panelSearch, wxSize(-1, -1)), wxBORDER_NONE);
+    // Configure the fold margin
+    m_stcSearch->SetMarginType(4, wxSTC_MARGIN_SYMBOL);
+    m_stcSearch->SetMarginMask(4, wxSTC_MASK_FOLDERS);
+    m_stcSearch->SetMarginSensitive(4, true);
+    m_stcSearch->SetMarginWidth(4, 0);
+
+    // Configure the tracker margin
+    m_stcSearch->SetMarginWidth(1, 0);
+
+    // Configure the symbol margin
+    m_stcSearch->SetMarginType(2, wxSTC_MARGIN_SYMBOL);
+    m_stcSearch->SetMarginMask(2, ~(wxSTC_MASK_FOLDERS));
+    m_stcSearch->SetMarginWidth(2, 0);
+    m_stcSearch->SetMarginSensitive(2, true);
+
+    // Configure the line numbers margin
+    m_stcSearch->SetMarginType(0, wxSTC_MARGIN_NUMBER);
+    m_stcSearch->SetMarginWidth(0, 0);
+
+    // Configure the line symbol margin
+    m_stcSearch->SetMarginType(3, wxSTC_MARGIN_FORE);
+    m_stcSearch->SetMarginMask(3, 0);
+    m_stcSearch->SetMarginWidth(3, 0);
+    // Select the lexer
+    m_stcSearch->SetLexer(wxSTC_LEX_NULL);
+    // Set default font / styles
+    m_stcSearch->StyleClearAll();
+    m_stcSearch->SetWrapMode(0);
+    m_stcSearch->SetIndentationGuides(0);
+    m_stcSearch->SetKeyWords(0, wxT(""));
+    m_stcSearch->SetKeyWords(1, wxT(""));
+    m_stcSearch->SetKeyWords(2, wxT(""));
+    m_stcSearch->SetKeyWords(3, wxT(""));
+    m_stcSearch->SetKeyWords(4, wxT(""));
+
+    boxSizer197->Add(m_stcSearch, 1, wxEXPAND, WXC_FROM_DIP(5));
+
     SetName(wxT("SFTPStatusPageBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_stcOutput->Connect(wxEVT_CONTEXT_MENU, wxContextMenuEventHandler(SFTPStatusPageBase::OnContentMenu), NULL, this);
 }
@@ -189,25 +192,17 @@ SFTPTreeViewBase::SFTPTreeViewBase(wxWindow* parent, wxWindowID id, const wxPoin
 
     flexGridSizer43->Add(m_textCtrlQuickJump, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
-    m_treeCtrl = new clThemedTreeCtrl(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
-                                      wxTR_DEFAULT_STYLE | wxTR_MULTIPLE);
-
-    boxSizer16->Add(m_treeCtrl, 1, wxEXPAND, WXC_FROM_DIP(5));
-
     SetName(wxT("SFTPTreeViewBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_staticText49->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(SFTPTreeViewBase::OnGotoLocationUI), NULL, this);
     m_textCtrlQuickJump->Connect(wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler(SFTPTreeViewBase::OnGotoLocation),
                                  NULL, this);
     m_textCtrlQuickJump->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(SFTPTreeViewBase::OnGotoLocationUI), NULL,
                                  this);
-    m_treeCtrl->Connect(wxEVT_COMMAND_TREE_ITEM_ACTIVATED, wxTreeEventHandler(SFTPTreeViewBase::OnItemActivated), NULL,
-                        this);
-    m_treeCtrl->Connect(wxEVT_COMMAND_TREE_ITEM_EXPANDING, wxTreeEventHandler(SFTPTreeViewBase::OnItemExpanding), NULL,
-                        this);
-    m_treeCtrl->Connect(wxEVT_CONTEXT_MENU, wxContextMenuEventHandler(SFTPTreeViewBase::OnContextMenu), NULL, this);
 }
 
 SFTPTreeViewBase::~SFTPTreeViewBase()
@@ -217,11 +212,6 @@ SFTPTreeViewBase::~SFTPTreeViewBase()
                                     NULL, this);
     m_textCtrlQuickJump->Disconnect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(SFTPTreeViewBase::OnGotoLocationUI), NULL,
                                     this);
-    m_treeCtrl->Disconnect(wxEVT_COMMAND_TREE_ITEM_ACTIVATED, wxTreeEventHandler(SFTPTreeViewBase::OnItemActivated),
-                           NULL, this);
-    m_treeCtrl->Disconnect(wxEVT_COMMAND_TREE_ITEM_EXPANDING, wxTreeEventHandler(SFTPTreeViewBase::OnItemExpanding),
-                           NULL, this);
-    m_treeCtrl->Disconnect(wxEVT_CONTEXT_MENU, wxContextMenuEventHandler(SFTPTreeViewBase::OnContextMenu), NULL, this);
 }
 
 SFTPManageBookmarkDlgBase::SFTPManageBookmarkDlgBase(wxWindow* parent, wxWindowID id, const wxString& title,
@@ -270,7 +260,9 @@ SFTPManageBookmarkDlgBase::SFTPManageBookmarkDlgBase(wxWindow* parent, wxWindowI
 
     SetName(wxT("SFTPManageBookmarkDlgBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
@@ -342,7 +334,9 @@ SFTPSettingsDialogBase::SFTPSettingsDialogBase(wxWindow* parent, wxWindowID id, 
 
     SetName(wxT("SFTPSettingsDialogBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
@@ -420,7 +414,9 @@ SFTPUploadDialogBase::SFTPUploadDialogBase(wxWindow* parent, wxWindowID id, cons
 
     SetName(wxT("SFTPUploadDialogBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
@@ -552,7 +548,9 @@ SFTPQuickConnectBaseDlg::SFTPQuickConnectBaseDlg(wxWindow* parent, wxWindowID id
 
     SetName(wxT("SFTPQuickConnectBaseDlg"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
@@ -701,7 +699,9 @@ SFTPGrepBase::SFTPGrepBase(wxWindow* parent, wxWindowID id, const wxString& titl
 
     SetName(wxT("SFTPGrepBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {

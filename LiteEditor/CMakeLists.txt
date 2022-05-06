@@ -1,15 +1,16 @@
-# define minimum cmake version
-cmake_minimum_required(VERSION 2.6.2)
- 
+
+
+
 # Our project is called 'codelite' this is how it will be called in
-# visual studio, and in our makefiles. 
+# visual studio, and in our makefiles.
 project(codelite)
 
 # It was noticed that when using MinGW gcc it is essential that 'core' is mentioned before 'base'.
-find_package(wxWidgets COMPONENTS ${WX_COMPONENTS} REQUIRED)
+
 
 # wxWidgets include (this will do all the magic to configure everything)
 include( "${wxWidgets_USE_FILE}" )
+include(UtilsHelper)
 
 # Include paths
 include_directories("${CL_SRC_ROOT}/Plugin" "${CL_SRC_ROOT}/sdk/wxsqlite3/include" "${CL_SRC_ROOT}/CodeLite" "${CL_SRC_ROOT}/PCH" "${CL_SRC_ROOT}/Interfaces")
@@ -18,14 +19,19 @@ if (NOT MINGW)
 add_definitions(-fPIC)
 endif (NOT MINGW)
 
-if ( USE_PCH )
+if ( USE_PCH AND NOT MINGW )
     add_definitions(-include "${CL_PCH_FILE}")
     add_definitions(-Winvalid-pch)
-endif ( USE_PCH )
+endif ()
 
 add_definitions(-DWXUSINGDLL_WXSQLITE3)
 add_definitions(-DWXUSINGDLL_CL)
 add_definitions(-DWXUSINGDLL_SDK)
+
+if (MINGW)
+# disables the part of urlmon.h that defines IsLoggingEnabled
+add_definitions(-D_HITLOGGING_DEFINED=0)
+endif (MINGW)
 
 if ( USE_CLANG )
   add_definitions(-DHAS_LIBCLANG)
@@ -42,6 +48,13 @@ endif()
 add_executable(codelite ${SRCS} ${RES_FILES})
 
 set( ADDITIONAL_LIBRARIES "" )
+
+if(MINGW)
+    set_target_properties(codelite
+                          PROPERTIES
+                          OUTPUT_NAME codelite
+                          ARCHIVE_OUTPUT_NAME execodelite)
+endif()
 
 if (UNIX)
     if ( IS_FREEBSD )
@@ -64,6 +77,8 @@ elseif (GTK3_FOUND)
 else()
     target_link_libraries(codelite ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES} ${CLANG_LIBRARY} -L"${CL_LIBPATH}" libcodelite plugin ${ADDITIONAL_LIBRARIES})
 endif()
+
+codelite_add_pch(codelite)
 
 ##################################################################
 ## Install
@@ -98,27 +113,25 @@ if(NOT APPLE)
     endif()
 
     ## Copy default configuration files
-    install(FILES ${CL_SRC_ROOT}/Runtime/config/accelerators.conf.default DESTINATION 
-            ${CL_PREFIX}/share/codelite/config)
-    install(FILES ${CL_SRC_ROOT}/Runtime/config/build_settings.xml.default 
+    install(FILES ${CL_SRC_ROOT}/Runtime/config/build_settings.xml.default
             DESTINATION ${CL_PREFIX}/share/codelite/config)
-    install(FILES ${CL_SRC_ROOT}/Runtime/config/debuggers.xml.gtk DESTINATION 
-            ${CL_PREFIX}/share/codelite/config 
+    install(FILES ${CL_SRC_ROOT}/Runtime/config/debuggers.xml.gtk DESTINATION
+            ${CL_PREFIX}/share/codelite/config
             RENAME debuggers.xml.default)
-    install(FILES ${CL_SRC_ROOT}/Runtime/config/codelite.xml.default.gtk 
-            DESTINATION ${CL_PREFIX}/share/codelite/config 
+    install(FILES ${CL_SRC_ROOT}/Runtime/config/codelite.xml.default.gtk
+            DESTINATION ${CL_PREFIX}/share/codelite/config
             RENAME codelite.xml.default)
 
     ## Create application launcher, copy application icon to standard location
     if ( UNIX AND NOT APPLE )
         install(FILES ${CL_SRC_ROOT}/Runtime/codelite.desktop DESTINATION ${CL_PREFIX}/share/applications)
         ## Install icons
-        
+
         ## 32x32
         install(FILES ${CL_SRC_ROOT}/bitmaps-light/32-codelite-logo@2x.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/32x32@2x/apps
                 RENAME codelite.png)
-                
+
         install(FILES ${CL_SRC_ROOT}/bitmaps-light/32-codelite-logo.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/32x32/apps
                 RENAME codelite.png)
@@ -126,16 +139,16 @@ if(NOT APPLE)
         install(FILES ${CL_SRC_ROOT}/bitmaps-light/64-codelite-logo@2x.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/64x64@2x/apps
                 RENAME codelite.png)
-                
+
         install(FILES ${CL_SRC_ROOT}/bitmaps-light/64-codelite-logo.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/64x64/apps
                 RENAME codelite.png)
-                
+
         ## 128x128
         install(FILES ${CL_SRC_ROOT}/bitmaps-light/128-codelite-logo@2x.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/128x128@2x/apps
                 RENAME codelite.png)
-                
+
         install(FILES ${CL_SRC_ROOT}/bitmaps-light/128-codelite-logo.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/128x128/apps
                 RENAME codelite.png)
@@ -143,7 +156,7 @@ if(NOT APPLE)
         install(FILES ${CL_SRC_ROOT}/bitmaps-light/256-codelite-logo@2x.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/256x256@2x/apps
                 RENAME codelite.png)
-                
+
         install(FILES ${CL_SRC_ROOT}/bitmaps-light/256-codelite-logo.png
                 DESTINATION ${CL_PREFIX}/share/icons/hicolor/256x256/apps
                 RENAME codelite.png)
@@ -151,13 +164,14 @@ if(NOT APPLE)
         # Clear the icon cache if exists
         install(CODE "execute_process(COMMAND rm -f \$ENV{DESTDIR}/${CL_PREFIX}/share/icons/hicolor/icon-theme.cache)")
     endif (  UNIX AND NOT APPLE )
-    
+    codelite_install_script(${CL_SRC_ROOT}/Runtime/codelite-remote)
+
     install(
-        DIRECTORY ${CL_SRC_ROOT}/Runtime/images 
-                  ${CL_SRC_ROOT}/Runtime/gdb_printers 
-                  ${CL_SRC_ROOT}/Runtime/src/ 
-                  ${CL_SRC_ROOT}/Runtime/lexers 
-                  ${CL_SRC_ROOT}/Runtime/templates 
+        DIRECTORY ${CL_SRC_ROOT}/Runtime/images
+                  ${CL_SRC_ROOT}/Runtime/gdb_printers
+                  ${CL_SRC_ROOT}/Runtime/src/
+                  ${CL_SRC_ROOT}/Runtime/lexers
+                  ${CL_SRC_ROOT}/Runtime/templates
                   ${CL_SRC_ROOT}/Runtime/rc
                   ${CL_SRC_ROOT}/Runtime/plugins/resources
         DESTINATION ${CL_PREFIX}/share/codelite
@@ -176,7 +190,7 @@ if(NOT APPLE)
     if (UNIX AND CL_COPY_WX_LIBS) # If we're packaging with wx2.9
         # We need to deduce the location of the wx libs to be installed
         execute_process(COMMAND ${WX_TOOL} --libs OUTPUT_VARIABLE WX_LIBSOUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
-        
+
         if (${WX_LIBSOUTPUT} MATCHES "^-L.+") # In recent, multi-architecture, distro versions it'll start with -L/foo/bar
             string(REGEX REPLACE "^-L([^ ;]+).*" "\\1" WX_LIBS_DIR ${WX_LIBSOUTPUT})
         else()
@@ -198,7 +212,7 @@ if(NOT APPLE)
         foreach(ITEM ${WX_LIBS_ALL_LIST})
             # We want to replace -l with lib. We also want to exclude imaginary libs called _all.so, which buggy wx-config scripts can invent
             if (${ITEM} MATCHES "-lwx_.+" AND NOT ${ITEM} MATCHES "-l.+_all.+")
-                string(REGEX REPLACE "^-l" "lib" LIBITEM ${ITEM}) 
+                string(REGEX REPLACE "^-l" "lib" LIBITEM ${ITEM})
                 # openSUSE have started to use libwx_gtk2u_xrc-suse.so instead of libwx_gtk2u_xrc-3.1, so allow for extra text there
                 string(REGEX REPLACE "(libwx_[a-z0-9._]+-)(.+)" "\\1*\\2" LIBITEMADJ ${LIBITEM})
                 list(APPEND WX_LIBS_ALL ${WX_LIBS_DIR}/${LIBITEMADJ}*.so*) # we need the terminal [.]so because the rpms contain both dynamic and static libs
@@ -209,13 +223,6 @@ if(NOT APPLE)
         file(GLOB libssh_lib_list "${LIBSSH_LIB}*")
         message("-- will copy ${libssh_lib_list}")
         install(FILES ${wxfilepaths} ${libssh_lib_list} DESTINATION ${CL_PREFIX}/${CL_INSTALL_LIBDIR}/codelite)
-        #install(CODE "set(INSTALL_DIR \"${CL_PREFIX}/${CL_INSTALL_LIBDIR}/codelite\")")
-        #install(FILES ${CL_SRC_ROOT}/Runtime/codelite-fix-rpath DESTINATION 
-        #        ${CL_PREFIX}/${CL_INSTALL_LIBDIR}/codelite 
-        #        PERMISSIONS 
-        #        ${EXE_PERM})
-        #install(CODE "set(SOURCE_DIR \"${CL_SRC_ROOT}\")")
-        #install(SCRIPT "${CL_SRC_ROOT}/Runtime/codelite_post_install.cmake")
     endif()
 
     if ( USE_CLANG AND MINGW )

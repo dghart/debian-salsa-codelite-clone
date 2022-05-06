@@ -23,17 +23,27 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
+#include "cc_box_tip_window.h"
+
 #include "ColoursAndFontsManager.h"
 #include "Markup.h"
 #include "bitmap_loader.h"
-#include "cc_box_tip_window.h"
+#include "clMarkdownRenderer.hpp"
+#include "clSystemSettings.h"
 #include "drawingutils.h"
 #include "editor_config.h"
 #include "event_notifier.h"
 #include "file_logger.h"
 #include "globals.h"
 #include "ieditor.h"
+#include "wx/arrstr.h"
+#include "wx/dcclient.h"
+#include "wx/panel.h"
+#include "wx/regex.h"
+#include "wx/sizer.h"
+
 #include <algorithm>
+#include <memory>
 #include <wx/bitmap.h>
 #include <wx/dcbuffer.h>
 #include <wx/dcgraph.h>
@@ -47,138 +57,158 @@
 const wxEventType wxEVT_TIP_BTN_CLICKED_UP = wxNewEventType();
 const wxEventType wxEVT_TIP_BTN_CLICKED_DOWN = wxNewEventType();
 
-static void CCBoxTipWindow_ShrinkTip(wxString& str)
+namespace
 {
-    str.Replace("\r", "");
-    str.Replace("<p>", "");
-    str.Replace("</p>", "");
-    str.Replace("/**", "");
-    str.Replace("/*!", "");
-    str.Replace("/*", "");
-    str.Replace("*/", "");
-    str.Replace("**/", "");
+/// mostly needed under linux where the calculate size does not match the actual size required to draw the tooltip
+/// this is probably due to different wxDC types used
+double m_ratio = 0.0;
 
-    wxString tip;
-    wxArrayString lines = ::wxStringTokenize(str, wxT("\n"), wxTOKEN_RET_EMPTY_ALL);
-    for(size_t i = 0; i < lines.GetCount(); ++i) {
-        wxString& curline = lines.Item(i);
-        curline.Trim().Trim(false);
-        if(curline.StartsWith("*")) curline.Remove(0, 1);
-        tip << curline << "\n";
+void InflateSize(wxSize& size, double factor)
+{
+    if(factor > 1.0) {
+        double updated_w = factor * (double)size.GetWidth();
+        double updated_h = factor * (double)size.GetHeight();
+        size.SetWidth(updated_w);
+        size.SetHeight(updated_h);
     }
-    str.swap(tip);
-    str.Trim().Trim(false);
-
-    // strip double empty lines
-    while(str.Replace("\n\n", "\n")) {}
 }
 
-CCBoxTipWindow::CCBoxTipWindow(wxWindow* parent, bool manipulateText, const wxString& tip)
-    : wxPopupWindow(parent)
-    , m_tip(tip)
-    , m_useLightColours(false)
+void CCBoxTipWindow_ShrinkTip(wxString& str, bool strip_html_tags)
 {
-    if(manipulateText) { CCBoxTipWindow_ShrinkTip(m_tip); }
-    DoInitialize(m_tip, 1, true);
+    wxString restr = R"str(<.*?>)str";
+    wxRegEx re(restr, wxRE_ADVANCED);
+
+    auto lines = wxStringTokenize(str, "\n", wxTOKEN_RET_EMPTY);
+    str.clear();
+
+    wxArrayString lines_trimmed;
+    lines_trimmed.reserve(lines.size());
+
+    for(auto& line : lines) {
+        if(strip_html_tags && re.IsValid()) {
+            re.ReplaceAll(&line, wxEmptyString);
+        }
+
+        line.Replace("\t", " ");
+        line.Replace("/**", wxEmptyString);
+        line.Replace("/*", wxEmptyString);
+        line.Replace("/*!", wxEmptyString);
+        line.Replace("*/", wxEmptyString);
+
+        bool cont = true;
+        size_t len = 0;
+        for(size_t i = 0; i < line.length() && cont; ++i) {
+            wxChar ch = line[i];
+            switch(ch) {
+            case ' ':
+                // skip leading whitespace
+                break;
+            case '*':
+                // include the start and break
+                len = i + 1;
+                cont = false;
+                break;
+            default:
+                cont = false;
+                break;
+            }
+        }
+
+        if(len) {
+            line.erase(0, len);
+        }
+
+        // check if this line is empty
+        wxString tmp_line = line;
+        tmp_line.Trim();
+
+        bool is_empty_line = tmp_line.empty();
+
+        // remove excessive empty lines
+        if(is_empty_line && (lines_trimmed.empty() || lines_trimmed.Last().empty()))
+            continue;
+
+        if(is_empty_line) {
+            lines_trimmed.Add(tmp_line);
+        } else {
+            lines_trimmed.Add(line);
+        }
+    }
+    str = wxJoin(lines_trimmed, '\n');
 }
 
-CCBoxTipWindow::CCBoxTipWindow(wxWindow* parent, bool manipulateText, const wxString& tip, size_t numOfTips,
-                               bool simpleTip)
+/**
+ * @brief return the display for a given window
+ * this function never fails
+ */
+std::unique_ptr<wxDisplay> GetDisplay(const wxWindow* win)
+{
+#if wxCHECK_VERSION(3, 1, 2)
+    wxDisplay* d = new wxDisplay(win);
+#else
+    wxDisplay* d = nullptr;
+    int index = wxDisplay::GetFromWindow(win);
+    if(index == wxNOT_FOUND) {
+        d = new wxDisplay();
+    } else {
+        d = new wxDisplay(index);
+    }
+#endif
+    return std::unique_ptr<wxDisplay>(d);
+}
+} // namespace
+
+CCBoxTipWindow::CCBoxTipWindow(wxWindow* parent, const wxString& tip, bool strip_html_tags)
     : wxPopupWindow(parent)
     , m_tip(tip)
-    , m_useLightColours(false)
+    , m_stripHtmlTags(strip_html_tags)
 {
-    if(manipulateText) { CCBoxTipWindow_ShrinkTip(m_tip); }
-    DoInitialize(m_tip, numOfTips, simpleTip);
+    SetBackgroundStyle(wxBG_STYLE_PAINT);
+    CCBoxTipWindow_ShrinkTip(m_tip, m_stripHtmlTags);
+    DoInitialize(1);
+
+    Bind(wxEVT_PAINT, &CCBoxTipWindow::OnPaint, this);
+    Bind(wxEVT_ERASE_BACKGROUND, &CCBoxTipWindow::OnEraseBG, this);
 }
 
 CCBoxTipWindow::~CCBoxTipWindow() {}
 
-void CCBoxTipWindow::DoInitialize(const wxString& tip, size_t numOfTips, bool simpleTip)
+void CCBoxTipWindow::DoInitialize(size_t numOfTips)
 {
-    SetBackgroundStyle(wxBG_STYLE_PAINT);
-    IEditor* editor = ::clGetManager()->GetActiveEditor();
-    if(editor) {
-        wxColour bgColour = editor->GetCtrl()->StyleGetBackground(0);
-        if(!DrawingUtils::IsDark(bgColour)) { m_useLightColours = true; }
-    }
-
-    m_tip = tip;
     m_numOfTips = numOfTips;
+    wxClientDC dc(this);
 
-    // Invalidate the rectangles
-    m_leftTipRect = wxRect();
-    m_rightTipRect = wxRect();
-
-    if(!simpleTip && m_numOfTips > 1) m_tip.Prepend(wxT("\n\n")); // Make room for the arrows
-    Hide();
-
-    wxBitmap bmp(1, 1);
-    wxMemoryDC memDC(bmp);
-    wxGCDC gcdc(memDC);
-    wxSize size;
-    LexerConf::Ptr_t lexer = ColoursAndFontsManager::Get().GetLexer("text");
-    m_commentFont = lexer->GetFontForSyle(0, this);
-    m_codeFont = m_commentFont;
-    gcdc.SetFont(m_commentFont);
-
-    wxString codePart, commentPart;
-    wxString strippedTip = DoStripMarkups();
-
-    size_t from = 0;
-    int hr_count = 0;
-    size_t hrPos = strippedTip.find("<hr>");
-    while(hrPos != wxString::npos) {
-        ++hr_count;
-        from = hrPos + 4;
-        hrPos = strippedTip.find("<hr>", from);
+    clMarkdownRenderer renderer;
+    wxRect text_rect = renderer.GetSize(this, dc, m_tip);
+    if(m_ratio > 0.0) {
+        wxSize sz = text_rect.GetSize();
+        InflateSize(sz, m_ratio);
+        text_rect.SetSize(sz);
     }
+    text_rect.Inflate(5);
 
-    int where = strippedTip.Find("<hr>");
-    if(where != wxNOT_FOUND) {
-        codePart = strippedTip.Mid(0, where);
-        commentPart = strippedTip.Mid(where + 5);
+    wxSize shrinked_size = text_rect.GetSize();
+    ShrinkToScreen(shrinked_size);
+    text_rect.SetSize(shrinked_size);
 
-    } else {
-        codePart = strippedTip;
+    SetSizeHints(text_rect.GetSize());
+    SetSize(text_rect.GetSize());
+    Layout();
+}
+
+void CCBoxTipWindow::ShrinkToScreen(wxSize& size) const
+{
+    // make sure that the tip window, is not bigger than the screen
+    auto display = GetDisplay(this);
+    // shrink up to the client area to preserve an extra space to un-hover it
+    wxRect display_rect = display->GetClientArea();
+
+    if(size.GetHeight() > display_rect.GetHeight()) {
+        size.SetHeight(display_rect.GetHeight());
     }
-
-    int commentWidth = 0;
-    int codeWidth = 0;
-    if(!simpleTip) {
-        gcdc.GetMultiLineTextExtent(codePart, &codeWidth, NULL, NULL, &m_codeFont);
-        gcdc.GetMultiLineTextExtent(commentPart, &commentWidth, NULL, NULL, &m_commentFont);
-    } else {
-        gcdc.GetMultiLineTextExtent(strippedTip, &codeWidth, NULL, NULL, &m_commentFont);
+    if(size.GetWidth() >= display_rect.GetWidth()) {
+        size.SetWidth(display_rect.GetWidth());
     }
-
-    m_codeFont.SetWeight(wxFONTWEIGHT_NORMAL);
-    m_commentFont.SetWeight(wxFONTWEIGHT_NORMAL);
-
-    // Set the width
-    commentWidth > codeWidth ? size.x = commentWidth : size.x = codeWidth;
-
-    // Shrink the tip
-    m_tip.Replace("\r", "");
-    while(m_tip.Replace("\n\n", "\n")) {}
-
-    gcdc.GetTextExtent(wxT("Tp"), NULL, &m_lineHeight, NULL, NULL, &m_codeFont);
-    int nLineCount = ::wxStringTokenize(m_tip, wxT("\r\n"), wxTOKEN_RET_EMPTY_ALL).GetCount();
-
-    size.y = nLineCount * m_lineHeight;
-    size.y += (hr_count * 10) + 10; // each <hr> uses 10 pixels height
-    size.x += 40;
-
-    size_t maxWidth(0);
-
-    // Calc the width
-    DoDrawTip(gcdc, maxWidth);
-    size.x = maxWidth;
-    SetSize(size);
-
-    Connect(wxEVT_PAINT, wxPaintEventHandler(CCBoxTipWindow::OnPaint), NULL, this);
-    Connect(wxEVT_ERASE_BACKGROUND, wxEraseEventHandler(CCBoxTipWindow::OnEraseBG), NULL, this);
-    Connect(wxEVT_LEFT_DOWN, wxMouseEventHandler(CCBoxTipWindow::OnMouseLeft), NULL, this);
 }
 
 void CCBoxTipWindow::PositionRelativeTo(wxWindow* win, wxPoint caretPos, IEditor* focusEdior)
@@ -195,17 +225,21 @@ void CCBoxTipWindow::PositionRelativeTo(wxWindow* win, wxPoint caretPos, IEditor
         stc = focusEdior->GetCtrl();
     } else {
         IEditor* editor = clGetManager()->GetActiveEditor();
-        if(editor) { stc = editor->GetCtrl(); }
+        if(editor) {
+            stc = editor->GetCtrl();
+        }
     }
 
-    if(stc) { lineHeight = stc->TextHeight(stc->GetCurrentLine()); }
-    
+    if(stc) {
+        lineHeight = stc->TextHeight(stc->GetCurrentLine());
+    }
+
     bool ccBoxIsAboveCaretLine = (windowPos.y < caretPos.y);
     // Check for overflow
     bool vPositioned = false;
-    wxRect displaySize = ::clGetDisplaySize();
-    int displayIndex = wxDisplay::GetFromPoint(pt);
-    if(displayIndex != wxNOT_FOUND) { displaySize = wxDisplay(displayIndex).GetGeometry(); }
+
+    auto display = GetDisplay(this);
+    wxRect displaySize = display->GetGeometry();
 
     if((pt.x + tipSize.x) > (displaySize.GetX() + displaySize.GetWidth())) {
         // Move the tip to the left
@@ -248,86 +282,26 @@ void CCBoxTipWindow::PositionRelativeTo(wxWindow* win, wxPoint caretPos, IEditor
         // Check that the tip Y coord is inside the editor
         // this is to prevent some zombie tips appearing floating in no-man-land
         wxRect editorRect = focusEdior->GetCtrl()->GetScreenRect();
-        if(editorRect.GetTopLeft().y > pt.y) { return; }
+        if(editorRect.GetTopLeft().y > pt.y) {
+            return;
+        }
     }
 
     SetSize(wxRect(pt, GetSize()));
     Show();
 
-    if(focusEdior) { focusEdior->SetActive(); }
+    if(focusEdior) {
+        focusEdior->SetActive();
+    }
 }
 
 void CCBoxTipWindow::OnEraseBG(wxEraseEvent& e) { wxUnusedVar(e); }
 
 void CCBoxTipWindow::OnPaint(wxPaintEvent& e)
 {
-    m_links.clear();
-    wxAutoBufferedPaintDC bdc(this);
-    wxGCDC dc(bdc);
+    wxAutoBufferedPaintDC dc(this);
     PrepareDC(dc);
-    size_t maxWidth(0);
-    DoDrawTip(dc, maxWidth);
-}
-
-wxRect CCBoxTipWindow::DoPrintText(wxDC& dc, wxString& text, wxPoint& pt, size_t& maxWidth)
-{
-    if(text.IsEmpty() == false) {
-        wxSize sz = dc.GetTextExtent(text);
-        wxRect rect(pt, sz);
-        dc.DrawText(text, pt);
-        pt.x += sz.x;
-        maxWidth = wxMax(maxWidth, pt.x);
-        text.Clear();
-        return rect;
-    }
-    return wxRect();
-}
-
-void CCBoxTipWindow::OnMouseLeft(wxMouseEvent& e)
-{
-    if(m_leftTipRect.Contains(e.GetPosition())) {
-        wxCommandEvent evt(wxEVT_TIP_BTN_CLICKED_UP);
-        EventNotifier::Get()->AddPendingEvent(evt);
-
-    } else if(m_rightTipRect.Contains(e.GetPosition())) {
-        wxCommandEvent evt(wxEVT_TIP_BTN_CLICKED_DOWN);
-        EventNotifier::Get()->AddPendingEvent(evt);
-
-    } else {
-        for(size_t i = 0; i < m_links.size(); ++i) {
-            if(m_links.at(i).m_rect.Contains(e.GetPosition())) {
-                ::wxLaunchDefaultBrowser(m_links.at(i).m_url);
-                break;
-            }
-        }
-    }
-}
-
-wxString CCBoxTipWindow::DoStripMarkups()
-{
-    MarkupParser parser(m_tip);
-    wxString text;
-    while(parser.Next()) {
-        int type = parser.GetType();
-        switch(type) {
-        case BOLD_START:
-        case BOLD_END:
-        case CODE_START:
-        case CODE_END:
-        case COLOR_START:
-        case COLOR_END:
-            break;
-        case HORIZONTAL_LINE:
-            text << "<hr>";
-        case NEW_LINE:
-            text << "\n";
-            break;
-        default:
-            text << parser.GetToken();
-            break;
-        }
-    }
-    return text;
+    DoDrawTip(dc);
 }
 
 void CCBoxTipWindow::PositionAt(const wxPoint& pt, IEditor* focusEdior)
@@ -335,7 +309,9 @@ void CCBoxTipWindow::PositionAt(const wxPoint& pt, IEditor* focusEdior)
     SetSize(wxRect(pt, GetSize()));
     Show();
 
-    if(focusEdior) { focusEdior->SetActive(); }
+    if(focusEdior) {
+        focusEdior->SetActive();
+    }
 }
 
 void CCBoxTipWindow::PositionLeftTo(wxWindow* win, IEditor* focusEditor)
@@ -347,179 +323,25 @@ void CCBoxTipWindow::PositionLeftTo(wxWindow* win, IEditor* focusEditor)
     SetSize(wxRect(pt, GetSize()));
     Show();
 
-    if(focusEditor) { focusEditor->SetActive(); }
+    if(focusEditor) {
+        focusEditor->SetActive();
+    }
 }
 
-void CCBoxTipWindow::DoDrawTip(wxDC& dc, size_t& max_width)
+void CCBoxTipWindow::DoDrawTip(wxDC& dc)
 {
-    clColours colours = DrawingUtils::GetColours();
-    IEditor* editor = clGetManager()->GetActiveEditor();
-    if(editor) {
-        wxColour bgColour = editor->GetCtrl()->StyleGetBackground(0);
-        if(DrawingUtils::IsDark(bgColour)) {
-            colours.InitFromColour(bgColour);
-            m_useLightColours = !DrawingUtils::IsDark(bgColour);
-        } else {
-            colours.InitFromColour(wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE));
-        }
+    clMarkdownRenderer renderer;
+    wxSize size = renderer.Render(this, dc, m_tip, GetClientRect());
+    wxSize client_rect = GetClientRect().GetSize();
+
+    ShrinkToScreen(size);
+
+    if(m_ratio == 0.0 && size.GetWidth() > client_rect.GetWidth()) {
+        m_ratio = (double)size.GetWidth() / (double)client_rect.GetWidth();
+        m_ratio += 0.01; // give it some extra space
+
+        InflateSize(client_rect, m_ratio);
+        SetSizeHints(client_rect);
+        SetSize(client_rect);
     }
-
-    wxColour penColour = colours.GetBorderColour();
-    wxColour brushColour = colours.GetBgColour();
-    wxColour textColour = colours.GetItemTextColour();
-    wxColour linkColour("rgb(204, 153, 255)");
-
-    if(m_useLightColours) {
-        // Use different colours to match the editor theme
-        linkColour = wxColour("rgb(51, 153, 255)");
-    }
-
-    dc.SetBrush(brushColour);
-    dc.SetPen(wxPen(penColour, 1));
-
-    wxRect rr = GetClientRect();
-#ifdef __WXOSX__
-    rr.Inflate(1, 1);
-#endif
-    dc.DrawRectangle(rr);
-
-    // Draw left-right arrows
-    m_leftTipRect = wxRect();
-    m_rightTipRect = wxRect();
-
-    dc.SetFont(m_commentFont);
-    dc.SetTextForeground(textColour);
-
-    wxString curtext;
-    MarkupParser parser(m_tip);
-    wxPoint pt(5, 5);
-    while(parser.Next()) {
-        int type = parser.GetType();
-        switch(type) {
-        case LINK_URL: {
-            // Found URL
-            // Before we change the font, draw the buffer
-            DoPrintText(dc, curtext, pt, max_width);
-
-            curtext = parser.GetToken();
-            wxString link_url = curtext;
-
-            wxFont f = dc.GetFont();
-            f.SetWeight(wxFONTWEIGHT_NORMAL);
-            f.SetUnderlined(true);
-            dc.SetFont(f);
-            dc.SetTextForeground(linkColour);
-            wxRect url_rect = DoPrintText(dc, curtext, pt, max_width);
-
-            // keep info about this URL
-            CCBoxTipWindow::Links link_info;
-            link_info.m_rect = url_rect;
-            link_info.m_url = link_url;
-            m_links.push_back(link_info);
-
-            // Restore font and colour
-            f.SetUnderlined(false);
-            dc.SetFont(f);
-            dc.SetTextForeground(textColour);
-
-            break;
-        }
-        case BOLD_START: {
-            // Before we change the font, draw the buffer
-            DoPrintText(dc, curtext, pt, max_width);
-
-            wxFont f = dc.GetFont();
-            f.SetWeight(wxFONTWEIGHT_BOLD);
-            dc.SetFont(f);
-            break;
-        }
-        case BOLD_END: {
-            // Before we change the font, draw the buffer
-            DoPrintText(dc, curtext, pt, max_width);
-
-            wxFont f = dc.GetFont();
-            f.SetWeight(wxFONTWEIGHT_NORMAL);
-            dc.SetFont(f);
-            dc.SetTextBackground(textColour);
-            break;
-        }
-        case ITALIC_START: {
-            // Before we change the font, draw the buffer
-            DoPrintText(dc, curtext, pt, max_width);
-
-            wxFont f = dc.GetFont();
-            f.SetStyle(wxFONTSTYLE_ITALIC);
-            dc.SetFont(f);
-            break;
-        }
-        case ITALIC_END: {
-            // Before we change the font, draw the buffer
-            DoPrintText(dc, curtext, pt, max_width);
-
-            wxFont f = dc.GetFont();
-            f.SetStyle(wxFONTSTYLE_NORMAL);
-            dc.SetFont(f);
-            break;
-        }
-        case CODE_START: {
-            // Before we change the font, draw the buffer
-            DoPrintText(dc, curtext, pt, max_width);
-
-            dc.SetFont(m_codeFont);
-            break;
-        }
-        case CODE_END: {
-            // Before we change the font, draw the buffer
-            DoPrintText(dc, curtext, pt, max_width);
-
-            dc.SetFont(m_commentFont);
-            break;
-        }
-
-        case NEW_LINE: {
-            // New line, print the content
-            DoPrintText(dc, curtext, pt, max_width);
-
-            pt.y += m_lineHeight;
-
-            // reset the drawing point to the start of the next line
-            pt.x = 5;
-            break;
-        }
-        case HORIZONTAL_LINE: {
-            // Draw the buffer
-            curtext.Clear();
-            pt.y += 5;
-            dc.DrawLine(wxPoint(0, pt.y), wxPoint(rr.GetWidth(), pt.y));
-            pt.y += 5;
-            pt.x = 5;
-            break;
-        }
-        case COLOR_START: {
-            DoPrintText(dc, curtext, pt, max_width);
-
-            wxString colorname = parser.GetToken();
-            colorname = colorname.AfterFirst(wxT('"'));
-            colorname = colorname.BeforeLast(wxT('"'));
-            dc.SetTextForeground(wxColour(colorname));
-            break;
-        }
-        case COLOR_END: {
-            DoPrintText(dc, curtext, pt, max_width);
-
-            // restore default colour
-            dc.SetTextForeground(textColour);
-            break;
-        }
-        case MARKUP_VOID:
-            // do nothing
-            break;
-        default:
-            curtext << parser.GetToken();
-            break;
-        }
-    }
-
-    if(curtext.IsEmpty() == false) { DoPrintText(dc, curtext, pt, max_width); }
-    max_width += 5; // right side margin
 }

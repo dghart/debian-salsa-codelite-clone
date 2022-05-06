@@ -1,5 +1,5 @@
-# define minimum cmake version
-cmake_minimum_required(VERSION 2.6.2)
+
+
 
 # set the plugin name here
 set( PLUGIN_NAME "Tweaks")
@@ -9,7 +9,7 @@ set( PLUGIN_NAME "Tweaks")
 project( ${PLUGIN_NAME} )
 
 # It was noticed that when using MinGW gcc it is essential that 'core' is mentioned before 'base'.
-find_package(wxWidgets COMPONENTS ${WX_COMPONENTS} REQUIRED)
+
 
 # wxWidgets include (this will do all the magic to configure everything)
 include( "${wxWidgets_USE_FILE}" )

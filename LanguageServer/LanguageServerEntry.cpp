@@ -1,4 +1,5 @@
 #include "LanguageServerEntry.h"
+
 #include "LanguageServerProtocol.h"
 #include "globals.h"
 
@@ -20,19 +21,36 @@ void LanguageServerEntry::FromJSON(const JSONItem& json)
     m_connectionString = json.namedObject("connectionString").toString("stdio");
     m_priority = json.namedObject("priority").toInt(m_priority);
     m_disaplayDiagnostics = json.namedObject("displayDiagnostics").toBool(m_disaplayDiagnostics); // defaults to true
+    m_remoteLSP = json["remoteLSP"].toBool(m_remoteLSP);
+    m_sshAccount = json["sshAccount"].toString(m_sshAccount);
 
     // we no longer are using exepath + args, instead a single "command" is used
     wxString commandDefault = m_exepath;
     if(!commandDefault.IsEmpty()) {
         ::WrapWithQuotes(commandDefault);
-        if(!m_args.empty()) { commandDefault << " " << m_args; }
+        if(!m_args.empty()) {
+            commandDefault << " " << m_args;
+        }
     }
+
+    // read the environment variables
+    auto env = json["environment"];
+    size_t envSize = env.arraySize();
+    for(size_t i = 0; i < envSize; ++i) {
+        wxString envline = env[i].toString();
+        if(envline.IsEmpty()) {
+            continue;
+        }
+        wxString env_name = envline.BeforeFirst('=');
+        wxString env_value = envline.AfterFirst('=');
+        if(env_name.empty() || env_value.empty()) {
+            continue;
+        }
+        m_env.push_back({ env_name, env_value });
+    }
+
     m_command = json.namedObject("command").toString(commandDefault);
-    m_unimplementedMethods.clear();
-    wxArrayString methods = json.namedObject("unimplementedMethods").toArrayString();
-    for(const wxString& methodName : methods) {
-        m_unimplementedMethods.insert(methodName);
-    }
+    m_initOptions = json["initOptions"].toString();
 }
 
 JSONItem LanguageServerEntry::ToJSON() const
@@ -48,14 +66,16 @@ JSONItem LanguageServerEntry::ToJSON() const
     json.addProperty("priority", m_priority);
     json.addProperty("displayDiagnostics", m_disaplayDiagnostics);
     json.addProperty("command", m_command);
+    json.addProperty("initOptions", m_initOptions);
+    json.addProperty("remoteLSP", m_remoteLSP);
+    json.addProperty("sshAccount", m_sshAccount);
 
-    wxArrayString methods;
-    methods.Alloc(m_unimplementedMethods.size());
-    for(const wxString& methodName : m_unimplementedMethods) {
-        methods.Add(methodName);
+    // Write the environment variables
+    wxArrayString envArr;
+    for(const auto& env_entry : m_env) {
+        envArr.Add(env_entry.first + "=" + env_entry.second);
     }
-
-    json.addProperty("unimplementedMethods", methods);
+    json.addProperty("environment", envArr);
     return json;
 }
 
@@ -72,14 +92,10 @@ eNetworkType LanguageServerEntry::GetNetType() const
 
 bool LanguageServerEntry::IsValid() const
 {
-    bool is_valid = true;
-    if(m_name.IsEmpty()) { return false; }
+    if(m_name.IsEmpty()) {
+        return false;
+    }
     return true;
-}
-
-void LanguageServerEntry::AddUnImplementedMethod(const wxString& methodName)
-{
-    m_unimplementedMethods.insert(methodName);
 }
 
 bool LanguageServerEntry::IsAutoRestart() const

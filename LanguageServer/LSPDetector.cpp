@@ -11,11 +11,12 @@ void LSPDetector::GetLanguageServerEntry(LanguageServerEntry& entry)
 {
     entry.SetLanguages(GetLangugaes());
     entry.SetCommand(GetCommand());
-    entry.SetEnabled(true);
+    entry.SetEnabled(IsEnabled());
     entry.SetDisaplayDiagnostics(true);
     entry.SetConnectionString(GetConnectionString());
     entry.SetPriority(GetPriority());
     entry.SetName(GetName());
+    entry.SetEnv(m_env);
 }
 
 bool LSPDetector::Locate()

@@ -1,8 +1,10 @@
-#include "ColoursAndFontsManager.h"
 #include "ContextPython.hpp"
+
+#include "ColoursAndFontsManager.h"
 #include "cl_editor.h"
 #include "editor_config.h"
 #include "lexer_configuration.h"
+
 #include <wx/msgdlg.h>
 #include <wx/regex.h>
 #include <wx/tokenzr.h>
@@ -81,8 +83,8 @@ void ContextPython::AutoIndent(const wxChar& ch)
         wxString prevline = rCtrl.GetLine(nPrevline);
         prevline.Trim().Trim(false);
         if(prevline == COMMENT_BLOCK) {
-            // Check if the next line is a function definition
-            curline++;
+            // Check if the previous line is a function definition
+            curline -= 2;
             int nextLinePos = rCtrl.PositionFromLine(curline);
             if(nextLinePos != wxNOT_FOUND) {
                 wxString defline = rCtrl.GetLine(curline);
@@ -100,11 +102,18 @@ void ContextPython::AutoIndent(const wxChar& ch)
                         doc << indent << COMMENT_BLOCK;
                     } else {
                         doc << indent << NEWLINE;
-                        doc << indent << "Args:" << NEWLINE;
+                        doc << indent << "Parameters" << NEWLINE;
+                        doc << indent << "----------" << NEWLINE;
                         for(wxString& param : params) {
                             param.Trim().Trim(false);
-                            doc << indent << "    " << param << ":" << NEWLINE;
+                            doc << indent << param << " : " << NEWLINE;
+                            doc << indent << "    "
+                                << "Description of " << param << NEWLINE;
                         }
+                        doc << indent << NEWLINE;
+                        doc << indent << "Returns" << NEWLINE;
+                        doc << indent << "-------" << NEWLINE;
+                        doc << NEWLINE;
                         doc << indent << COMMENT_BLOCK;
                     }
                     rCtrl.InsertText(curpos, doc);
@@ -125,4 +134,16 @@ bool ContextPython::IsCommentBlock(int pos) const
 {
     int style = GetCtrl().GetStyleAtPos(pos);
     return style == wxSTC_P_COMMENTBLOCK;
+}
+
+bool ContextPython::IsAtBlockComment() const
+{
+    int pos = PositionBeforeCurrent();
+    return IsCommentBlock(pos);
+}
+
+bool ContextPython::IsAtLineComment() const
+{
+    int pos = PositionBeforeCurrent();
+    return IsComment(pos);
 }

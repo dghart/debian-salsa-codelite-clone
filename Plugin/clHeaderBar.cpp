@@ -1,8 +1,12 @@
-#include "clControlWithItems.h"
 #include "clHeaderBar.h"
+
+#include "clControlWithItems.h"
 #include "clScrolledPanel.h"
+
+#include <file_logger.h>
 #include <wx/cursor.h>
 #include <wx/dcbuffer.h>
+#include <wx/dcclient.h>
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
 #include <wx/event.h>
@@ -23,7 +27,9 @@ clHeaderBar::clHeaderBar(clControlWithItems* parent, const clColours& colours)
 {
     Hide();
     SetBackgroundStyle(wxBG_STYLE_CUSTOM);
-    if(!wxPanel::Create(parent)) { return; }
+    if(!wxPanel::Create(parent)) {
+        return;
+    }
     Bind(wxEVT_PAINT, &clHeaderBar::OnPaint, this);
     Bind(wxEVT_LEFT_DOWN, &clHeaderBar::OnMouseLeftDown, this);
     Bind(wxEVT_MOTION, &clHeaderBar::OnMotion, this);
@@ -36,14 +42,18 @@ clHeaderBar::~clHeaderBar() {}
 
 size_t clHeaderBar::GetHeight() const
 {
-    if(m_columns.empty()) { return 0; }
+    if(m_columns.empty()) {
+        return 0;
+    }
     return m_columns[0].GetRect().GetHeight();
 }
 
 void clHeaderBar::OnSize(wxSizeEvent& event)
 {
     event.Skip();
-    if(!GetParent()) { return; }
+    if(!GetParent()) {
+        return;
+    }
     clControlWithItems* parent = dynamic_cast<clControlWithItems*>(GetParent());
     int width = parent->GetSize().GetWidth();
     SetSize(width, GetHeight());
@@ -73,12 +83,10 @@ void clHeaderBar::DoUpdateSize()
 
 wxSize clHeaderBar::GetTextSize(const wxString& label) const
 {
-    wxBitmap bmp(1, 1);
-    wxMemoryDC memDC(bmp);
-    wxGCDC gcdc(memDC);
-    wxFont font = clScrolledPanel::GetDefaultFont();
-    gcdc.SetFont(font);
-    wxSize textSize = gcdc.GetTextExtent(label);
+    wxClientDC dc(const_cast<clHeaderBar*>(this));
+    wxFont font = GetHeaderFont().IsOk() ? GetHeaderFont() : clScrolledPanel::GetDefaultFont();
+    dc.SetFont(font);
+    wxSize textSize = dc.GetTextExtent(label);
     return textSize;
 }
 
@@ -93,7 +101,9 @@ void clHeaderBar::Render(wxDC& dc, const clColours& colours)
     _colours.SetBgColour(_colours.GetHeaderBgColour());
 
     bool useNativeHeader = (m_flags & kHeaderNative);
-    if(useNativeHeader) { wxRendererNative::Get().DrawHeaderButton(this, dc, rect, 0); }
+    if(useNativeHeader) {
+        wxRendererNative::Get().DrawHeaderButton(this, dc, rect, 0);
+    }
 
     // Set the DC origin to reflect the h-scrollbar
     clControlWithItems* parent = dynamic_cast<clControlWithItems*>(GetParent());
@@ -117,7 +127,9 @@ void clHeaderBar::Render(wxDC& dc, const clColours& colours)
 
 void clHeaderBar::UpdateColWidthIfNeeded(size_t col, int width, bool force)
 {
-    if(col >= m_columns.size()) { return; }
+    if(col >= m_columns.size()) {
+        return;
+    }
     clHeaderItem& column = m_columns[col];
     column.UpdateWidth(force ? width : wxMax(column.GetWidth(), width));
 
@@ -173,7 +185,9 @@ int clHeaderBar::HitBorder(int x) const // Returns the column whose *right*-hand
     int xpos(0);
     for(size_t i = 0; i < size(); ++i) {
         xpos += Item(i).GetWidth();
-        if(abs(x - xpos) < 5) { return i; }
+        if(abs(x - xpos) < 5) {
+            return i;
+        }
     }
 
     return wxNOT_FOUND;
@@ -219,7 +233,9 @@ void clHeaderBar::OnPaint(wxPaintEvent& event)
 
 bool clHeaderBar::Show(bool show)
 {
-    if(!GetParent()) { return false; }
+    if(!GetParent()) {
+        return false;
+    }
     SetSize(GetParent()->GetSize().GetWidth(), GetHeight());
     return wxPanel::Show(show);
 }
@@ -230,5 +246,22 @@ void clHeaderBar::DoCancelDrag()
     m_draggedCol = -1;
     SetCursor(m_previousCursor);
     m_previousCursor = wxCursor();
-    if(HasCapture()) { ReleaseMouse(); }
+    if(HasCapture()) {
+        ReleaseMouse();
+    }
+}
+
+void clHeaderBar::SetColumnsWidth(const vector<size_t>& v_width)
+{
+    if(v_width.size() != m_columns.size()) {
+        return;
+    }
+
+    size_t x = 0;
+    for(size_t i = 0; i < m_columns.size(); ++i) {
+        auto& column = m_columns[i];
+        column.SetX(x);
+        column.SetWidthValue(v_width[i]);
+        x += v_width[i];
+    }
 }

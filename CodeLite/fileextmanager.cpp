@@ -24,12 +24,14 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "fileextmanager.h"
-#include "fileutils.h"
+
 #include "JSON.h"
+#include "fileutils.h"
+
 #include <wx/filename.h>
 #include <wx/regex.h>
-#include <wx/xml/xml.h>
 #include <wx/thread.h>
+#include <wx/xml/xml.h>
 
 struct Matcher {
     SmartPtr<wxRegEx> m_regex;
@@ -58,14 +60,10 @@ struct Matcher {
 
 static std::unordered_map<wxString, FileExtManager::FileType> m_map;
 static std::vector<Matcher> m_matchers;
-static wxCriticalSection m_CS;
+static bool init_done = false;
 
 void FileExtManager::Init()
 {
-    wxCriticalSectionLocker locker(m_CS);
-
-    // per thread initialization
-    static bool init_done(false);
     if(!init_done) {
         init_done = true;
         m_map[wxT("cc")] = TypeSourceCpp;
@@ -111,7 +109,9 @@ void FileExtManager::Init()
         m_map[wxT("sass")] = TypeCSS;
         m_map[wxT("js")] = TypeJS;
         m_map[wxT("javascript")] = TypeJS;
+        m_map[wxT("ts")] = TypeJS; // TypeScript, but we consider this a JavaScript
         m_map[wxT("py")] = TypePython;
+        m_map["json"] = TypeJSON;
 
         // Java file
         m_map[wxT("java")] = TypeJava;
@@ -145,10 +145,10 @@ void FileExtManager::Init()
         m_map[wxT("txt")] = TypeText;
         m_map[wxT("ini")] = TypeText;
 
-        m_map[wxT("script")] = TypeScript;
-        m_map[wxT("sh")] = TypeScript;
-        m_map[wxT("bat")] = TypeScript;
-        m_map[wxT("bash")] = TypeScript;
+        m_map[wxT("script")] = TypeShellScript;
+        m_map[wxT("sh")] = TypeShellScript;
+        m_map[wxT("bat")] = TypeShellScript;
+        m_map[wxT("bash")] = TypeShellScript;
 
         m_map[wxT("wxcp")] = TypeWxCrafter;
         m_map[wxT("xrc")] = TypeXRC;
@@ -169,21 +169,18 @@ void FileExtManager::Init()
         m_map["lua"] = TypeLua;
         m_map["rs"] = TypeRust;
 
+        m_map["patch"] = TypePatch;
+        m_map["diff"] = TypeDiff;
+
+        m_map["rb"] = TypeRuby;
+
         // Initialize regexes:
-        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/bin/bash", TypeScript));
-        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/bin/bash", TypeScript));
-        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/usr/bin/sh", TypeScript));
-        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/usr/bin/bash", TypeScript));
-        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/bin/python", TypePython));
-        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/usr/bin/python", TypePython));
-        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/bin/node", TypeJS));
-        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/usr/bin/node", TypeJS));
-        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/bin/nodejs", TypeJS));
-        m_matchers.push_back(Matcher("#[ \t]*![ \t]*/usr/bin/nodejs", TypeJS));
+        m_matchers.push_back(Matcher("#[ \t]*!(.*?)sh", TypeShellScript));
+        m_matchers.push_back(Matcher("#[ \t]*!(.*?)python", TypePython));
+        m_matchers.push_back(Matcher("#[ \t]*!(.*?)ruby", TypeRuby));
+        m_matchers.push_back(Matcher("#[ \t]*!(.*?)node", TypeJS));
         m_matchers.push_back(Matcher("<?xml", TypeXml, false));
         m_matchers.push_back(Matcher("<?php", TypePhp, false));
-        m_matchers.push_back(Matcher("#!/usr/bin/env node", TypeJS, false));
-        m_matchers.push_back(Matcher("#!/usr/bin/env nodejs", TypeJS, false));
         m_matchers.push_back(Matcher("SQLite format 3", TypeDatabase, false));
 
         // STL sources places "-*- C++ -*-" at the top of their headers
@@ -204,10 +201,11 @@ void FileExtManager::Init()
 FileExtManager::FileType FileExtManager::GetType(const wxString& filename, FileExtManager::FileType defaultType)
 {
     Init();
-    wxCriticalSectionLocker locker(m_CS);
 
     wxFileName fn(filename);
-    if(fn.IsOk() == false) { return defaultType; }
+    if(fn.IsOk() == false) {
+        return defaultType;
+    }
 
     wxString e(fn.GetExt());
     e.MakeLower();
@@ -223,7 +221,9 @@ FileExtManager::FileType FileExtManager::GetType(const wxString& filename, FileE
         } else {
             // try auto detecting
             FileType autoDetectType = defaultType;
-            if(AutoDetectByContent(filename, autoDetectType)) { return autoDetectType; }
+            if(AutoDetectByContent(filename, autoDetectType)) {
+                return autoDetectType;
+            }
         }
         return defaultType;
     } else if((iter->second == TypeText) && (fn.GetFullName().CmpNoCase("CMakeLists.txt") == 0)) {
@@ -238,7 +238,8 @@ FileExtManager::FileType FileExtManager::GetType(const wxString& filename, FileE
                 return TypeWorkspace;
             } else {
                 JSON root(content);
-                if(!root.isOk()) return TypeWorkspace;
+                if(!root.isOk())
+                    return TypeWorkspace;
                 if(root.toElement().hasNamedObject("NodeJS")) {
                     return TypeWorkspaceNodeJS;
                 } else if(root.toElement().hasNamedObject("Docker")) {
@@ -260,20 +261,23 @@ FileExtManager::FileType FileExtManager::GetType(const wxString& filename, FileE
 
 bool FileExtManager::IsCxxFile(const wxString& filename)
 {
-    wxCriticalSectionLocker locker(m_CS);
+
     FileType ft = GetType(filename);
     if(ft == TypeOther) {
         // failed to detect the type
-        if(!AutoDetectByContent(filename, ft)) { return false; }
+        if(!AutoDetectByContent(filename, ft)) {
+            return false;
+        }
     }
     return (ft == TypeSourceC) || (ft == TypeSourceCpp) || (ft == TypeHeader);
 }
 
 bool FileExtManager::AutoDetectByContent(const wxString& filename, FileExtManager::FileType& fileType)
 {
-    wxCriticalSectionLocker locker(m_CS);
     wxString fileContent;
-    if(!FileUtils::ReadBufferFromFile(filename, fileContent, 4096)) { return false; }
+    if(!FileUtils::ReadBufferFromFile(filename, fileContent, 1024)) {
+        return false;
+    }
 
     for(size_t i = 0; i < m_matchers.size(); ++i) {
         if(m_matchers[i].Matches(fileContent)) {
@@ -286,11 +290,13 @@ bool FileExtManager::AutoDetectByContent(const wxString& filename, FileExtManage
 
 bool FileExtManager::IsFileType(const wxString& filename, FileExtManager::FileType type)
 {
-    wxCriticalSectionLocker locker(m_CS);
+
     FileType ft = GetType(filename);
     if(ft == TypeOther) {
         // failed to detect the type
-        if(!AutoDetectByContent(filename, ft)) { return false; }
+        if(!AutoDetectByContent(filename, ft)) {
+            return false;
+        }
     }
     return (ft == type);
 }
@@ -303,9 +309,10 @@ bool FileExtManager::IsJavaFile(const wxString& filename) { return FileExtManage
 
 FileExtManager::FileType FileExtManager::GetTypeFromExtension(const wxFileName& filename)
 {
-    wxCriticalSectionLocker locker(m_CS);
+
     std::unordered_map<wxString, FileExtManager::FileType>::iterator iter = m_map.find(filename.GetExt().Lower());
-    if(iter == m_map.end()) return TypeOther;
+    if(iter == m_map.end())
+        return TypeOther;
     return iter->second;
 }
 

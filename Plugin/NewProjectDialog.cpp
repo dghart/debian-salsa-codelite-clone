@@ -1,34 +1,47 @@
 #include "NewProjectDialog.h"
+
+#include "ICompilerLocator.h" // for COMPILER_FAMILY_VC
 #include "build_settings_config.h"
 #include "buildmanager.h"
 #include "clWorkspaceManager.h"
 #include "cl_config.h"
 #include "debuggermanager.h"
+#include "macros.h"
 #include "wxStringHash.h"
+
 #include <globals.h>
 #include <unordered_set>
 #include <wx/arrstr.h>
 #include <wx/msgdlg.h>
+#include <wx/regex.h>
 
-#define CONFIG_LAST_SELECTED_CATEGORY "NewProject/LastCategory"
-#define CONFIG_LAST_SELECTED_TYPE "NewProject/LastType"
-#define CONFIG_USE_SEPARATE_FOLDER "NewProjectDialog/UseSeparateFolder"
-#define CONFIG_LAST_COMPILER "NewProjectDialog/LastCompiler"
-#define CONFIG_LAST_DEBUGGER "NewProjectDialog/LastDebugger"
-#define CONFIG_LAST_BUILD_SYSTEM "NewProjectDialog/LastBuildSystem"
-
-static bool SetChoiceOptions(wxChoice* choice, const wxArrayString& values, const wxString& defaultValue)
+namespace
+{
+bool SetChoiceOptions(wxChoice* choice, const wxArrayString& values, const wxString& defaultValue)
 {
     int match = wxNOT_FOUND;
     choice->Clear();
     for(const wxString& v : values) {
         int where = choice->Append(v);
-        if(v == defaultValue) { match = where; }
+        if(v == defaultValue) {
+            match = where;
+        }
     }
 
-    if(match != wxNOT_FOUND) { choice->SetSelection(match); }
+    if(match != wxNOT_FOUND) {
+        choice->SetSelection(match);
+    }
     return (match != wxNOT_FOUND);
 }
+wxString GENERATOR_UNIX = "CodeLite Makefile Generator - UNIX";
+wxString GENERATOR_NMAKE = "NMakefile for MSVC toolset";
+wxString CONFIG_LAST_SELECTED_CATEGORY = "NewProject/LastCategory";
+wxString CONFIG_LAST_SELECTED_TYPE = "NewProject/LastType";
+wxString CONFIG_USE_SEPARATE_FOLDER = "NewProjectDialog/UseSeparateFolder";
+wxString CONFIG_LAST_COMPILER = "NewProjectDialog/LastCompiler";
+wxString CONFIG_LAST_DEBUGGER = "NewProjectDialog/LastDebugger";
+wxString CONFIG_LAST_BUILD_SYSTEM = "NewProjectDialog/LastBuildSystem";
+} // namespace
 
 NewProjectDialog::NewProjectDialog(wxWindow* parent)
     : NewProjectDialogBase(parent)
@@ -42,7 +55,7 @@ NewProjectDialog::NewProjectDialog(wxWindow* parent)
         m_textCtrlName->ChangeValue(fn.GetDirs().Last());
     }
 
-    wxString lastBuildSystem = "CodeLite Make Generator";
+    wxString lastBuildSystem = "CodeLite Makefile Generator";
     wxString lastCategory;
     wxString lastType;
     wxString lastCompiler;
@@ -67,7 +80,9 @@ NewProjectDialog::NewProjectDialog(wxWindow* parent)
 
         m_projectsMap.insert({ proj->GetName(), proj });
         wxString internalType = proj->GetProjectInternalType();
-        if(internalType.IsEmpty()) { internalType = "General"; }
+        if(internalType.IsEmpty()) {
+            internalType = "General";
+        }
 
         if(m_categories.count(internalType) == 0) {
             m_categories.insert({ internalType, wxArrayString() });
@@ -112,8 +127,8 @@ NewProjectDialog::NewProjectDialog(wxWindow* parent)
     SetChoiceOptions(m_choiceBuild, knownBuilders, lastBuildSystem);
 
     m_checkBoxSepFolder->SetValue(checked);
+    GetSizer()->Fit(this);
     CenterOnParent();
-    ::clSetSmallDialogBestSizeAndPosition(this);
 }
 
 NewProjectDialog::~NewProjectDialog()
@@ -128,7 +143,9 @@ NewProjectDialog::~NewProjectDialog()
 
 wxArrayString NewProjectDialog::GetProjectsTypesForCategory(const wxString& category)
 {
-    if(m_categories.count(category) == 0) { return wxArrayString(); }
+    if(m_categories.count(category) == 0) {
+        return wxArrayString();
+    }
     const wxArrayString& projects = m_categories[category];
     return projects;
 }
@@ -142,8 +159,12 @@ void NewProjectDialog::OnOKUI(wxUpdateUIEvent& event)
 ProjectData NewProjectDialog::GetProjectData() const
 {
     wxString sel = m_choiceType->GetStringSelection();
-    if(sel.IsEmpty()) { return ProjectData(); }
-    if(m_projectsMap.count(sel) == 0) { return ProjectData(); }
+    if(sel.IsEmpty()) {
+        return ProjectData();
+    }
+    if(m_projectsMap.count(sel) == 0) {
+        return ProjectData();
+    }
 
     ProjectData data;
     data.m_builderName = m_choiceBuild->GetStringSelection();
@@ -152,7 +173,9 @@ ProjectData NewProjectDialog::GetProjectData() const
     data.m_debuggerType = m_choiceDebugger->GetStringSelection();
 
     wxFileName path(m_dirPicker->GetPath(), "");
-    if(m_checkBoxSepFolder->IsChecked()) { path.AppendDir(data.m_name); }
+    if(m_checkBoxSepFolder->IsChecked()) {
+        path.AppendDir(data.m_name);
+    }
     data.m_path = path.GetPath();
     data.m_sourceTemplate = "C++ Project";
     data.m_srcProject = m_projectsMap.find(sel)->second;
@@ -164,7 +187,9 @@ void NewProjectDialog::OnPathSelected(wxFileDirPickerEvent& event)
     wxUnusedVar(event);
     if(!m_userTypeName) {
         wxFileName path(m_dirPicker->GetPath(), "");
-        if(path.GetDirCount()) { m_textCtrlName->ChangeValue(path.GetDirs().Last()); }
+        if(path.GetDirCount()) {
+            m_textCtrlName->ChangeValue(path.GetDirs().Last());
+        }
     }
 }
 
@@ -177,7 +202,9 @@ void NewProjectDialog::OnNameTyped(wxCommandEvent& event)
 void NewProjectDialog::OnCategoryChanged(wxCommandEvent& event)
 {
     wxString sel = m_choiceCategory->GetStringSelection();
-    if(sel.IsEmpty()) { return; }
+    if(sel.IsEmpty()) {
+        return;
+    }
     wxArrayString a = GetProjectsTypesForCategory(sel);
     SetChoiceOptions(m_choiceType, a, wxEmptyString);
 }
@@ -188,4 +215,49 @@ void NewProjectDialog::OnOK(wxCommandEvent& event)
         return;
     }
     event.Skip();
+}
+
+void NewProjectDialog::OnCompilerChanged(wxCommandEvent& event)
+{
+    wxUnusedVar(event);
+#ifdef __WXMSW__
+    wxString newCompiler = m_choiceCompiler->GetStringSelection();
+
+    auto compiler = BuildSettingsConfigST::Get()->GetCompiler(newCompiler);
+    CHECK_PTR_RET(compiler);
+
+    // Check if the selected compiler is "MSYS", however, its not from the mingwNN repository
+    wxString cxx = compiler->GetTool("CXX");
+    static const wxRegEx re("(clang(arm)?|mingw|ucrt)(32|64)", wxRE_DEFAULT | wxRE_NOSUB);
+    bool isUnixGeneratorRequired = newCompiler.Contains("MSYS") && !re.Matches(cxx);
+
+    if(isUnixGeneratorRequired && m_choiceBuild->GetStringSelection() != GENERATOR_UNIX) {
+        if(::wxMessageBox(
+               _("MSYS based compiler requires a UNIX Makefile Generator\nWould like CodeLite to fix this for you?"),
+               "CodeLite", wxICON_QUESTION | wxYES_NO | wxYES_DEFAULT) != wxYES) {
+            return;
+        }
+        int unixMakefiles = m_choiceBuild->FindString(GENERATOR_UNIX);
+        if(unixMakefiles != wxNOT_FOUND) {
+            m_choiceBuild->SetSelection(unixMakefiles);
+        }
+        return;
+    }
+
+    // Suggest NMake generator for Visual C++ family compilers
+    bool isNMakeGeneratorRequired = compiler->GetCompilerFamily() == COMPILER_FAMILY_VC;
+
+    if(isNMakeGeneratorRequired && m_choiceBuild->GetStringSelection() != GENERATOR_NMAKE) {
+        if(::wxMessageBox(
+               _("Visual C++ compiler requires an NMake generator\nWould like CodeLite to fix this for you?"),
+               "CodeLite", wxICON_QUESTION | wxYES_NO | wxYES_DEFAULT) != wxYES) {
+            return;
+        }
+        int nMakefiles = m_choiceBuild->FindString(GENERATOR_NMAKE);
+        if(nMakefiles != wxNOT_FOUND) {
+            m_choiceBuild->SetSelection(nMakefiles);
+        }
+        return;
+    }
+#endif
 }

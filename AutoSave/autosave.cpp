@@ -46,7 +46,7 @@ void AutoSave::CreatePluginMenu(wxMenu* pluginsMenu)
 {
     wxMenu* menu = new wxMenu();
     menu->Append(new wxMenuItem(menu, XRCID("auto_save_settings"), _("Settings...")));
-    pluginsMenu->Append(wxID_ANY, "Auto Save", menu);
+    pluginsMenu->Append(wxID_ANY, _("Auto Save"), menu);
 }
 
 void AutoSave::UnPlug()
@@ -83,7 +83,7 @@ void AutoSave::OnTimer(wxTimerEvent& event)
     // Save every modified editor
     std::for_each(editors.begin(), editors.end(), [&](IEditor* editor) {
         // Save modified files. However, don't attempt to try and save an "Untitled" document :/
-        if(editor->IsModified() && editor->GetFileName().Exists()) {
+        if(editor->IsEditorModified() && editor->GetFileName().Exists()) {
 
             // Don't auto-save remote files marked with "SFTP"
             if(!editor->GetClientData("sftp")) { editor->Save(); }

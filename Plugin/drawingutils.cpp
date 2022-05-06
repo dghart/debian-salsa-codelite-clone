@@ -22,11 +22,16 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "drawingutils.h"
+
+#include "ColoursAndFontsManager.h"
 #include "clScrolledPanel.h"
 #include "clSystemSettings.h"
-#include "drawingutils.h"
+#include "clTabRendererDefault.hpp"
+#include "globals.h"
 #include "wx/dc.h"
 #include "wx/settings.h"
+
 #include <wx/app.h>
 #include <wx/dcclient.h>
 #include <wx/dcmemory.h>
@@ -40,17 +45,6 @@
 #include <wx/msw/registry.h>
 #endif
 
-#ifdef __WXMSW__
-#define DEFAULT_FACE_NAME "Consolas"
-#define DEFAULT_FONT_SIZE 12
-#elif defined(__WXMAC__)
-#define DEFAULT_FACE_NAME "monaco"
-#define DEFAULT_FONT_SIZE 12
-#else // GTK, FreeBSD etc
-#define DEFAULT_FACE_NAME "monospace"
-#define DEFAULT_FONT_SIZE 12
-#endif
-
 #ifdef __WXGTK20__
 // We need this ugly hack to workaround a gtk2-wxGTK name-clash^M
 // See http://trac.wxwidgets.org/ticket/10883^M
@@ -59,57 +53,26 @@
 #undef GSocket
 #endif
 
-static void RGBtoHSB(int r, int g, int b, float* h, float* s, float* br)
+namespace
 {
-    float hue, saturation, brightness;
-    int cmax = (r > g) ? r : g;
-    if(b > cmax) cmax = b;
-    int cmin = (r < g) ? r : g;
-    if(b < cmin) cmin = b;
-
-    brightness = ((float)cmax) / 255.0f;
-    if(cmax != 0)
-        saturation = ((float)(cmax - cmin)) / ((float)cmax);
-    else
-        saturation = 0;
-    if(saturation == 0)
-        hue = 0;
-    else {
-        float redc = ((float)(cmax - r)) / ((float)(cmax - cmin));
-        float greenc = ((float)(cmax - g)) / ((float)(cmax - cmin));
-        float bluec = ((float)(cmax - b)) / ((float)(cmax - cmin));
-        if(r == cmax)
-            hue = bluec - greenc;
-        else if(g == cmax)
-            hue = 2.0f + redc - bluec;
-        else
-            hue = 4.0f + greenc - redc;
-        hue = hue / 6.0f;
-        if(hue < 0) hue = hue + 1.0f;
-    }
-    (*h) = hue;
-    (*s) = saturation;
-    (*br) = brightness;
-}
-
 //////////////////////////////////////////////////
 // Colour methods to convert HSL <-> RGB
 //////////////////////////////////////////////////
-static float cl_min(float x, float y, float z)
+float cl_min(float x, float y, float z)
 {
     float m = x < y ? x : y;
     m = m < z ? m : z;
     return m;
 }
 
-static float cl_max(float x, float y, float z)
+float cl_max(float x, float y, float z)
 {
     float m = x > y ? x : y;
     m = m > z ? m : z;
     return m;
 }
 
-static void RGB_2_HSL(float r, float g, float b, float* h, float* s, float* l)
+void RGB_2_HSL(float r, float g, float b, float* h, float* s, float* l)
 {
     float var_R = (r / 255.0); // RGB from 0 to 255
     float var_G = (g / 255.0);
@@ -141,22 +104,29 @@ static void RGB_2_HSL(float r, float g, float b, float* h, float* s, float* l)
         else if(var_B == var_Max)
             *h = (2.0 / 3.0) + del_G - del_R;
 
-        if(*h < 0) *h += 1;
-        if(*h > 1) *h -= 1;
+        if(*h < 0)
+            *h += 1;
+        if(*h > 1)
+            *h -= 1;
     }
 }
 
-static float Hue_2_RGB(float v1, float v2, float vH) // Function Hue_2_RGB
+float Hue_2_RGB(float v1, float v2, float vH) // Function Hue_2_RGB
 {
-    if(vH < 0) vH += 1;
-    if(vH > 1) vH -= 1;
-    if((6.0 * vH) < 1) return (v1 + (v2 - v1) * 6.0 * vH);
-    if((2.0 * vH) < 1) return (v2);
-    if((3.0 * vH) < 2) return (v1 + (v2 - v1) * ((2.0 / 3.0) - vH) * 6.0);
+    if(vH < 0)
+        vH += 1;
+    if(vH > 1)
+        vH -= 1;
+    if((6.0 * vH) < 1)
+        return (v1 + (v2 - v1) * 6.0 * vH);
+    if((2.0 * vH) < 1)
+        return (v2);
+    if((3.0 * vH) < 2)
+        return (v1 + (v2 - v1) * ((2.0 / 3.0) - vH) * 6.0);
     return (v1);
 }
 
-static void HSL_2_RGB(float h, float s, float l, float* r, float* g, float* b)
+void HSL_2_RGB(float h, float s, float l, float* r, float* g, float* b)
 {
     if(s == 0) {        // HSL from 0 to 1
         *r = l * 255.0; // RGB results from 0 to 255
@@ -176,6 +146,7 @@ static void HSL_2_RGB(float h, float s, float l, float* r, float* g, float* b)
         *b = 255.0 * Hue_2_RGB(var_1, var_2, h - (1.0 / 3.0));
     }
 }
+} // namespace
 
 //-------------------------------------------------------------------------------------------------
 // helper functions
@@ -183,14 +154,17 @@ static void HSL_2_RGB(float h, float s, float l, float* r, float* g, float* b)
 
 wxColour DrawingUtils::LightColour(const wxColour& color, float percent)
 {
-    if(percent == 0) { return color; }
+    if(percent == 0) {
+        return color;
+    }
 
     float h, s, l, r, g, b;
     RGB_2_HSL(color.Red(), color.Green(), color.Blue(), &h, &s, &l);
 
     // reduce the Lum value
     l += (float)((percent * 5.0) / 100.0);
-    if(l > 1.0) l = 1.0;
+    if(l > 1.0)
+        l = 1.0;
 
     HSL_2_RGB(h, s, l, &r, &g, &b);
     return wxColour((unsigned char)r, (unsigned char)g, (unsigned char)b);
@@ -204,7 +178,7 @@ void DrawingUtils::TruncateText(const wxString& text, int maxWidth, wxDC& dc, wx
     wxString tempText = text;
 
     fixedText = wxT("");
-    dc.GetTextExtent(text, &textW, &textH);
+    dc.GetTextExtent(tempText, &textW, &textH);
     if(rectSize >= textW) {
         fixedText = text;
         return;
@@ -227,7 +201,9 @@ void DrawingUtils::TruncateText(const wxString& text, int maxWidth, wxDC& dc, wx
 
         fixedText = text1 + suffix + text2;
         dc.GetTextExtent(fixedText, &textW, &textH);
-        if(rectSize >= textW) { return; }
+        if(rectSize >= textW) {
+            return;
+        }
     }
 }
 
@@ -248,7 +224,8 @@ void DrawingUtils::PaintStraightGradientBox(wxDC& dc, const wxRect& rect, const 
     else
         high = rect.GetWidth() - 1;
 
-    if(high < 1) return;
+    if(high < 1)
+        return;
 
     for(int i = 0; i <= high; ++i) {
         int r = startColor.Red() + ((i * rd * 100) / high) / 100;
@@ -271,79 +248,105 @@ void DrawingUtils::PaintStraightGradientBox(wxDC& dc, const wxRect& rect, const 
 
 bool DrawingUtils::IsDark(const wxColour& color)
 {
-    float h, s, b;
-    RGBtoHSB(color.Red(), color.Green(), color.Blue(), &h, &s, &b);
-    return (b < 0.5);
+    double r = color.Red();
+    double g = color.Green();
+    double b = color.Blue();
+
+    double luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return (luma < 140);
 }
 
 wxColour DrawingUtils::DarkColour(const wxColour& color, float percent)
 {
-    if(percent == 0) { return color; }
+    if(percent == 0) {
+        return color;
+    }
 
     float h, s, l, r, g, b;
     RGB_2_HSL(color.Red(), color.Green(), color.Blue(), &h, &s, &l);
 
     // reduce the Lum value
     l -= (float)((percent * 5.0) / 100.0);
-    if(l < 0) l = 0.0;
+    if(l < 0)
+        l = 0.0;
 
     HSL_2_RGB(h, s, l, &r, &g, &b);
     return wxColour((unsigned char)r, (unsigned char)g, (unsigned char)b);
 }
 
-wxColour DrawingUtils::GetPanelBgColour() { return clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE); }
+wxColour DrawingUtils::GetPanelBgColour() { return clSystemSettings::GetDefaultPanelColour(); }
 
 wxColour DrawingUtils::GetPanelTextColour() { return clSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT); }
 
 wxColour DrawingUtils::GetTextCtrlTextColour() { return clSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT); }
 
 wxColour DrawingUtils::GetMenuTextColour() { return clSystemSettings::GetColour(wxSYS_COLOUR_MENUTEXT); }
+#include "cl_defs.h"
 
 wxColour DrawingUtils::GetMenuBarBgColour(bool miniToolbar)
 {
-#ifdef __WXMSW__
-    return clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
-#elif defined(__WXOSX__)
     wxUnusedVar(miniToolbar);
-    return clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
+#if CL_USE_NATIVEBOOK
+    return clSystemSettings::GetDefaultPanelColour();
 #else
-    wxUnusedVar(miniToolbar);
-    return clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
-//    return miniToolbar ? clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE)
-//                       : clSystemSettings::GetColour(wxSYS_COLOUR_MENUBAR);
+    clTabColours c;
+    c.UpdateColours(0);
+    return c.activeTabBgColour;
 #endif
 }
 
 void DrawingUtils::FillMenuBarBgColour(wxDC& dc, const wxRect& rect, bool miniToolbar)
 {
-    wxUnusedVar(miniToolbar);
-    wxRect topRect = rect;
-#ifdef __WXOSX__
-    topRect.Inflate(1);
-#endif
+#if defined(__WXGTK__) || defined(__WXMSW__)
+    wxColour c = GetMenuBarBgColour(miniToolbar);
+    dc.SetPen(c);
+    dc.SetBrush(c);
+    dc.DrawRectangle(rect);
 
-    topRect.SetHeight((rect.GetHeight() / 8) * 7);
+#elif defined(__WXOSX__)
+    wxColour c = GetMenuBarBgColour(miniToolbar);
+    dc.SetPen(c);
+    dc.SetBrush(c);
+    dc.DrawRectangle(rect);
+#else
+
+#define RATIO 8
+#define BIG_PART (RATIO - 1)
+
+    wxColour c = GetMenuBarBgColour(miniToolbar);
+
+    // bottom rect, 7/8 of the rect height
     wxRect bottomRect = rect;
-    bottomRect.SetTop(topRect.GetBottom());
+    bottomRect.SetHeight((rect.GetHeight() / RATIO) * BIG_PART);
+    bottomRect.SetBottom(rect.GetBottom());
 
-    wxColour topColour(clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE));
-    wxColour bottomColour(clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE));
+    dc.SetPen(c);
+    dc.SetBrush(c);
+    dc.DrawRectangle(bottomRect);
 
-    dc.SetPen(topColour);
-    dc.SetBrush(topColour);
-    dc.DrawRectangle(topRect);
+    wxRect topRect = rect;
+    topRect.height = rect.GetHeight() / RATIO;
+    topRect.y = bottomRect.GetTopLeft().y;
 
-    bottomColour = bottomColour.ChangeLightness(IsDark(topColour) ? 70 : 90);
-    PaintStraightGradientBox(dc, bottomRect, topColour, bottomColour, true);
+    wxColour c1, c2;
+    c1 = c;
+    c2 = c1.ChangeLightness(IsDark(c) ? 70 : 100);
+    PaintStraightGradientBox(dc, topRect, c2, c1, true);
+
+#undef RATIO
+#undef SMALL_PART
+#undef BIG_PART
+
+#endif
 }
 
 wxColour DrawingUtils::GetMenuBarTextColour() { return clSystemSettings::GetColour(wxSYS_COLOUR_MENUTEXT); }
 
-wxColour DrawingUtils::GetTextCtrlBgColour() { return clSystemSettings::GetColour(wxSYS_COLOUR_WINDOW); }
+wxColour DrawingUtils::GetTextCtrlBgColour() { return clSystemSettings::GetDefaultPanelColour(); }
 
 wxColour DrawingUtils::GetOutputPaneFgColour() { return clSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT); }
 
-wxColour DrawingUtils::GetOutputPaneBgColour() { return clSystemSettings::GetColour(wxSYS_COLOUR_WINDOW); }
+wxColour DrawingUtils::GetOutputPaneBgColour() { return clSystemSettings::GetDefaultPanelColour(); }
 
 wxColour DrawingUtils::GetThemeBgColour() { return GetOutputPaneBgColour(); }
 
@@ -356,17 +359,24 @@ wxColour DrawingUtils::GetThemeTipBgColour()
     if(IsThemeDark()) {
         return GetThemeBgColour();
     } else {
-        return clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
+        return clSystemSettings::GetDefaultPanelColour();
     }
 }
 
 bool DrawingUtils::IsThemeDark() { return IsDark(GetThemeBgColour()); }
 
-bool DrawingUtils::GetGCDC(wxDC& dc, wxGCDC& gdc)
+wxDC& DrawingUtils::GetGCDC(wxDC& dc, wxGCDC& gdc)
 {
-    wxGraphicsRenderer* const renderer = wxGraphicsRenderer::GetDefaultRenderer();
-    wxGraphicsContext* context;
+    wxGraphicsRenderer* renderer = nullptr;
+#if defined(__WXGTK__)
+    renderer = wxGraphicsRenderer::GetCairoRenderer();
+#elif defined(__WXMSW__) && wxUSE_GRAPHICS_DIRECT2D
+    renderer = wxGraphicsRenderer::GetDirect2DRenderer();
+#else
+    renderer = wxGraphicsRenderer::GetDefaultRenderer();
+#endif
 
+    wxGraphicsContext* context;
     if(wxPaintDC* paintdc = wxDynamicCast(&dc, wxPaintDC)) {
         context = renderer->CreateContext(*paintdc);
 
@@ -374,12 +384,11 @@ bool DrawingUtils::GetGCDC(wxDC& dc, wxGCDC& gdc)
         context = renderer->CreateContext(*memdc);
 
     } else {
-        wxFAIL_MSG("Unknown wxDC kind");
-        return false;
+        return dc;
     }
-
+    context->SetAntialiasMode(wxANTIALIAS_DEFAULT);
     gdc.SetGraphicsContext(context);
-    return true;
+    return gdc;
 }
 
 wxColour DrawingUtils::GetAUIPaneBGColour() { return GetPanelBgColour(); }
@@ -387,10 +396,15 @@ wxColour DrawingUtils::GetAUIPaneBGColour() { return GetPanelBgColour(); }
 wxBrush DrawingUtils::GetStippleBrush()
 {
     wxMemoryDC memDC;
+#ifdef __WXMSW__
     wxColour bgColour = clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
+#else
+    wxColour bgColour = clSystemSettings::GetDefaultPanelColour();
+#endif
     wxBitmap bmpStipple(3, 3);
-    wxColour lightPen = DrawingUtils::DarkColour(bgColour, 5.0);
-    wxColour darkPen = DrawingUtils::LightColour(bgColour, 3.0);
+    wxColour lightPen = bgColour.ChangeLightness(105);
+    wxColour darkPen = bgColour.ChangeLightness(95);
+
     memDC.SelectObject(bmpStipple);
     memDC.SetBrush(bgColour);
     memDC.SetPen(bgColour);
@@ -435,14 +449,45 @@ wxColour DrawingUtils::GetCaptionColour()
     return defaultCaptionColour;
 }
 
-wxFont DrawingUtils::GetDefaultFixedFont()
+namespace
 {
-    wxFont f(GetDefaultGuiFont());
-    f.SetFamily(wxFONTFAMILY_TELETYPE);
-    f.SetFaceName(DEFAULT_FACE_NAME);
-    // f.SetPointSize(DEFAULT_FONT_SIZE);
-    return f;
+#ifdef __WXMSW__
+
+const wxString DEFAULT_FACE_NAME = "Consolas";
+constexpr int DEFAULT_FONT_SIZE = 14;
+
+#elif defined(__WXMAC__)
+
+const wxString DEFAULT_FACE_NAME = "monaco";
+constexpr int DEFAULT_FONT_SIZE = 14;
+
+#else // GTK, FreeBSD etc
+
+const wxString DEFAULT_FACE_NAME = "Monospace";
+constexpr int DEFAULT_FONT_SIZE = 14;
+
+#endif
+} // namespace
+
+#ifdef __WXGTK__
+#define FIX_FONT_SIZE(size, ctrl) clGetSize(size, ctrl)
+#else
+#define FIX_FONT_SIZE(size, ctrl) size
+#endif
+
+wxFont DrawingUtils::GetFallbackFixedFont(const wxWindow* win, bool bold, bool italic)
+{
+    wxFontInfo fontInfo = wxFontInfo(FIX_FONT_SIZE(DEFAULT_FONT_SIZE, win))
+                              .Family(wxFONTFAMILY_MODERN)
+                              .Italic(false)
+                              .Bold(false)
+                              .Underlined(false)
+                              .FaceName(DEFAULT_FACE_NAME);
+    wxFont font(fontInfo);
+    return font;
 }
+
+wxFont DrawingUtils::GetDefaultFixedFont() { return ColoursAndFontsManager::Get().GetFixedFont(); }
 
 #ifdef __WXOSX__
 double wxOSXGetMainScreenContentScaleFactor();
@@ -451,6 +496,9 @@ double wxOSXGetMainScreenContentScaleFactor();
 wxBitmap DrawingUtils::CreateDisabledBitmap(const wxBitmap& bmp)
 {
     bool bDarkBG = IsDark(GetPanelBgColour());
+    if(!bmp.IsOk()) {
+        return wxNullBitmap;
+    }
     return bmp.ConvertToDisabled(bDarkBG ? 69 : 255);
 }
 
@@ -581,16 +629,11 @@ void DrawingUtils::DrawButtonX(wxDC& dc, wxWindow* win, const wxRect& rect, cons
 {
     // Calculate the circle radius:
     wxRect innerRect(rect);
-    wxColour buttonBgColour = wxColour("#E05A2B"); // Ubuntu orange 90%
-    wxColour borderColour = buttonBgColour.ChangeLightness(90);
-    wxColour xColour = buttonBgColour.ChangeLightness(50);
-
-#ifdef __WXOSX__
-    int penWidth = 1;
-#else
+    wxColour bg_colour = bgColouur;
+    bool is_dark = IsDark(bg_colour);
+    wxColour xColour = is_dark ? wxColour(*wxWHITE).ChangeLightness(90) : wxColour(*wxBLACK).ChangeLightness(120);
     int penWidth = 2;
-#endif
-    bool drawBackground = true;
+    bool drawBackground = false;
     switch(state) {
     case eButtonState::kNormal:
         break;
@@ -599,24 +642,27 @@ void DrawingUtils::DrawButtonX(wxDC& dc, wxWindow* win, const wxRect& rect, cons
         xColour = wxColour("GRAY");
         break;
     case eButtonState::kHover:
-        buttonBgColour = buttonBgColour.ChangeLightness(110);
+        drawBackground = true;
+        bg_colour = is_dark ? bg_colour.ChangeLightness(105) : bg_colour.ChangeLightness(95);
         break;
     case eButtonState::kPressed:
-        buttonBgColour = buttonBgColour.ChangeLightness(90);
+        drawBackground = true;
+        bg_colour = is_dark ? bg_colour.ChangeLightness(110) : bg_colour.ChangeLightness(90);
         break;
     default:
         break;
     }
 
+    wxRect xrect(rect);
+    wxRect bgRect = rect;
     if(drawBackground) {
-        dc.SetBrush(buttonBgColour);
-        dc.SetPen(borderColour);
-        dc.DrawRoundedRectangle(rect, 1.0);
+        bgRect.Inflate(2);
+        dc.SetBrush(bg_colour);
+        dc.SetPen(bg_colour);
+        dc.DrawRoundedRectangle(bgRect, 0.0);
     }
 
-    wxRect xrect(rect);
-    xrect.Deflate(rect.GetWidth() / 3);
-
+    xrect.Deflate(rect.GetWidth() / 4);
     xrect = xrect.CenterIn(rect);
 
     dc.SetPen(wxPen(xColour, penWidth));
@@ -686,28 +732,18 @@ void DrawingUtils::DrawButtonMaximizeRestore(wxDC& dc, wxWindow* win, const wxRe
 void DrawingUtils::DrawDropDownArrow(wxWindow* win, wxDC& dc, const wxRect& rect, const wxColour& colour)
 {
     // Draw an arrow
-    wxRect buttonRect(rect);
-    int sz = wxMin(rect.GetHeight(), rect.GetWidth());
-    sz = wxMin(10, sz);
-    double height = ((double)sz / 3.0) * 2;
-    buttonRect.SetHeight(height);
-    buttonRect.SetWidth(sz);
-    buttonRect = buttonRect.CenterIn(rect);
+    const wxString arrowSymbol = wxT("\u25BE");
+    wxRect arrowRect{ { 0, 0 }, dc.GetTextExtent(arrowSymbol) };
+    arrowRect = arrowRect.CenterIn(rect);
 
     wxColour buttonColour = colour;
     if(!buttonColour.IsOk()) {
         // No colour provided, provide one
-        wxColour buttonFace = clSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE);
-        if(IsDark(buttonFace)) {
-            buttonColour = buttonFace.ChangeLightness(150);
-        } else {
-            buttonColour = clSystemSettings::GetColour(wxSYS_COLOUR_3DDKSHADOW);
-        }
+        buttonColour = clSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
     }
-    wxPoint downCenterPoint = wxPoint(buttonRect.GetBottomLeft().x + buttonRect.GetWidth() / 2, buttonRect.GetBottom());
-    dc.SetPen(wxPen(buttonColour, 2));
-    dc.DrawLine(buttonRect.GetTopLeft(), downCenterPoint);
-    dc.DrawLine(buttonRect.GetTopRight(), downCenterPoint);
+
+    dc.SetTextForeground(buttonColour);
+    dc.DrawText(arrowSymbol, arrowRect.GetTopLeft());
 }
 
 wxColour DrawingUtils::GetCaptionTextColour() { return clSystemSettings::GetColour(wxSYS_COLOUR_CAPTIONTEXT); }
@@ -786,7 +822,7 @@ void DrawingUtils::DrawNativeChoice(wxWindow* win, wxDC& dc, const wxRect& rect,
     wxRendererNative::Get().DrawDropArrow(win, dc, dropDownRect, 0);
 #else
     // OSX
-    wxColour bgColour = clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
+    wxColour bgColour = clSystemSettings::GetDefaultPanelColour();
     if(IsDark(bgColour)) {
         // On Dark theme (Mojave and later)
         int width = choiceRect.GetHeight();
@@ -845,16 +881,10 @@ clColours& DrawingUtils::GetColours(bool darkColours)
     }
 }
 
-wxFont DrawingUtils::GetBestFixedFont(IEditor* editor)
-{
-    wxFont defaultFont = DrawingUtils::GetDefaultFixedFont();
-    wxFont bestFont = defaultFont;
-    wxUnusedVar(editor);
-    //    if(editor) {
-    //        bestFont = editor->GetCtrl()->StyleGetFont(0);
-    //#if defined(__WXGTK__) && defined(__WXGTK3__)
-    //        bestFont.SetPointSize(defaultFont.GetPointSize());
-    //#endif
-    //    }
-    return bestFont;
-}
+wxFont DrawingUtils::GetBestFixedFont(IEditor* editor) { return DrawingUtils::GetDefaultFixedFont(); }
+
+int DrawingUtils::GetFallbackFixedFontSize(const wxWindow* win) { return FixFontSize(DEFAULT_FONT_SIZE, win); }
+
+const wxString& DrawingUtils::GetFallbackFixedFontFace() { return DEFAULT_FACE_NAME; }
+
+int DrawingUtils::FixFontSize(int size, const wxWindow* win) { return FIX_FONT_SIZE(size, win); }

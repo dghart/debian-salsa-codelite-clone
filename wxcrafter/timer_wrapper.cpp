@@ -1,9 +1,9 @@
 #include "timer_wrapper.h"
+
 #include "allocator_mgr.h"
 #include "bool_property.h"
 #include "category_property.h"
 #include "int_property.h"
-#include "wxc_settings.h"
 #include "wxgui_helpers.h"
 
 TimerWrapper::TimerWrapper()
@@ -15,7 +15,7 @@ TimerWrapper::TimerWrapper()
 
     SetPropertyString(_("Common Settings"), "wxTimer");
     AddProperty(new CategoryProperty(_("wxTimer")));
-    AddProperty(new StringProperty(PROP_NAME, _(""), _("Control name")));
+    AddProperty(new StringProperty(PROP_NAME, "", _("Control name")));
     AddProperty(new IntProperty(PROP_INTERVAL, 1000, _("Sets the current interval for the timer (in milliseconds)")));
     AddProperty(new BoolProperty(PROP_START_TIMER, true, _("Start the timer")));
     AddProperty(
@@ -60,5 +60,3 @@ wxString TimerWrapper::CppDtorCode() const
     cppCode << "    wxDELETE( " << GetName() << " );\n";
     return cppCode;
 }
-
-bool TimerWrapper::IsLicensed() const { return wxcSettings::Get().IsLicensed(); }

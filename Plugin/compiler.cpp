@@ -22,17 +22,20 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "compiler.h"
+
 #include "CxxPreProcessor.h"
+#include "GCCMetadata.hpp"
 #include "asyncprocess.h"
 #include "build_settings_config.h"
 #include "build_system.h"
-#include "compiler.h"
 #include "file_logger.h"
 #include "fileutils.h"
 #include "globals.h"
 #include "macros.h"
 #include "wx_xml_compatibility.h"
 #include "xmlutils.h"
+
 #include <ICompilerLocator.h>
 #include <procutils.h>
 #include <wx/log.h>
@@ -188,7 +191,9 @@ Compiler::Compiler(wxXmlNode* node, Compiler::eRegexType regexType)
 
         if(GetTool("MAKE").IsEmpty()) {
             BuilderConfigPtr bldr = BuildSettingsConfigST::Get()->GetBuilderConfig("");
-            if(bldr) { SetTool("MAKE", wxString() << bldr->GetToolPath() << " -j " << bldr->GetToolJobs()); }
+            if(bldr) {
+                SetTool("MAKE", wxString() << bldr->GetToolPath() << " -j " << bldr->GetToolJobs());
+            }
         }
 
         // Default values for the assembler
@@ -200,9 +205,10 @@ Compiler::Compiler(wxXmlNode* node, Compiler::eRegexType regexType)
         }
 
         // For backward compatibility, if the compiler / linker options are empty - add them
-        if(IsGnuCompatibleCompiler()) { AddDefaultGnuComplierOptions(); }
-
-        if(IsGnuCompatibleCompiler()) { AddDefaultGnuLinkerOptions(); }
+        if(IsGnuCompatibleCompiler()) {
+            AddDefaultGnuComplierOptions();
+            AddDefaultGnuLinkerOptions();
+        }
 
     } else {
         // Create a default compiler: g++
@@ -224,46 +230,50 @@ Compiler::Compiler(wxXmlNode* node, Compiler::eRegexType regexType)
         m_preprocessSuffix = ".i";
 
         if(regexType == kRegexGNU) {
-            AddPattern(eErrorPattern,
-                       "^([^ ][a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ *)(:)([0-9]*)([:0-9]*)(: )((fatal "
+            AddPattern(kSevError,
+                       "^([^ ][a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-\\\\]+ *)(:)([0-9]*)([:0-9]*)(: )((fatal "
                        "error)|(error)|(undefined reference)|([\\t ]*required from))",
                        1, 3, 4);
-            AddPattern(eErrorPattern,
-                       "^([^ ][a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ *)(:)([^ ][a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ "
-                       "*)(:)(\\(\\.text\\+[0-9a-fx]*\\))",
-                       3, 1, -1);
-            AddPattern(eErrorPattern,
-                       "^([^ ][a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ *)(:)([^ ][a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ "
-                       "*)(:)([0-9]+)(:)",
-                       3, 1, -1);
-            AddPattern(eErrorPattern, "undefined reference to", -1, -1, -1);
-            AddPattern(eErrorPattern, "\\*\\*\\* \\[[a-zA-Z\\-_0-9 ]+\\] (Error)", -1, -1, -1);
+            AddPattern(
+                kSevError,
+                "^([^ ][a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-\\\\]+ *)(:)([^ ][a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-\\\\]+ "
+                "*)(:)(\\(\\.text\\+[0-9a-fx]*\\))",
+                3, 1, -1);
+            AddPattern(
+                kSevError,
+                "^([^ ][a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-\\\\]+ *)(:)([^ ][a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-\\\\]+ "
+                "*)(:)([0-9]+)(:)",
+                3, 1, -1);
+            AddPattern(kSevError, "undefined reference to", -1, -1, -1);
+            AddPattern(kSevError, "\\*\\*\\* \\[[a-zA-Z\\-_0-9 ]+\\] (Error)", -1, -1, -1);
 
-            AddPattern(eWarningPattern,
-                       "([a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ *)(:)([0-9]+ *)(:)([0-9:]*)?[ \\t]*(warning|required)",
-                       1, 3, 4);
-            AddPattern(eWarningPattern, "([a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ *)(:)([0-9]+ *)(:)([0-9:]*)?( note)",
+            AddPattern(
+                kSevWarning,
+                "([a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-\\\\]+ *)(:)([0-9]+ *)(:)([0-9:]*)?[ \\t]*(warning|required)", 1,
+                3, 4);
+            AddPattern(kSevWarning, "([a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-\\\\]+ *)(:)([0-9]+ *)(:)([0-9:]*)?( note)",
                        1, 3, -1);
-            AddPattern(eWarningPattern,
-                       "([a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ *)(:)([0-9]+ *)(:)([0-9:]*)?([ ]+instantiated)", 1, 3,
-                       -1);
-            AddPattern(eWarningPattern,
-                       "(In file included from *)([a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-]+ *)(:)([0-9]+ *)(:)([0-9:]*)?",
-                       2, 4, -1);
+            AddPattern(kSevWarning,
+                       "([a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-\\\\]+ *)(:)([0-9]+ *)(:)([0-9:]*)?([ ]+instantiated)", 1,
+                       3, -1);
+            AddPattern(
+                kSevWarning,
+                "(In file included from *)([a-zA-Z:]{0,2}[ a-zA-Z\\.0-9_/\\+\\-\\\\]+ *)(:)([0-9]+ *)(:)([0-9:]*)?", 2,
+                4, -1);
 
             AddDefaultGnuComplierOptions();
             AddDefaultGnuLinkerOptions();
 
         } else {
 
-            AddPattern(eErrorPattern, "^windres: ([a-zA-Z:]{0,2}[ a-zA-Z\\\\.0-9_/\\+\\-]+) *:([0-9]+): syntax error",
-                       1, 2);
-            AddPattern(eErrorPattern, "(^[a-zA-Z\\\\.0-9 _/\\:\\+\\-]+ *)(\\()([0-9]+)(\\))( \\: )(error)", 1, 3);
-            AddPattern(eErrorPattern, "(LINK : fatal error)", 1, 1);
-            AddPattern(eErrorPattern, "(NMAKE : fatal error)", 1, 1);
-            AddPattern(eWarningPattern, "(^[a-zA-Z\\\\.0-9 _/\\:\\+\\-]+ *)(\\()([0-9]+)(\\))( \\: )(warning)", 1, 3);
-            AddPattern(eWarningPattern, "([a-z_A-Z]*\\.obj)( : warning)", 1, 1);
-            AddPattern(eWarningPattern, "(cl : Command line warning)", 1, 1);
+            AddPattern(kSevError, "^windres: ([a-zA-Z:]{0,2}[ a-zA-Z\\\\.0-9_/\\+\\-]+) *:([0-9]+): syntax error", 1,
+                       2);
+            AddPattern(kSevError, "(^[a-zA-Z\\\\.0-9 _/\\:\\+\\-]+ *)(\\()([0-9]+)(\\))( \\: )(error)", 1, 3);
+            AddPattern(kSevError, "(LINK : fatal error)", 1, 1);
+            AddPattern(kSevError, "(NMAKE : fatal error)", 1, 1);
+            AddPattern(kSevWarning, "(^[a-zA-Z\\\\.0-9 _/\\:\\+\\-]+ *)(\\()([0-9]+)(\\))( \\: )(warning)", 1, 3);
+            AddPattern(kSevWarning, "([a-z_A-Z]*\\.obj)( : warning)", 1, 1);
+            AddPattern(kSevWarning, "(cl : Command line warning)", 1, 1);
         }
 
         SetTool("LinkerName", "g++");
@@ -293,7 +303,9 @@ Compiler::Compiler(wxXmlNode* node, Compiler::eRegexType regexType)
         m_objectNameIdenticalToFileName = false;
     }
 
-    if(m_generateDependeciesFile && m_dependSuffix.IsEmpty()) { m_dependSuffix = m_objectSuffix + wxT(".d"); }
+    if(m_generateDependeciesFile && m_dependSuffix.IsEmpty()) {
+        m_dependSuffix = m_objectSuffix + wxT(".d");
+    }
 
     if(!m_switches[wxT("PreprocessOnly")].IsEmpty() && m_preprocessSuffix.IsEmpty()) {
         m_preprocessSuffix = m_objectSuffix + wxT(".i");
@@ -494,7 +506,9 @@ wxXmlNode* Compiler::ToXml() const
 wxString Compiler::GetSwitch(const wxString& name) const
 {
     std::map<wxString, wxString>::const_iterator iter = m_switches.find(name);
-    if(iter == m_switches.end()) { return wxEmptyString; }
+    if(iter == m_switches.end()) {
+        return wxEmptyString;
+    }
     return iter->second;
 }
 
@@ -508,7 +522,9 @@ wxString Compiler::GetTool(const wxString& name) const
         }
         return wxEmptyString;
     }
-    if(name == wxT("CC") && iter->second.empty()) { return GetTool(wxT("CXX")); }
+    if(name == wxT("CC") && iter->second.empty()) {
+        return GetTool(wxT("CXX"));
+    }
     wxString tool = iter->second;
     tool.Replace("\\", "/");
     return tool;
@@ -517,7 +533,9 @@ wxString Compiler::GetTool(const wxString& name) const
 bool Compiler::GetCmpFileType(const wxString& extension, Compiler::CmpFileTypeInfo& ft)
 {
     std::map<wxString, Compiler::CmpFileTypeInfo>::iterator iter = m_fileTypes.find(extension.Lower());
-    if(iter == m_fileTypes.end()) { return false; }
+    if(iter == m_fileTypes.end()) {
+        return false;
+    }
     ft = iter->second;
     return true;
 }
@@ -526,7 +544,9 @@ void Compiler::AddCmpFileType(const wxString& extension, CmpFileKind type, const
 {
     Compiler::CmpFileTypeInfo ft;
     ft.extension = extension.Lower();
-    if(m_fileTypes.count(ft.extension)) { m_fileTypes.erase(ft.extension); }
+    if(m_fileTypes.count(ft.extension)) {
+        m_fileTypes.erase(ft.extension);
+    }
 
     ft.compilation_line = compile_line;
     ft.kind = type;
@@ -535,7 +555,9 @@ void Compiler::AddCmpFileType(const wxString& extension, CmpFileKind type, const
 
 void Compiler::SetSwitch(const wxString& switchName, const wxString& switchValue)
 {
-    if(m_switches.count(switchName)) { m_switches.erase(switchName); }
+    if(m_switches.count(switchName)) {
+        m_switches.erase(switchName);
+    }
     m_switches.insert(std::make_pair(switchName, switchValue));
 }
 
@@ -546,7 +568,7 @@ void Compiler::AddPattern(int type, const wxString& pattern, int fileNameIndex, 
     pt.fileNameIndex = wxString::Format("%d", (int)fileNameIndex);
     pt.lineNumberIndex = wxString::Format("%d", (int)lineNumberIndex);
     pt.columnIndex = wxString::Format("%d", colIndex);
-    if(type == eErrorPattern) {
+    if(type == kSevError) {
         m_errorPatterns.push_back(pt);
 
     } else {
@@ -556,7 +578,9 @@ void Compiler::AddPattern(int type, const wxString& pattern, int fileNameIndex, 
 
 void Compiler::SetTool(const wxString& toolname, const wxString& cmd)
 {
-    if(m_tools.count(toolname)) { m_tools.erase(toolname); }
+    if(m_tools.count(toolname)) {
+        m_tools.erase(toolname);
+    }
     m_tools.insert(std::make_pair(toolname, cmd));
 }
 
@@ -580,26 +604,26 @@ void Compiler::AddLinkerOption(const wxString& name, const wxString& desc)
 
 bool Compiler::IsGnuCompatibleCompiler() const
 {
-    return m_compilerFamily.IsEmpty() || m_compilerFamily == COMPILER_FAMILY_CLANG ||
-           m_compilerFamily == COMPILER_FAMILY_GCC || m_compilerFamily == COMPILER_FAMILY_MINGW;
+    static wxStringSet_t gnu_compilers = { COMPILER_FAMILY_CLANG, COMPILER_FAMILY_MINGW, COMPILER_FAMILY_GCC,
+                                           COMPILER_FAMILY_CYGWIN, COMPILER_FAMILY_MSYS2 };
+    return !m_compilerFamily.IsEmpty() && gnu_compilers.count(m_compilerFamily);
 }
 
 void Compiler::AddDefaultGnuComplierOptions()
 {
     // Add GCC / CLANG default compiler options
-    AddCompilerOption("-O", "Optimize generated code. (for speed)");
-    AddCompilerOption("-O1", "Optimize more (for speed)");
-    AddCompilerOption("-O2", "Optimize even more (for speed)");
-    AddCompilerOption("-O3", "Optimize fully (for speed)");
-    AddCompilerOption("-Os", "Optimize generated code (for size)");
+    AddCompilerOption("-O", "Optimize generated code for speed");
+    AddCompilerOption("-O1", "Optimize more for speed");
+    AddCompilerOption("-O2", "Optimize even more for speed");
+    AddCompilerOption("-O3", "Optimize fully for speed");
+    AddCompilerOption("-Os", "Optimize generated code for size");
     AddCompilerOption("-O0", "Optimize for debugging");
     AddCompilerOption("-W", "Enable standard compiler warnings");
     AddCompilerOption("-Wall", "Enable all compiler warnings");
     AddCompilerOption("-Wfatal-errors", "Stop compiling after first error");
     AddCompilerOption("-Wmain", "Warn if main() is not conformant");
-    AddCompilerOption(
-        "-ansi",
-        "In C mode, support all ISO C90 programs. In C++ mode, remove GNU extensions that conflict with ISO C++");
+    AddCompilerOption("-ansi",
+                      "In C mode, this is equivalent to -std=c90. In C++ mode, it is equivalent to -std=c++98");
     AddCompilerOption("-fexpensive-optimizations", "Expensive optimizations");
     AddCompilerOption("-fopenmp", "Enable OpenMP (compilation)");
     AddCompilerOption("-g", "Produce debugging information");
@@ -607,10 +631,12 @@ void Compiler::AddDefaultGnuComplierOptions()
     AddCompilerOption("-pedantic-errors", "Treat as errors the warnings demanded by strict ISO C and ISO C++");
     AddCompilerOption("-pg", "Profile code when executed");
     AddCompilerOption("-w", "Inhibit all warning messages");
-    AddCompilerOption("-std=c99", "Enable ANSI C99 features");
+    AddCompilerOption("-std=c99", "Enable C99 features");
+    AddCompilerOption("-std=c11", "Enable C11 features");
     AddCompilerOption("-std=c++11", "Enable C++11 features");
     AddCompilerOption("-std=c++14", "Enable C++14 features");
     AddCompilerOption("-std=c++17", "Enable C++17 features");
+    AddCompilerOption("-std=c++20", "Enable C++20 features");
 }
 
 void Compiler::AddDefaultGnuLinkerOptions()
@@ -624,17 +650,11 @@ void Compiler::AddDefaultGnuLinkerOptions()
 
 wxArrayString Compiler::GetDefaultIncludePaths()
 {
-    wxArrayString defaultPaths;
-    wxArrayString gccCompilers;
-    gccCompilers.Add(COMPILER_FAMILY_MINGW);
-    gccCompilers.Add(COMPILER_FAMILY_CLANG);
-    gccCompilers.Add(COMPILER_FAMILY_GCC);
-
-    // Only add the cygwin
-    if(::clIsCygwinEnvironment()) { gccCompilers.Add(COMPILER_FAMILY_CYGWIN); }
-
-    if(gccCompilers.Index(GetCompilerFamily()) != wxNOT_FOUND) { defaultPaths = POSIXGetIncludePaths(); }
-    return defaultPaths;
+    if(HasMetadata()) {
+        return GetMetadata().GetSearchPaths();
+    } else {
+        return {};
+    }
 }
 
 wxString Compiler::GetGCCVersion() const
@@ -645,9 +665,13 @@ wxString Compiler::GetGCCVersion() const
     command << GetTool("CXX") << " --version";
     wxArrayString out;
     ProcUtils::SafeExecuteCommand(command, out);
-    if(out.IsEmpty()) { return ""; }
+    if(out.IsEmpty()) {
+        return "";
+    }
 
-    if(reVersion.Matches(out.Item(0))) { return reVersion.GetMatch(out.Item(0)); }
+    if(reVersion.Matches(out.Item(0))) {
+        return reVersion.GetMatch(out.Item(0));
+    }
     return "";
 }
 
@@ -661,107 +685,26 @@ wxString Compiler::GetIncludePath(const wxString& pathSuffix) const
 
 wxArrayString Compiler::POSIXGetIncludePaths() const
 {
-    wxString command;
-    clDEBUG() << "Loading compiler built-in search paths...";
-#ifdef __WXMSW__
-    if(::clIsCygwinEnvironment()) {
-        command << GetTool("CXX") << " -v -x c++ /dev/null -fsyntax-only";
-    } else {
-        command << GetTool("CXX") << " -v -x c++ nul -fsyntax-only";
-    }
-#else
-    command << GetTool("CXX") << " -v -x c++ /dev/null -fsyntax-only";
-#endif
-
-    clDEBUG() << "Running command:" << command;
-    wxString outputStr;
-    IProcess::Ptr_t proc(::CreateSyncProcess(command));
-    if(proc) proc->WaitForTerminate(outputStr);
-
-    clDEBUG() << "Output is:" << outputStr;
-
-    wxArrayString arr;
-    wxArrayString outputArr = ::wxStringTokenize(outputStr, wxT("\n\r"), wxTOKEN_STRTOK);
-
-    // Analyze the output
-    bool collect(false);
-    for(size_t i = 0; i < outputArr.GetCount(); i++) {
-        if(outputArr[i].Contains(wxT("#include <...> search starts here:"))) {
-            collect = true;
-            continue;
-        }
-
-        if(outputArr[i].Contains(wxT("End of search list."))) { break; }
-
-        if(collect) {
-
-            wxString file = outputArr.Item(i).Trim().Trim(false);
-
-            // on Mac, (framework directory) appears also,
-            // but it is harmless to use it under all OSs
-            file.Replace(wxT("(framework directory)"), wxT(""));
-            file.Trim().Trim(false);
-
-            // Fix cygwin paths to use Windows native paths
-#ifdef __WXMSW__
-            if(GetCompilerFamily() == COMPILER_FAMILY_CYGWIN) {
-                const wxString& cygdriveRoot = GetInstallationPath();
-
-                // For reasons beyond me, /usr/lib is mapped to /lib
-                if(file.StartsWith("/usr/lib")) { file.Replace("/usr/lib", "/lib"); }
-                file.Prepend(cygdriveRoot + "/");
-            }
-#endif
-
-            wxFileName includePath(file, "");
-            includePath.Normalize();
-
-            arr.Add(includePath.GetPath());
-        }
-    }
-    return arr;
+    clDEBUG() << "POSIXGetIncludePaths called" << endl;
+    GCCMetadata cmd = GetMetadata();
+    return cmd.GetSearchPaths();
 }
 
 const wxArrayString& Compiler::GetBuiltinMacros()
 {
-    if(!m_compilerBuiltinDefinitions.IsEmpty()) { return m_compilerBuiltinDefinitions; }
+    if(!m_compilerBuiltinDefinitions.IsEmpty()) {
+        clDEBUG1() << "Found macros:" << m_compilerBuiltinDefinitions << clEndl;
+        return m_compilerBuiltinDefinitions;
+    }
 
     wxArrayString definitions;
     // Command example: "echo | clang -dM -E - > /tmp/pp"
-    if(GetCompilerFamily() == COMPILER_FAMILY_CLANG || GetCompilerFamily() == COMPILER_FAMILY_GCC ||
-       GetCompilerFamily() == COMPILER_FAMILY_CYGWIN || GetCompilerFamily() == COMPILER_FAMILY_MINGW) {
-        wxString command;
-        wxString tool = GetTool("CXX");
-        tool.Trim().Trim(false);
-        command << "echo | \"" << tool << "\" -dM -E - > ";
-        wxString tmpFile = wxFileName::CreateTempFileName("def-macros");
-        ::WrapWithQuotes(tmpFile);
-        command << tmpFile;
-        ::WrapInShell(command);
-        // CL_SYSTEM(command);
 
-        ProcUtils::SafeExecuteCommand(command);
-        wxFileName cmpMacrosFile(tmpFile);
-        if(cmpMacrosFile.Exists()) {
-            clDEBUG1() << "Compiler builtin macros are written into:" << cmpMacrosFile.GetFullPath();
-            // we got our macro files
-            {
-                CxxPreProcessor pp;
-                pp.Parse(cmpMacrosFile, kLexerOpt_CollectMacroValueNumbers);
-                definitions = pp.GetDefinitions();
-            }
-
-            //            for(size_t i = 0; i < definitions.GetCount(); ++i) {
-            //                clDEBUG1() << "BUILTIN:" << definitions.Item(i);
-            //            }
-
-            {
-                // Delete the file
-                clRemoveFile(cmpMacrosFile.GetFullPath());
-            }
-        }
+    if(IsGnuCompatibleCompiler()) {
+        definitions = GetMetadata().GetMacros();
     }
     m_compilerBuiltinDefinitions.swap(definitions);
+    clDEBUG1() << "Found macros:" << m_compilerBuiltinDefinitions << clEndl;
     return m_compilerBuiltinDefinitions;
 }
 
@@ -769,7 +712,9 @@ wxString Compiler::GetLinkLine(const wxString& type, bool inputFromFile) const
 {
     wxString customType = type;
     const auto& iter = m_linkerLines.find(customType);
-    if(iter == m_linkerLines.end()) { return ""; }
+    if(iter == m_linkerLines.end()) {
+        return "";
+    }
     return inputFromFile ? iter->second.lineFromFile : iter->second.line;
 }
 
@@ -785,4 +730,126 @@ void Compiler::SetLinkLine(const wxString& type, const wxString& line, bool inpu
     } else {
         where->second.line = line;
     }
+}
+
+bool Compiler::Is64BitCompiler()
+{
+    wxArrayString macros = GetBuiltinMacros();
+    for(wxString& macro : macros) {
+        macro.MakeLower();
+        if(macro.Contains("_win64") || macro.Contains("x86_64") || macro.Contains("amd64")) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void Compiler::CreatePathEnv(clEnvList_t* env_list)
+{
+    wxFileName compiler_path(GetInstallationPath(), wxEmptyString);
+    if(wxFileName::DirExists(compiler_path.GetPath() + "/usr")) {
+        compiler_path.AppendDir("usr");
+    }
+    if(wxFileName::DirExists(compiler_path.GetPath() + "/bin")) {
+        compiler_path.AppendDir("bin");
+    }
+    wxString env_path;
+    wxGetEnv("PATH", &env_path);
+    env_list->push_back({ "PATH", compiler_path.GetPath() + clPATH_SEPARATOR + env_path });
+}
+
+GCCMetadata Compiler::GetMetadata() const
+{
+    // cmd.Load() fetches the metadata from a shared cache so its a cheap operation
+    GCCMetadata cmd(GetName());
+    cmd.Load(GetTool("CXX"), GetInstallationPath(), GetCompilerFamily() == COMPILER_FAMILY_CYGWIN);
+    return cmd;
+}
+
+bool Compiler::HasMetadata() const { return IsGnuCompatibleCompiler(); }
+
+bool Compiler::IsMatchesPattern(CmpInfoPattern& pattern, eSeverity severity, const wxString& line,
+                                PatternMatch* match_result) const
+{
+    if(!match_result) {
+        return false;
+    }
+
+    if(!pattern.re) {
+        // compile the regex
+        pattern.re.reset(new wxRegEx);
+        pattern.re->Compile(pattern.pattern, wxRE_ADVANCED | wxRE_ICASE);
+    }
+
+    if(!pattern.re->IsValid()) {
+        return false;
+    }
+
+    // convert the strings holding the index of the various part of the matches
+    // into numbers
+    long colIndex = wxNOT_FOUND;
+    long lineIndex = wxNOT_FOUND;
+    long fileIndex = wxNOT_FOUND;
+
+    // if any of the below conversion fails, we got a problem with this pattern
+    if(!pattern.columnIndex.ToLong(&colIndex))
+        return false;
+
+    if(!pattern.lineNumberIndex.ToLong(&lineIndex))
+        return false;
+
+    if(!pattern.fileNameIndex.ToLong(&fileIndex))
+        return false;
+
+    if(!pattern.re->Matches(line)) {
+        return false;
+    }
+
+    match_result->sev = severity;
+    // extract the file name
+    if(pattern.re->GetMatchCount() > (size_t)fileIndex) {
+        match_result->file_path = pattern.re->GetMatch(line, fileIndex);
+    }
+
+    // extract the line number
+    if(pattern.re->GetMatchCount() > (size_t)lineIndex) {
+        long lineNumber;
+        wxString strLine = pattern.re->GetMatch(line, lineIndex);
+        strLine.ToCLong(&lineNumber);
+        match_result->line_number = lineNumber;
+    }
+
+    if(pattern.re->GetMatchCount() > (size_t)colIndex) {
+        long column;
+        wxString strCol = pattern.re->GetMatch(line, colIndex);
+        if(strCol.StartsWith(":")) {
+            strCol.Remove(0, 1);
+        }
+
+        if(!strCol.IsEmpty() && strCol.ToLong(&column)) {
+            match_result->column = column;
+        }
+    }
+    return true;
+}
+
+bool Compiler::Matches(const wxString& line, PatternMatch* match_result)
+{
+    if(!match_result) {
+        return false;
+    }
+
+    // warnings must be first!
+    for(auto& warn_pattern : m_warningPatterns) {
+        if(IsMatchesPattern(warn_pattern, kSevWarning, line, match_result)) {
+            return true;
+        }
+    }
+
+    for(auto& err_pattern : m_errorPatterns) {
+        if(IsMatchesPattern(err_pattern, kSevError, line, match_result)) {
+            return true;
+        }
+    }
+    return false;
 }

@@ -26,19 +26,21 @@
 #ifndef IEDITOR_H
 #define IEDITOR_H
 
-#include <wx/filename.h>
+#include "LSP/basic_types.h"
 #include "browse_record.h"
-#include "wx/string.h"
-#include <wx/colour.h>
-#include "entry.h"
-#include <vector>
 #include "cl_calltip.h"
+#include "entry.h"
+#include "optionsconfig.h"
+#include "wx/string.h"
+
 #include <list>
 #include <map>
-#include "optionsconfig.h"
-#include "LSP/basic_types.h"
 #include <string>
+#include <vector>
+#include <wx/colour.h>
+#include <wx/filename.h>
 
+class SFTPClientData;
 class wxStyledTextCtrl;
 
 class NavMgr;
@@ -95,7 +97,7 @@ public:
     /**
      * @brief return true if the editor is modified
      */
-    virtual bool IsModified() = 0;
+    virtual bool IsEditorModified() const = 0;
 
     /**
      * @brief Get the editor's modification count
@@ -106,7 +108,7 @@ public:
      * \brief return the current editor content
      */
     virtual wxString GetEditorText() = 0;
-    
+
     /**
      * @brief get editor text raw, in an efficient way
      */
@@ -178,6 +180,11 @@ public:
      * if this file has not project owner
      */
     virtual const wxString& GetProjectName() const = 0;
+
+    /**
+     * @brief return the position under the mouse pointer
+     */
+    virtual int GetPosAtMousePointer() = 0;
 
     /**
      * \brief return the current word under the caret. May return wxEmptyString
@@ -299,6 +306,13 @@ public:
     virtual void ShowCalltip(clCallTipPtr tip) = 0;
 
     /**
+     * @brief display a tooltip
+     * @param tip tip text
+     * @param pos position for the tip. If wxNOT_FOUND the tip is positioned at the mouse
+     */
+    virtual void ShowTooltip(const wxString& tip, const wxString& title = wxEmptyString, int pos = wxNOT_FOUND) = 0;
+
+    /**
      * @brief display a rich tooltip (a tip that supports basic markup, such as <a></a>, <strong></strong> etc)
      * @param tip tip text
      * @param pos position for the tip. If wxNOT_FOUND the tip is positioned at the mouse
@@ -347,12 +361,17 @@ public:
      * @return return true if a match was found, false otherwise
      */
     virtual bool FindAndSelect(const wxString& pattern, const wxString& what, int from_pos, NavMgr* navmgr) = 0;
-    
+
     /**
      * @brief select range
      */
     virtual bool SelectRange(const LSP::Range& range) = 0;
-    
+
+    /**
+     * @brief select range from a given location
+     */
+    virtual bool SelectLocation(const LSP::Location& location) = 0;
+
     /**
      * @brief Similar to the above but returns void, and is implemented asynchronously
      */
@@ -496,7 +515,9 @@ public:
     wxClientData* GetClientData(const wxString& key) const
     {
         IEditor::ClientDataMap_t::const_iterator iter = m_data.find(key);
-        if(iter != m_data.end()) { return iter->second; }
+        if(iter != m_data.end()) {
+            return iter->second;
+        }
         return NULL;
     }
 
@@ -522,6 +543,14 @@ public:
      * @brief return a string representing all the local variables coloured by this editor
      */
     virtual const wxString& GetKeywordLocals() const = 0;
+    /**
+     * @brief return a string representing all the methods coloured by this editor
+     */
+    virtual const wxString& GetKeywordMethods() const = 0;
+    /**
+     * @brief return a string representing all the other tokens
+     */
+    virtual const wxString& GetKeywordOthers() const = 0;
 
     /**
      * @brief get the options associated with this editor
@@ -539,7 +568,57 @@ public:
      * @param bookmarksVector output, contains pairs of: LINE:SNIPPET
      * @return number of bookmarks found
      */
-    virtual size_t GetFindMarkers(std::vector<std::pair<int, wxString> >& bookmarksVector) = 0;
+    virtual size_t GetFindMarkers(std::vector<std::pair<int, wxString>>& bookmarksVector) = 0;
+
+    /**
+     * @brief incase this editor represents a remote file, return its remote path
+     */
+    virtual wxString GetRemotePath() const = 0;
+
+    /**
+     * @brief if this editor represents a remote file
+     * return its remote path, otherwise return the local path
+     * this is equal for writing:
+     *
+     * ```
+     * wxString fullpath = editor->IsRemoteFile() ? editor->GetRemotePath() : editor->GetFileName().GetFullPath();
+     * return fullpath;
+     * ```
+     */
+    virtual wxString GetRemotePathOrLocal() const = 0;
+
+    /**
+     * @brief return true if this file represents a remote file
+     */
+    virtual bool IsRemoteFile() const = 0;
+
+    /**
+     * @brief return a pointer to the remote data
+     * @return remote file info, or null if this file is not a remote a file
+     */
+    virtual SFTPClientData* GetRemoteData() const = 0;
+
+    /**
+     * @brief set semantic tokens for this editor
+     */
+    virtual void SetSemanticTokens(const wxString& classes, const wxString& variables, const wxString& methods,
+                                   const wxString& others) = 0;
+
+    /**
+     * @brief similar to wxStyledTextCtrl::GetColumn(), but treat TAB as a single char
+     * width
+     */
+    virtual int GetColumnInChars(int pos) = 0;
+
+    /**
+     * @brief highlight a given line in the editor
+     */
+    virtual void HighlightLine(int lineno) = 0;
+
+    /**
+     * @brief clear all highlights (added by `HighlightLine` calls)
+     */
+    virtual void UnHighlightAll() = 0;
 };
 
 #endif // IEDITOR_H

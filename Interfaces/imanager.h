@@ -28,8 +28,10 @@
 
 #include "Notebook.h"
 #include "bitmap_loader.h"
+#include "clMenuBar.hpp"
 #include "clStatusBar.h"
 #include "clTab.h"
+#include "clThemedMenuBar.hpp"
 #include "debugger.h"
 #include "iconfigtool.h"
 #include "ieditor.h"
@@ -38,6 +40,7 @@
 #include "project.h"
 #include "queuecommand.h"
 #include "wx/treectrl.h"
+
 #include <vector>
 #include <wx/aui/framemanager.h>
 
@@ -47,7 +50,6 @@ class clWorkspaceView;
 class TagsManager;
 class clCxxWorkspace;
 class EnvironmentConfig;
-class JobQueue;
 class wxApp;
 class IPlugin;
 class BuildManager;
@@ -115,7 +117,9 @@ public:
      */
     void AddWorkspaceTab(const wxString& tabLabel)
     {
-        if(m_workspaceTabs.Index(tabLabel) == wxNOT_FOUND) { m_workspaceTabs.Add(tabLabel); }
+        if(m_workspaceTabs.Index(tabLabel) == wxNOT_FOUND) {
+            m_workspaceTabs.Add(tabLabel);
+        }
     }
 
     /**
@@ -123,10 +127,14 @@ public:
      */
     void AddOutputTab(const wxString& tabLabel)
     {
-        if(m_outputTabs.Index(tabLabel) == wxNOT_FOUND) { m_outputTabs.Add(tabLabel); }
+        if(m_outputTabs.Index(tabLabel) == wxNOT_FOUND) {
+            m_outputTabs.Add(tabLabel);
+        }
     }
 
     virtual clToolBar* GetToolBar() = 0;
+
+    virtual clMenuBar* GetMenuBar() = 0;
 
     /**
      * @brief show the output pane and if provided, select 'selectedWindow'
@@ -183,8 +191,18 @@ public:
     /**
      * @brief open a file with a given tooltip and bitmap
      */
-    virtual IEditor* OpenFile(const wxString& fileName, const wxBitmap& bmp,
+    virtual IEditor* OpenFile(const wxString& fileName, const wxString& bmpResourceName,
                               const wxString& tooltip = wxEmptyString) = 0;
+
+    /**
+     * @brief open or select ((if the file is already loaded in CodeLite) editor with a given `file_name` to the
+     * notebook control and make it active Once the page is **visible**, execute the callback provided by the user
+     * @param callback user callback to be executed once the editor is visible on screen
+     * On some platforms (e.g. `GTK`) various operations (e.g. `CenterLine()`) will not work as intended unless the
+     * editor is actually visible on screen. This way you
+     * can delay the call the `CenterLine()` after the editor is visible
+     */
+    virtual void OpenFileAndAsyncExecute(const wxString& fileName, std::function<void(IEditor*)>&& callback) = 0;
 
     /**
      * @brief Open file using browsing record
@@ -346,11 +364,6 @@ public:
      * @sa EnvironmentConfig
      */
     virtual EnvironmentConfig* GetEnv() = 0;
-    /**
-     * @brief return a pointer to the job queue manager
-     * @return job queue manager
-     */
-    virtual JobQueue* GetJobQueue() = 0;
 
     /**
      * @brief return the project execution command as set in the project's settings
@@ -497,7 +510,7 @@ public:
      * @brief add a page to the mainbook
      */
     virtual bool AddPage(wxWindow* win, const wxString& text, const wxString& tooltip = wxEmptyString,
-                         const wxBitmap& bmp = wxNullBitmap, bool selected = false) = 0;
+                         const wxString& bmpResourceName = wxEmptyString, bool selected = false) = 0;
 
     /**
      * @brief select a window in mainbook
@@ -572,7 +585,7 @@ public:
     /**
      * @brief return a vector of all the current breakpoints set by the user
      */
-    virtual size_t GetAllBreakpoints(BreakpointInfo::Vec_t& breakpoints) = 0;
+    virtual size_t GetAllBreakpoints(clDebuggerBreakpoint::Vec_t& breakpoints) = 0;
 
     /**
      * @brief delete all breakpoints assigned by the user
@@ -583,7 +596,7 @@ public:
      * @brief set breakpoints (override any existing breakpoints)
      * this function also refreshes the editors markers
      */
-    virtual void SetBreakpoints(const BreakpointInfo::Vec_t& breakpoints) = 0;
+    virtual void SetBreakpoints(const clDebuggerBreakpoint::Vec_t& breakpoints) = 0;
 
     /**
      * @brief process a standard edit event ( wxID_COPY, wxID_PASTE etc)
@@ -642,8 +655,8 @@ public:
     /**
      * @brief return list of all breakpoints
      */
-    virtual void GetBreakpoints(std::vector<BreakpointInfo>& bpList) = 0;
-    
+    virtual void GetBreakpoints(std::vector<clDebuggerBreakpoint>& bpList) = 0;
+
     /**
      * @brief build and display the build menu for a toolbar button
      */

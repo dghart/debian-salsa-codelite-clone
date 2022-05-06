@@ -57,6 +57,7 @@ class SyntaxHighlightDlg : public SyntaxHighlightBaseDlg
     bool m_useBaseColourEnding = false;
 
 protected:
+    virtual void OnUseCustomBaseColourUI(wxUpdateUIEvent& event);
     virtual void OnCustomBaseColourPIcked(wxColourPickerEvent& event);
     virtual void OnUseCustomBaseColour(wxCommandEvent& event);
     virtual void OnUseCustomColourUI(wxUpdateUIEvent& event);
@@ -90,6 +91,8 @@ protected:
     virtual void OnStyleWithingPreProcessorUI(wxUpdateUIEvent& event);
     virtual void OnText(wxCommandEvent& event);
 
+    void DoFontChanged(StyleProperty& sp, const wxFont& font);
+
     // Handlers for SyntaxHighlightBaseDlg events.
     void OnButtonOK(wxCommandEvent& event);
     void OnButtonCancel(wxCommandEvent& event);
@@ -107,6 +110,7 @@ protected:
     void DoSetGlobalBgColour(const wxColour& colour);
     void DoShowTooltipForGlobalBgColourChanged();
     void DoExport(const wxArrayString& lexers = wxArrayString());
+    void UpdateTextSelectionColours();
 
 public:
     /** Constructor */

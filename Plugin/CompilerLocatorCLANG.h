@@ -28,11 +28,17 @@
 
 #include "ICompilerLocator.h" // Base class: ICompilerLocator
 #include "codelite_exports.h"
-#include "wx/filename.h"
 #include "compiler.h"
+#include "wx/filename.h"
 
 class WXDLLIMPEXP_SDK CompilerLocatorCLANG : public ICompilerLocator
 {
+    struct MSYS2Env {
+        int cpuBits;     // 32bit or 64bit
+        wxString prefix; // directory prefix
+    };
+    std::vector<MSYS2Env> m_msys2Envs;
+
 protected:
     void MSWLocate();
     void AddTools(CompilerPtr compiler, const wxString& installFolder, const wxString& suffix = "");
@@ -41,15 +47,17 @@ protected:
     wxString GetClangVersion(const wxString& clangBinary);
     wxString GetCompilerFullName(const wxString& clangBinary);
     bool ReadMSWInstallLocation(const wxString& regkey, wxString& installPath, wxString& llvmVersion);
-    CompilerPtr AddCompiler(const wxString& clangFolder, const wxString& suffix);
+    virtual void CheckUninstRegKey(const wxString& displayName, const wxString& installFolder,
+                                   const wxString& displayVersion);
+    CompilerPtr AddCompiler(const wxString& clangFolder, const wxString& name = "", const wxString& suffix = "");
 
 public:
     CompilerLocatorCLANG();
     virtual ~CompilerLocatorCLANG();
 
 public:
-    bool Locate();
-    CompilerPtr Locate(const wxString& folder);
+    virtual bool Locate();
+    virtual CompilerPtr Locate(const wxString& folder);
 };
 
 #endif // COMPILERLOCATORCLANG_H

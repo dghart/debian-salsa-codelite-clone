@@ -1,12 +1,14 @@
 #include "clProfileHandler.h"
+
+#include "Notebook.h"
+#include "clFileSystemWorkspace.hpp"
 #include "codelite_events.h"
 #include "event_notifier.h"
-#include "workspace.h"
 #include "globals.h"
-#include "Notebook.h"
-#include <algorithm>
 #include "imanager.h"
-#include "clFileSystemWorkspace.hpp"
+#include "workspace.h"
+
+#include <algorithm>
 
 clProfileHandler::clProfileHandler()
 {
@@ -14,8 +16,7 @@ clProfileHandler::clProfileHandler()
     EventNotifier::Get()->Bind(wxEVT_WORKSPACE_LOADED, &clProfileHandler::OnWorkspaceLoaded, this);
     EventNotifier::Get()->Bind(wxEVT_GOING_DOWN, &clProfileHandler::OnGoingDown, this);
 
-    m_cxxOutputTabs = { "Clang",    "Build",    "References", "UnitTest++", "Trace",
-                        "CppCheck", "MemCheck", "CScope",     "BuildQ" };
+    m_cxxOutputTabs = { "References", "UnitTest++", "Trace", "CppCheck", "MemCheck", "CScope", "BuildQ" };
     m_cxxWorkspaceTabs = { "CMake Help", "wxCrafter", "Tabgroups" };
 }
 
@@ -26,14 +27,14 @@ clProfileHandler::~clProfileHandler()
     EventNotifier::Get()->Unbind(wxEVT_GOING_DOWN, &clProfileHandler::OnGoingDown, this);
 }
 
-void clProfileHandler::OnWorkspaceClosed(wxCommandEvent& e)
+void clProfileHandler::OnWorkspaceClosed(clWorkspaceEvent& e)
 {
     e.Skip();
     RestoreTabs(m_cxxOutputTabsToRestore, wxEVT_SHOW_OUTPUT_TAB);
     RestoreTabs(m_cxxWorkspaceTabsToRestore, wxEVT_SHOW_WORKSPACE_TAB);
 }
 
-void clProfileHandler::OnWorkspaceLoaded(wxCommandEvent& e)
+void clProfileHandler::OnWorkspaceLoaded(clWorkspaceEvent& e)
 {
     e.Skip();
     if(::clIsCxxWorkspaceOpened()) {

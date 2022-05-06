@@ -23,22 +23,23 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "ColoursAndFontsManager.h"
 #include "cl_editor_tip_window.h"
+
+#include "ColoursAndFontsManager.h"
 #include "drawingutils.h"
 #include "editor_config.h"
 #include "event_notifier.h"
 #include "globals.h"
+#include "ieditor.h"
+#include "imanager.h"
 #include "plugin.h"
+
 #include <wx/dcbuffer.h>
 #include <wx/dcgraph.h>
 #include <wx/log.h>
 #include <wx/msgdlg.h>
 #include <wx/settings.h>
 #include <wx/stc/stc.h>
-#include "ieditor.h"
-#include "imanager.h"
-#include <wx/dcgraph.h>
 
 BEGIN_EVENT_TABLE(clEditorTipWindow, wxPanel)
 EVT_PAINT(clEditorTipWindow::OnPaint)
@@ -52,7 +53,7 @@ clEditorTipWindow::clEditorTipWindow(wxWindow* parent)
     , m_highlighIndex(0)
 {
     SetBackgroundStyle(wxBG_STYLE_PAINT);
-    m_font = ColoursAndFontsManager::Get().GetLexer("text")->GetFontForSyle(0, this);
+    m_font = ColoursAndFontsManager::Get().GetFixedFont(true);
     Hide();
     EventNotifier::Get()->Connect(wxEVT_CMD_COLOURS_FONTS_UPDATED,
                                   clCommandEventHandler(clEditorTipWindow::OnEditoConfigChanged), NULL, this);
@@ -69,11 +70,11 @@ void clEditorTipWindow::OnEraseBg(wxEraseEvent& e) { wxUnusedVar(e); }
 void clEditorTipWindow::OnPaint(wxPaintEvent& e)
 {
     wxUnusedVar(e);
-    wxAutoBufferedPaintDC bdc(this);
-    wxGCDC dc(bdc);
+    wxAutoBufferedPaintDC dc(this);
     PrepareDC(dc);
 
-    if(m_args.IsEmpty()) return;
+    if(m_args.IsEmpty())
+        return;
 
     // Define the colours used by this tooltip window
     clColours colours = DrawingUtils::GetColours();
@@ -83,7 +84,7 @@ void clEditorTipWindow::OnPaint(wxPaintEvent& e)
         if(DrawingUtils::IsDark(bgColour)) {
             colours.InitFromColour(bgColour);
         } else {
-            colours.InitFromColour(wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE));
+            colours.InitFromColour(clSystemSettings::GetDefaultPanelColour());
         }
     }
 
@@ -95,10 +96,17 @@ void clEditorTipWindow::OnPaint(wxPaintEvent& e)
     highlightFgColour = colours.GetSelItemTextColour();
     wxRect rr = GetClientRect();
 
+    bool is_dark = DrawingUtils::IsDark(bgColour);
+
+#ifdef __WXMAC__
+    rr.Inflate(1);
+#endif
+
     // draw the background using the parent background colour
     dc.SetBrush(bgColour);
-	
-	wxColour borderColour = penColour.ChangeLightness(DrawingUtils::IsDark(bgColour) ? 140 : 60);
+    wxUnusedVar(is_dark);
+
+    wxColour borderColour = clSystemSettings::GetColour(wxSYS_COLOUR_3DSHADOW);
     dc.SetPen(borderColour);
     dc.DrawRectangle(rr);
     dc.SetFont(m_font);
@@ -181,7 +189,8 @@ void clEditorTipWindow::AddCallTip(clCallTipPtr tip)
 
 clCallTipPtr clEditorTipWindow::GetTip()
 {
-    if(m_tips.empty()) return NULL;
+    if(m_tips.empty())
+        return NULL;
 
     return m_tips.at(m_tips.size() - 1).tip;
 }
@@ -193,10 +202,13 @@ void clEditorTipWindow::Remove()
     if(!m_tips.empty()) {
         m_tips.pop_back();
 
-        if(!m_tips.empty()) { m_highlighIndex = m_tips.at(m_tips.size() - 1).highlightIndex; }
+        if(!m_tips.empty()) {
+            m_highlighIndex = m_tips.at(m_tips.size() - 1).highlightIndex;
+        }
     }
 
-    if(m_tips.empty()) Deactivate();
+    if(m_tips.empty())
+        Deactivate();
 }
 
 void clEditorTipWindow::Clear()
@@ -270,20 +282,23 @@ void clEditorTipWindow::SelectPrev(int argIdxToHilight)
 wxString clEditorTipWindow::GetText()
 {
     clCallTipPtr tip = GetTip();
-    if(tip) { return tip->All(); }
+    if(tip) {
+        return tip->All();
+    }
     return wxT("");
 }
 
 void clEditorTipWindow::Activate(wxPoint pt, int lineHeight, wxColour parentBgColour)
 {
-    if(m_tips.empty()) return;
+    if(m_tips.empty())
+        return;
 
     m_point = pt;
     m_lineHeight = lineHeight;
     m_parentBgColour = parentBgColour;
 
     // update the font to the current editor
-    m_font = ColoursAndFontsManager::Get().GetLexer("text")->GetFontForSyle(0, this);
+    m_font = ColoursAndFontsManager::Get().GetFixedFont(true);
 
     DoAdjustPosition();
     if(!IsActive()) {
@@ -295,14 +310,13 @@ void clEditorTipWindow::Activate(wxPoint pt, int lineHeight, wxColour parentBgCo
 void clEditorTipWindow::Deactivate()
 {
     Clear();
-    if(IsShown()) Hide();
+    if(IsShown())
+        Hide();
 }
 
 wxSize clEditorTipWindow::DoGetTipSize()
 {
-    wxBitmap bmp(1, 1);
-    wxMemoryDC memDC(bmp);
-    wxGCDC dc(memDC);
+    wxClientDC dc(this);
     PrepareDC(dc);
 
     wxFont f = m_font;
@@ -335,10 +349,16 @@ wxSize clEditorTipWindow::DoGetTipSize()
     sz.y = (m_args.size() * lineHeight);
     sz.x += (2 * TIP_SPACER);
 
-    if(sz.x < minLineWidth) { sz.x = minLineWidth; }
+    if(sz.x < minLineWidth) {
+        sz.x = minLineWidth;
+    }
 
-    if(!m_footer.IsEmpty()) { sz.y += lineHeight; }
-    if(!m_header.IsEmpty()) { sz.y += lineHeight; }
+    if(!m_footer.IsEmpty()) {
+        sz.y += lineHeight;
+    }
+    if(!m_header.IsEmpty()) {
+        sz.y += lineHeight;
+    }
     return sz;
 }
 
@@ -366,7 +386,8 @@ void clEditorTipWindow::DoAdjustPosition()
         // our tip can not fit into the screen, shift it left
         pt.x -= ((pt.x + sz.x) - parentSize.width);
 
-        if(pt.x < 0) pt.x = 0;
+        if(pt.x < 0)
+            pt.x = 0;
     }
     Move(pt);
 }
@@ -417,7 +438,9 @@ void clEditorTipWindow::DoMakeMultipleLineTip()
     sig.Trim().Trim(false);
     if(sig.IsEmpty()) {
         m_args.Add("()");
-        if(GetTip() && (GetTip()->Count() > 1)) { m_footer << GetTip()->GetCurr() << " OF " << GetTip()->Count(); }
+        if(GetTip() && (GetTip()->Count() > 1)) {
+            m_footer << GetTip()->GetCurr() << " OF " << GetTip()->Count();
+        }
         return;
     }
 
@@ -451,5 +474,7 @@ void clEditorTipWindow::DoMakeMultipleLineTip()
         m_args.Add(currentArg);
     }
 
-    if(GetTip() && (GetTip()->Count() > 1)) { m_footer << GetTip()->GetCurr() << " OF " << GetTip()->Count(); }
+    if(GetTip() && (GetTip()->Count() > 1)) {
+        m_footer << GetTip()->GetCurr() << " OF " << GetTip()->Count();
+    }
 }

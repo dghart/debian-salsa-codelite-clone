@@ -21,6 +21,7 @@
 #include "cl_defs.h"
 #include "drawingutils.h"
 #include "wxStringHash.h"
+
 #include <vector>
 #include <wx/arrstr.h>
 #include <wx/bitmap.h>
@@ -33,23 +34,31 @@
 
 class clTabCtrl;
 enum NotebookStyle {
-    /// Use the built-in light tab colours
-    kNotebook_LightTabs = (1 << 0),
-    /// Use the built-in dark tab colours
-    kNotebook_DarkTabs = (1 << 1),
+    /// Add a "+" button for creating new empty pages
+    kNotebook_NewButton = (1 << 0),
+
+    /// Hide the tab-bar
+    kNotebook_HideTabBar = (1 << 1),
+
     /// Allow tabs to move using DnD
     kNotebook_AllowDnD = (1 << 2),
+
     /// Draw X button on the active tab
     kNotebook_CloseButtonOnActiveTab = (1 << 3),
+
     /// Mouse middle click closes tab
     kNotebook_MouseMiddleClickClosesTab = (1 << 4),
+
     /// Show a drop down button for displaying all tabs list
     kNotebook_ShowFileListButton = (1 << 5),
+
     /// Mouse middle click on a tab fires an event
     kNotebook_MouseMiddleClickFireEvent = (1 << 6),
+
     /// Clicking the X button on the active button fires an event
     /// instead of closing the tab (i.e. let the container a complete control)
     kNotebook_CloseButtonOnActiveTabFireEvent = (1 << 7),
+
     /// Fire navigation event for Ctrl-TAB et al
     kNotebook_EnableNavigationEvent = (1 << 8),
     /// Place tabs at the bottom
@@ -74,7 +83,7 @@ enum NotebookStyle {
     kNotebook_MouseScrollSwitchTabs = (1 << 15),
 
     /// Default notebook
-    kNotebook_Default = kNotebook_LightTabs | kNotebook_ShowFileListButton,
+    kNotebook_Default = kNotebook_ShowFileListButton,
 
 };
 
@@ -106,18 +115,9 @@ public:
     virtual ~clTabColours() {}
 
     /**
-     * @brief initialize the colours from base colour and text colour
+     * @brief update colours based on the current theme
      */
-    void InitFromColours(const wxColour& baseColour, const wxColour& textColour);
-
-    /**
-     * @brief initialize the dark colours
-     */
-    virtual void InitDarkColours();
-    /**
-     * @brief initialize the light colours
-     */
-    virtual void InitLightColours();
+    void UpdateColours(size_t notebookStyle);
 
     bool IsDarkColours() const;
 };
@@ -129,15 +129,15 @@ public:
  */
 class WXDLLIMPEXP_SDK clTabInfo
 {
-    wxBitmap m_bitmap;
-    wxBitmap m_disabledBitmp;
+    int m_bitmap = wxNOT_FOUND;
+    int m_disabledBitmp = wxNOT_FOUND;
 
 public:
-    clTabCtrl* m_tabCtrl;
+    clTabCtrl* m_tabCtrl = nullptr;
     wxString m_label;
     wxString m_shortLabel;
     wxString m_tooltip;
-    wxWindow* m_window;
+    wxWindow* m_window = nullptr;
     wxRect m_rect;
     bool m_active;
     int m_textX;
@@ -162,16 +162,16 @@ public:
     typedef std::vector<clTabInfo::Ptr_t> Vec_t;
 
     clTabInfo(clTabCtrl* tabCtrl);
-    clTabInfo(clTabCtrl* tabCtrl, size_t style, wxWindow* page, const wxString& text,
-              const wxBitmap& bmp = wxNullBitmap);
+    clTabInfo(clTabCtrl* tabCtrl, size_t style, wxWindow* page, const wxString& text, int bitmapId = wxNOT_FOUND);
     virtual ~clTabInfo() {}
 
+    void CreateDisabledBitmap();
     bool IsValid() const { return m_window != NULL; }
-    void SetBitmap(const wxBitmap& bitmap, size_t style);
+    void SetBitmap(int bitmap, size_t style);
     void SetLabel(const wxString& label, size_t style);
     void SetActive(bool active, size_t style);
     void SetRect(const wxRect& rect) { this->m_rect = rect; }
-    const wxBitmap& GetBitmap() const { return m_bitmap; }
+    int GetBitmap() const { return m_bitmap; }
     const wxString& GetLabel() const { return m_label; }
     const wxString& GetShortLabel() const { return m_shortLabel; }
     void SetShortLabel(const wxString& shortLabel) { this->m_shortLabel = shortLabel; }
@@ -188,7 +188,10 @@ public:
     int GetWidth() const { return m_width; }
     void SetTooltip(const wxString& tooltip) { this->m_tooltip = tooltip; }
     const wxString& GetTooltip() const { return m_tooltip; }
-    const wxBitmap& GetDisabledBitmp() const { return m_disabledBitmp; }
+    int GetDisabledBitmp() const { return m_disabledBitmp; }
+    const wxBitmap& GetBitmap(int index, bool disabled) const;
+    bool HasDisableBitmap() const;
+    bool HasBitmap() const;
 };
 
 class WXDLLIMPEXP_SDK clTabRenderer
@@ -206,6 +209,7 @@ public:
     int ySpacer;
     wxString m_name;
     static std::unordered_map<wxString, clTabRenderer*> ms_Renderes;
+    bool use_bold_font = false;
 
 protected:
     void ClearActiveTabExtraLine(clTabInfo::Ptr_t activeTab, wxDC& dc, const clTabColours& colours, size_t style);
@@ -222,15 +226,22 @@ public:
     virtual void DrawBottomRect(wxWindow* parent, clTabInfo::Ptr_t activeTab, const wxRect& clientRect, wxDC& dc,
                                 const clTabColours& colours, size_t style) = 0;
 
-    virtual void DrawBackground(wxWindow* parent, wxDC& dc, const wxRect& clientRect, const clTabColours& colours,
-                                size_t style);
+    void SetUseBoldFont(bool use_bold_font) { this->use_bold_font = use_bold_font; }
+    bool IsUseBoldFont() const { return use_bold_font; }
+
+    /**
+     * @brief draw the tab area background, return the colour used to actually
+     * paint it
+     */
+    virtual wxColour DrawBackground(wxWindow* parent, wxDC& dc, const wxRect& clientRect, const clTabColours& colours,
+                                    size_t style);
 
     /**
      * @brief finalise the background after all elements have been drawn on the tab area colour. Default is
      * to do nothing
      */
-    virtual void FinaliseBackground(wxWindow* parent, wxDC& dc, const wxRect& clientRect, const clTabColours& colours,
-                                    size_t style);
+    virtual void FinaliseBackground(wxWindow* parent, wxDC& dc, const wxRect& clientRect, const wxRect& activeTabRect,
+                                    const clTabColours& colours, size_t style);
     /**
      * @brief reutrn font suitable for drawing the tab label
      */
@@ -273,5 +284,9 @@ public:
     void SetName(const wxString& name) { this->m_name = name; }
     const wxString& GetName() const { return m_name; }
     virtual clTabRenderer* New(const wxWindow* parent) const = 0;
+    /**
+     * @brief return true if this renderer supports vertical tabs
+     */
+    virtual bool IsVerticalTabSupported() const = 0;
 };
 #endif // CLTABRENDERER_H

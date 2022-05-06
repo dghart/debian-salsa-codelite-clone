@@ -25,12 +25,12 @@
 #ifndef FILEUTILS_H
 #define FILEUTILS_H
 
+#include "asyncprocess.h"
 #include "codelite_exports.h"
 #include "macros.h"
 #include "wx/filename.h"
 #include <wx/filename.h>
 #include <wx/log.h>
-#include "asyncprocess.h"
 
 #define clRemoveFile(filename) FileUtils::RemoveFile(filename, (wxString() << __FILE__ << ":" << __LINE__))
 
@@ -49,12 +49,15 @@ public:
 
         ~Deleter()
         {
-            if(m_filename.Exists()) { clRemoveFile(m_filename); }
+            if(m_filename.Exists()) {
+                clRemoveFile(m_filename);
+            }
         }
     };
 
 public:
     static bool ReadFileContent(const wxFileName& fn, wxString& data, const wxMBConv& conv = wxConvUTF8);
+    static bool ReadFileContentRaw(const wxFileName& fn, std::string& data);
 
     /**
      * @brief attempt to read up to bufferSize from the beginning of file
@@ -184,7 +187,7 @@ public:
      * @brief return true if filename is a symlink
      */
     static bool IsSymlink(const wxString& filename);
-    
+
     /**
      * @brief return true if filename is a symlink
      */
@@ -193,7 +196,7 @@ public:
      * @brief return true if filename is a symlink
      */
     static bool IsDirectory(const wxString& filename);
-    
+
     /**
      * @brief set permissions to filename
      */
@@ -248,7 +251,7 @@ public:
      * @brief convert string into std::string
      */
     static std::string ToStdString(const wxString& str);
-    
+
     /**
      * @brief create an environment list from string in the format of:
      * ...
@@ -257,14 +260,57 @@ public:
      * ...
      */
     static clEnvList_t CreateEnvironment(const wxString& envstr);
-    
+
     /**
      * @brief Check if the file 'name' is findable on the user's system
      * @param name the name of the file to locate
      * @param exepath will contain its filepath if successfully located
      * @param hint extra paths to search
+     * @param list of suffixes. On Linux, some files may have number attached to them like: lldb-10, lldb-9
+     * passing suffix_list = {"-10", "-9"...} will also check for these files (in order)
      * @return true if a filepath was found
      */
-    static bool FindExe(const wxString& name, wxFileName& exepath, const wxArrayString& hint = wxArrayString());
+    static bool FindExe(const wxString& name, wxFileName& exepath, const wxArrayString& hint = {},
+                        const wxArrayString& suffix_list = {});
+
+    /**
+     * @brief create a temporary file *name* in a given folder with a given name prefix and an extension
+     * note that this function does not actually create the file, but only generates a name
+     */
+    static wxFileName CreateTempFileName(const wxString& folder, const wxString& prefix, const wxString& ext);
+
+    /**
+     * @brief find a file(s) with similar name and path, but with a different extension
+     * @param filename
+     * @param extensions
+     * @param [out] the files found
+     */
+    static size_t FindSimilar(const wxFileName& filename, const std::vector<wxString>& extensions,
+                              std::vector<wxFileName>& vout);
+
+    /**
+     * @brief given URI, parse it into its basic parts
+     */
+    static bool ParseURI(const wxString& uri, wxString& path, wxString& scheme, wxString& user, wxString& host,
+                         wxString& port);
+
+    /**
+     * @brief covnert path to uri
+     * /home/eran/file.cpp -> file:///home/eran/file.cpp
+     * file:///home/eran/file.cpp -> file:///home/eran/file.cpp
+     */
+    static wxString FilePathToURI(const wxString& filepath);
+
+    /**
+     * @brief convert uri to file path
+     * file:///home/eran/file.cpp -> /home/eran/file.cpp
+     * /home/eran/file.cpp -> /home/eran/file.cpp
+     */
+    static wxString FilePathFromURI(const wxString& uri);
+
+    /**
+     * @brief calculate checksum of a given file
+     */
+    static bool GetChecksum(const wxString& filepath, size_t* checksum);
 };
 #endif // FILEUTILS_H

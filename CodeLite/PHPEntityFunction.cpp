@@ -41,6 +41,13 @@ wxString PHPEntityFunction::GetSignature() const
         }
         if(strSignature.EndsWith(", ")) { strSignature.RemoveLast(2); }
         strSignature << ")";
+        if (!GetReturnValue().IsEmpty()) {
+            strSignature << ": ";
+            if (HasFlag(kFunc_ReturnNullable)) {
+                strSignature << "?";
+            }
+            strSignature << GetReturnValue();
+        }
         return strSignature;
     }
 }
@@ -98,6 +105,7 @@ bool PHPEntityFunction::Is(eEntityType type) const { return type == kEntityTypeF
 wxString PHPEntityFunction::GetDisplayName() const { return wxString() << GetShortName() << GetSignature(); }
 wxString PHPEntityFunction::FormatPhpDoc(const CommentConfigData& data) const
 {
+    bool hasParams = false;
     wxString doc;
     doc << data.GetCommentBlockPrefix() << "\n"
         << " * @brief \n";
@@ -105,11 +113,28 @@ wxString PHPEntityFunction::FormatPhpDoc(const CommentConfigData& data) const
     for(; iter != m_children.end(); ++iter) {
         const PHPEntityVariable* var = (*iter)->Cast<PHPEntityVariable>();
         if(var) {
-            doc << " * @param " << (var->GetTypeHint().IsEmpty() ? "mixed" : var->GetTypeHint()) << " "
-                << var->GetFullName() << " \n";
+            hasParams = true;
+            doc << " * @param ";
+            if (var->IsNullable() || var->GetDefaultValue().Matches("null")) {
+                doc << "?";
+            }
+            doc << (var->GetTypeHint().IsEmpty() ? "mixed" : var->GetTypeHint()) << " " << var->GetFullName();
+            if (!var->GetDefaultValue().IsEmpty()) {
+                doc << " [" << var->GetDefaultValue() << "]";
+            }
+            doc << " \n";
         }
     }
-    doc << " * @return " << GetReturnValue() << " \n";
+    if(!GetShortName().Matches("__construct")) {
+        if(hasParams) {
+            doc << " *\n";
+        }
+        doc << " * @return ";
+        if (HasFlag(kFunc_ReturnNullable)) {
+            doc << "?";
+        }
+        doc << (GetReturnValue().IsEmpty() ? "mixed" : GetReturnValue()) << " \n";
+    }
     doc << " */";
     return doc;
 }

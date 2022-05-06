@@ -17,7 +17,6 @@
 #include <wx/sizer.h>
 #include <wx/panel.h>
 #include <wx/toolbar.h>
-#include "clToolBar.h"
 #include <wx/notebook.h>
 #include <wx/imaglist.h>
 #include <wx/statbox.h>
@@ -54,11 +53,17 @@ class SyntaxHighlightBaseDlg : public wxDialog
 {
 protected:
     wxPanel* m_panel171;
-    clToolBar* m_toolbar;
+    wxToolBar* m_toolbar;
     wxNotebook* m_notebook;
     wxPanel* m_panelGlobalColours;
     wxCheckBox* m_cbUseCustomBaseColour;
     wxColourPickerCtrl* m_colourPickerBaseColour;
+    wxStaticText* m_staticText9;
+    wxColourPickerCtrl* m_colourPickerSelTextBgColour;
+    wxStaticText* m_staticText94;
+    wxCheckBox* m_checkBoxCustomSelectionFgColour;
+    wxStaticText* m_staticText84;
+    wxColourPickerCtrl* m_colourPickerSelTextFgColour;
     wxStaticText* m_staticText159;
     wxFontPickerCtrl* m_fontPickerGlobal;
     wxStaticText* m_staticText155;
@@ -94,13 +99,6 @@ protected:
     wxButton* m_button7;
     wxButton* m_button8;
     wxButton* m_button9;
-    wxPanel* m_panelTextSelection;
-    wxStaticText* m_staticText9;
-    wxColourPickerCtrl* m_colourPickerSelTextBgColour;
-    wxStaticText* m_staticText94;
-    wxCheckBox* m_checkBoxCustomSelectionFgColour;
-    wxStaticText* m_staticText84;
-    wxColourPickerCtrl* m_colourPickerSelTextFgColour;
     wxStdDialogButtonSizer* m_stdBtnSizer10;
     wxButton* m_buttonOk;
     wxButton* m_buttonCancel;
@@ -108,8 +106,13 @@ protected:
 
 protected:
     virtual void OnUseCustomBaseColour(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnUseCustomBaseColourUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnUseCustomColourUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnCustomBaseColourPIcked(wxColourPickerEvent& event) { event.Skip(); }
+    virtual void OnSelTextChanged(wxColourPickerEvent& event) { event.Skip(); }
+    virtual void OnUseCustomFgTextColour(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnTextSelFgUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnSelTextFgChanged(wxColourPickerEvent& event) { event.Skip(); }
     virtual void OnGlobalFontSelected(wxFontPickerEvent& event) { event.Skip(); }
     virtual void OnGlobalThemeSelected(wxCommandEvent& event) { event.Skip(); }
     virtual void OnLexerSelected(wxCommandEvent& event) { event.Skip(); }
@@ -126,19 +129,21 @@ protected:
     virtual void OnEditKeyWordsButton2(wxCommandEvent& event) { event.Skip(); }
     virtual void OnEditKeyWordsButton3(wxCommandEvent& event) { event.Skip(); }
     virtual void OnEditKeyWordsButton4(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnSelTextChanged(wxColourPickerEvent& event) { event.Skip(); }
-    virtual void OnUseCustomFgTextColour(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnTextSelFgUI(wxUpdateUIEvent& event) { event.Skip(); }
-    virtual void OnSelTextFgChanged(wxColourPickerEvent& event) { event.Skip(); }
     virtual void OnButtonOK(wxCommandEvent& event) { event.Skip(); }
     virtual void OnButtonCancel(wxCommandEvent& event) { event.Skip(); }
     virtual void OnButtonApply(wxCommandEvent& event) { event.Skip(); }
     virtual void OnButtonApplyUI(wxUpdateUIEvent& event) { event.Skip(); }
 
 public:
-    clToolBar* GetToolbar() { return m_toolbar; }
+    wxToolBar* GetToolbar() { return m_toolbar; }
     wxCheckBox* GetCbUseCustomBaseColour() { return m_cbUseCustomBaseColour; }
     wxColourPickerCtrl* GetColourPickerBaseColour() { return m_colourPickerBaseColour; }
+    wxStaticText* GetStaticText9() { return m_staticText9; }
+    wxColourPickerCtrl* GetColourPickerSelTextBgColour() { return m_colourPickerSelTextBgColour; }
+    wxStaticText* GetStaticText94() { return m_staticText94; }
+    wxCheckBox* GetCheckBoxCustomSelectionFgColour() { return m_checkBoxCustomSelectionFgColour; }
+    wxStaticText* GetStaticText84() { return m_staticText84; }
+    wxColourPickerCtrl* GetColourPickerSelTextFgColour() { return m_colourPickerSelTextFgColour; }
     wxStaticText* GetStaticText159() { return m_staticText159; }
     wxFontPickerCtrl* GetFontPickerGlobal() { return m_fontPickerGlobal; }
     wxStaticText* GetStaticText155() { return m_staticText155; }
@@ -172,13 +177,6 @@ public:
     wxButton* GetButton8() { return m_button8; }
     wxButton* GetButton9() { return m_button9; }
     wxPanel* GetPanelCustomize() { return m_panelCustomize; }
-    wxStaticText* GetStaticText9() { return m_staticText9; }
-    wxColourPickerCtrl* GetColourPickerSelTextBgColour() { return m_colourPickerSelTextBgColour; }
-    wxStaticText* GetStaticText94() { return m_staticText94; }
-    wxCheckBox* GetCheckBoxCustomSelectionFgColour() { return m_checkBoxCustomSelectionFgColour; }
-    wxStaticText* GetStaticText84() { return m_staticText84; }
-    wxColourPickerCtrl* GetColourPickerSelTextFgColour() { return m_colourPickerSelTextFgColour; }
-    wxPanel* GetPanelTextSelection() { return m_panelTextSelection; }
     wxNotebook* GetNotebook2() { return m_notebook2; }
     wxPanel* GetPanel25() { return m_panel25; }
     wxPanel* GetPanelSyntaxHighlight() { return m_panelSyntaxHighlight; }

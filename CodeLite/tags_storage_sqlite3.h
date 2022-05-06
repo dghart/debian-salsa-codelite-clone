@@ -31,6 +31,7 @@
 #include "istorage.h"
 #include "tag_tree.h"
 #include "wxStringHash.h"
+
 #include <unordered_map>
 #include <wx/filename.h>
 #include <wx/wxsqlite3.h>
@@ -121,7 +122,8 @@ public:
 
     void Close()
     {
-        if(IsOpen()) wxSQLite3Database::Close();
+        if(IsOpen())
+            wxSQLite3Database::Close();
 
         m_statements.clear();
     }
@@ -203,12 +205,10 @@ public:
     void CreateSchema();
 
     /**
-     * Store tree of tags into db.
-     * @param tree Tags tree to store
-     * @param path Database file name
-     * @param autoCommit handle the Store operation inside a transaction or let the user hadle it
+     * store list of tags to store. The list is considered complete and all files
+     * afftected will be erased from the db first
      */
-    void Store(TagTreePtr tree, const wxFileName& path, bool autoCommit = true);
+    void Store(const std::vector<TagEntryPtr>& tags, bool auto_commit = true);
 
     /**
      * Return a result set of tags according to file name.
@@ -260,6 +260,11 @@ public:
      * @param tags [output]
      */
     virtual void GetSubscriptOperator(const wxString& scope, std::vector<TagEntryPtr>& tags);
+
+    /**
+     * @brief determine the current scope based on file name and line number
+     */
+    virtual TagEntryPtr GetScope(const wxString& filename, int line_number);
 
     /**
      * Begin transaction.
@@ -408,7 +413,8 @@ public:
      */
     virtual void GetTagsByPath(const wxArrayString& path, std::vector<TagEntryPtr>& tags);
     virtual void GetTagsByPath(const wxString& path, std::vector<TagEntryPtr>& tags, int limit = 1);
-
+    virtual void GetTagsByPathAndKind(const wxString& path, std::vector<TagEntryPtr>& tags,
+                                      const std::vector<wxString>& kinds, int limit = 1);
     /**
      * @brief return array of items by name and parent
      * @param path
@@ -444,6 +450,12 @@ public:
      * @param tags [output]
      */
     virtual void GetTagsByScopeAndKind(const wxString& scope, const wxArrayString& kinds,
+                                       std::vector<TagEntryPtr>& tags, bool applyLimit = true);
+
+    /**
+     * @brief similar to the above, but with filter ("starts_with")
+     */
+    virtual void GetTagsByScopeAndKind(const wxString& scope, const wxArrayString& kinds, const wxString& filter,
                                        std::vector<TagEntryPtr>& tags, bool applyLimit = true);
 
     /**
@@ -555,8 +567,6 @@ public:
     virtual void GetTagsByFileScopeAndKind(const wxFileName& fileName, const wxString& scopeName,
                                            const wxArrayString& kind, std::vector<TagEntryPtr>& tags);
 
-    virtual void GetAllTagsNames(wxArrayString& names);
-
     virtual void GetTagsNames(const wxArrayString& kind, wxArrayString& names);
 
     /**
@@ -631,6 +641,14 @@ public:
      */
     void RemoveNonWorkspaceSymbols(const std::vector<wxString>& symbols, std::vector<wxString>& workspaceSymbols,
                                    std::vector<wxString>& nonWorkspaceSymbols);
+
+    virtual bool CheckIntegrity() const;
+
+    virtual size_t GetFileScopedTags(const wxString& filepath, const wxString& name, const wxArrayString& kinds,
+                                     std::vector<TagEntryPtr>& tags);
+
+    virtual size_t GetParameters(const wxString& function_path, std::vector<TagEntryPtr>& tags);
+    virtual size_t GetLambdas(const wxString& parent_function, std::vector<TagEntryPtr>& tags);
 };
 
 #endif // CODELITE_TAGS_DATABASE_H

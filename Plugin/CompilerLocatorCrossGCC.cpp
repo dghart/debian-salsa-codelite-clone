@@ -24,13 +24,14 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "CompilerLocatorCrossGCC.h"
+
+#include "file_logger.h"
+#include "procutils.h"
+
+#include <globals.h>
 #include <wx/dir.h>
 #include <wx/filefn.h>
 #include <wx/tokenzr.h>
-#include <globals.h>
-#include "file_logger.h"
-#include "procutils.h"
-#include <wx/dir.h>
 
 CompilerLocatorCrossGCC::CompilerLocatorCrossGCC() {}
 
@@ -49,7 +50,7 @@ CompilerPtr CompilerLocatorCrossGCC::Locate(const wxString& folder, bool clear)
 
     // We collect "*-gcc" files
     wxString pattern = "*-gcc";
-#ifdef __WXMSW__
+#if defined(__WXMSW__) || defined(__CYGWIN__)
     pattern << ".exe";
 #endif
 
@@ -62,7 +63,8 @@ CompilerPtr CompilerLocatorCrossGCC::Locate(const wxString& folder, bool clear)
         }
     }
 
-    if(count == 0) return NULL;
+    if(count == 0)
+        return NULL;
 
     for(int i = 0; i < count; ++i) {
 #ifndef __WXMSW__
@@ -74,9 +76,7 @@ CompilerPtr CompilerLocatorCrossGCC::Locate(const wxString& folder, bool clear)
         }
 #endif
         wxFileName filename(matches.Item(i));
-        if(filename.GetName() == "mingw32-gcc" || filename.GetName() == "x86_64-w64-mingw32-gcc") {
-            // Don't include standard mingw32-gcc (32 and 64 bit) binaries
-            // they will be picked up later by the MinGW locator
+        if(!IsCrossGCC(filename.GetName())) {
             continue;
         }
 
@@ -99,6 +99,36 @@ CompilerPtr CompilerLocatorCrossGCC::Locate(const wxString& folder, bool clear)
     }
 }
 
+bool CompilerLocatorCrossGCC::IsCrossGCC(const wxString& name) const
+{
+#ifdef __WXMSW__
+    if(name == "mingw32-gcc" || name == "i686-w64-mingw32-gcc" || name == "x86_64-w64-mingw32-gcc") {
+        // Don't include standard mingw32-gcc (32 and 64 bit) binaries
+        // they will be picked up later by the MinGW locator
+        return false;
+    }
+#elif defined(__WXGTK__)
+    if(name == "i686-linux-gnu-gcc" || name == "x86_64-linux-gnu-gcc" || name == "i686-pc-linux-gnu-gcc" ||
+       name == "x86_64-pc-linux-gnu-gcc" || name == "i686-redhat-linux-gcc" || name == "x86_64-redhat-linux-gcc") {
+        // Standard gcc will be picked up later by the GCC locator
+        return false;
+    }
+#ifdef __CYGWIN__
+#ifdef __i386__
+    if (name == "i686-pc-cygwin-gcc")
+        // Standard gcc will be picked up later by the GCC locator
+        return false;
+#elif defined(__x86_64__)
+    if (name == "x86_64-pc-cygwin-gcc")
+        // Standard gcc will be picked up later by the GCC locator
+        return false;
+#endif // __x86_64__
+#endif // __CYGWIN__
+#endif // __WXGTK__
+
+    return true;
+}
+
 bool CompilerLocatorCrossGCC::Locate()
 {
     m_compilers.clear();
@@ -111,7 +141,8 @@ bool CompilerLocatorCrossGCC::Locate()
     if(!pathValues.IsEmpty()) {
         wxArrayString pathArray = ::wxStringTokenize(pathValues, wxPATH_SEP, wxTOKEN_STRTOK);
         for(size_t i = 0; i < pathArray.GetCount(); ++i) {
-            if(tried.count(pathArray[i])) continue;
+            if(tried.count(pathArray[i]))
+                continue;
             Locate(pathArray[i], false);
             tried.insert(pathArray[i]);
         }
@@ -120,9 +151,7 @@ bool CompilerLocatorCrossGCC::Locate()
     return !m_compilers.empty();
 }
 
-void CompilerLocatorCrossGCC::AddTools(CompilerPtr compiler,
-                                       const wxString& binFolder,
-                                       const wxString& prefix,
+void CompilerLocatorCrossGCC::AddTools(CompilerPtr compiler, const wxString& binFolder, const wxString& prefix,
                                        const wxString& suffix)
 {
     compiler->SetName("Cross GCC ( " + prefix + " )");
@@ -147,7 +176,8 @@ void CompilerLocatorCrossGCC::AddTools(CompilerPtr compiler,
 
     toolFile.SetFullName(prefix + "-windres");
     toolFile.SetExt(suffix);
-    if(toolFile.FileExists()) AddTool(compiler, "ResourceCompiler", toolFile.GetFullPath());
+    if(toolFile.FileExists())
+        AddTool(compiler, "ResourceCompiler", toolFile.GetFullPath());
 
     toolFile.SetFullName(prefix + "-as");
     toolFile.SetExt(suffix);
@@ -168,12 +198,11 @@ void CompilerLocatorCrossGCC::AddTools(CompilerPtr compiler,
     // makeExtraArgs <<  " SHELL=cmd.exe ";
 
     // What to do if there's no make here? (on Windows)
-    if(toolFile.FileExists()) AddTool(compiler, "MAKE", toolFile.GetFullPath(), makeExtraArgs);
+    if(toolFile.FileExists())
+        AddTool(compiler, "MAKE", toolFile.GetFullPath(), makeExtraArgs);
 }
 
-void CompilerLocatorCrossGCC::AddTool(CompilerPtr compiler,
-                                      const wxString& toolname,
-                                      const wxString& toolpath,
+void CompilerLocatorCrossGCC::AddTool(CompilerPtr compiler, const wxString& toolname, const wxString& toolpath,
                                       const wxString& extraArgs)
 {
     wxString tool = toolpath;

@@ -22,10 +22,12 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#include "editor_config.h"
 #include "findreplacedlg.h"
+
+#include "editor_config.h"
 #include "macros.h"
 #include "windowattrmanager.h"
+
 #include <algorithm>
 #include <wx/button.h>
 #include <wx/checkbox.h>
@@ -73,7 +75,8 @@ bool FindReplaceDialog::Create(wxWindow* parent, const FindReplaceData& data, wx
                                const wxPoint& pos, const wxSize& size, long style)
 {
     m_kind = FIND_DLG;
-    if(!wxDialog::Create(parent, id, caption, pos, size, style)) return false;
+    if(!wxDialog::Create(parent, id, caption, pos, size, style))
+        return false;
 
     m_data = data;
     m_owner = NULL;
@@ -269,7 +272,9 @@ void FindReplaceDialog::OnClick(wxCommandEvent& event)
     }
 
     // Set the updated flags, unless it was ReplaceAll which does this itself
-    if(btnClicked != m_replaceAll) { m_data.SetFlags(flags); }
+    if(btnClicked != m_replaceAll) {
+        m_data.SetFlags(flags);
+    }
 
 // update the data of the find/replace dialog, in particular,
 // update the history of the Find What / replace with controls
@@ -376,7 +381,9 @@ void FindReplaceDialog::SendEvent(wxEventType type)
 bool FindReplaceDialog::Show(int kind)
 {
     if(IsShown()) {
-        if(m_kind == kind) { return true; }
+        if(m_kind == kind) {
+            return true;
+        }
         // change the dialog
         ShowReplaceControls(true);
         return true;
@@ -405,7 +412,9 @@ void FindReplaceDialog::ShowReplaceControls(bool show)
     isFindDlg = gbSizer->GetItemPosition(sz) == wxGBPosition(1, 0);
     if(show == false) {
         // is this dialog is already a 'Find' dialog?
-        if(isFindDlg) { return; }
+        if(isFindDlg) {
+            return;
+        }
 
         // remove 'Replace' dialog items
         gbSizer->Detach(m_replaceWithLabel);
@@ -417,7 +426,9 @@ void FindReplaceDialog::ShowReplaceControls(bool show)
 
     } else {
         // is this dialog is already a 'Replace' dialog?
-        if(!isFindDlg) { return; }
+        if(!isFindDlg) {
+            return;
+        }
 
         // remmove the 'Options' item frmo pos 1,0
         gbSizer->Detach(sz);
@@ -466,9 +477,10 @@ void FindReplaceDialog::OnSelectionOnlyUI(wxUpdateUIEvent& event)
 
 void FindReplaceData::SetReplaceString(const wxString& str)
 {
-
     int where = m_replaceString.Index(str);
-    if(where != wxNOT_FOUND) { m_replaceString.RemoveAt(where); }
+    if(where != wxNOT_FOUND) {
+        m_replaceString.RemoveAt(where);
+    }
     m_replaceString.Insert(str, 0);
 
     long max_value = clConfig::Get().Read(kConfigMaxItemsInFindReplaceDialog, 15);
@@ -478,7 +490,9 @@ void FindReplaceData::SetReplaceString(const wxString& str)
 void FindReplaceData::SetFindString(const wxString& str)
 {
     int where = m_findString.Index(str);
-    if(where != wxNOT_FOUND) { m_findString.RemoveAt(where); }
+    if(where != wxNOT_FOUND) {
+        m_findString.RemoveAt(where);
+    }
     m_findString.Insert(str, 0);
 
     long max_value = clConfig::Get().Read(kConfigMaxItemsInFindReplaceDialog, 15);
@@ -515,7 +529,7 @@ void FindReplaceData::FromJSON(const JSONItem& json)
     m_findString = json.namedObject("m_findString").toArrayString();
     m_replaceString = json.namedObject("m_replaceString").toArrayString();
     m_flags = json.namedObject("m_flags").toSize_t(m_flags);
-    m_paths = json.namedObject("m_paths").toString(m_paths);
+    m_findWhere = json.namedObject("m_findWhere").toArrayString(m_findWhere);
     m_encoding = json.namedObject("m_encoding").toString(m_encoding);
     m_fileMask = json.namedObject("m_fileMask").toArrayString();
     m_selectedMask = json.namedObject("m_selectedMask").toString(m_selectedMask);
@@ -536,7 +550,7 @@ JSONItem FindReplaceData::ToJSON() const
     element.addProperty("m_findString", m_findString);
     element.addProperty("m_replaceString", m_replaceString);
     element.addProperty("m_flags", m_flags);
-    element.addProperty("m_paths", m_paths);
+    element.addProperty("m_findWhere", m_findWhere);
     element.addProperty("m_encoding", m_encoding);
     element.addProperty("m_fileMask", m_fileMask);
     element.addProperty("m_selectedMask", m_selectedMask);
@@ -568,14 +582,31 @@ wxArrayString FindReplaceData::GetReplaceStringArr() const
 FindReplaceData::FindReplaceData()
     : clConfigItem("FindReplaceData")
     , m_flags(wxFRD_SEPARATETAB_DISPLAY | wxFRD_MATCHCASE | wxFRD_MATCHWHOLEWORD | wxFRD_ENABLE_PIPE_SUPPORT)
-    , m_paths(SEARCH_IN_WORKSPACE)
     , m_selectedMask("*.c;*.cpp;*.cxx;*.cc;*.h;*.hpp;*.inc;*.mm;*.m;*.xrc;*.plist;*.txt") // Default file mask
 {
+    m_findWhere.Add(SEARCH_IN_WORKSPACE);
     m_fileMask.Add("*.c;*.cpp;*.cxx;*.cc;*.h;*.hpp;*.inc;*.mm;*.m;*.xrc;*.xml;*.json;*.sql");
 }
 
-void FindReplaceData::SetSearchPaths(const wxString& searchPaths)
+wxString FindReplaceData::GetWhere() const
 {
-    m_paths = searchPaths;
-    m_paths.Trim().Trim(false);
+    if(m_findWhere.empty()) {
+        return SEARCH_IN_WORKSPACE;
+    }
+    return m_findWhere[0];
+}
+
+void FindReplaceData::SetWhereOptions(const wxArrayString& where)
+{
+    std::unordered_set<wxString> visited;
+    wxArrayString normalized_list;
+    normalized_list.reserve(where.size());
+
+    for(const wxString& str : where) {
+        if(!visited.insert(str).second || str.empty()) {
+            continue;
+        }
+        normalized_list.Add(str);
+    }
+    m_findWhere.swap(normalized_list);
 }

@@ -48,7 +48,7 @@ public:
         Opt_TabStyleTRAPEZOID = (1 << 7),
         Opt_IconSet_Classic = (1 << 8),
         Opt_AutoCompleteDoubleQuotes = (1 << 9),
-        Opt_NavKey_Shift = (1 << 10), // (No longer actively used)
+        Opt_NavKey_Shift = (1 << 31), // (Not actively used for 5 years so it should be safe to change it to 1<<31...)
         Opt_NavKey_Alt = (1 << 11),
         Opt_NavKey_Control = (1 << 12),
         Opt_IconSet_Classic_Dark = (1 << 13),
@@ -69,6 +69,7 @@ public:
         Opt_DisableMouseCtrlZoom = (1 << 28),
         Opt_UseBlockCaret = (1 << 29),
         Opt_TabStyleMinimal = (1 << 30),
+        Opt_TabNoPath = (1 << 10), // 1<<10 was previously the Opt_NavKey_Shift value
     };
 
     enum {
@@ -94,8 +95,7 @@ protected:
     bool m_highlightCaretLine;
     bool m_clearHighlitWordsOnFind;
     bool m_displayLineNumbers;
-    bool m_relativeLineNumbers = false;
-    bool m_highlightCurLineNumber = true;
+    bool m_relativeLineNumbers;
     bool m_showIndentationGuidelines;
     wxColour m_caretLineColour;
     bool m_indentUsesTabs;
@@ -118,7 +118,7 @@ protected:
     bool m_copyLineEmptySelection;
     wxString m_programConsoleCommand;
     wxString m_eolMode;
-    bool m_hideChangeMarkerMargin;
+    bool m_trackEditorChanges;
     bool m_hideOutpuPaneOnUserClick;
     bool m_hideOutputPaneNotIfBuild;
     bool m_hideOutputPaneNotIfSearch;
@@ -161,6 +161,7 @@ protected:
     int m_nbTabHeight; // Should notebook tabs be too tall, too short or...
     wxString m_webSearchPrefix;
     bool m_smartParen = true;
+    bool m_lineNumberHighlightCurrent = true;
 
 public:
     // Helpers
@@ -213,6 +214,8 @@ public:
     bool IsTabColourDark() const;
     void SetTabHasXButton(bool b) { EnableOption(Opt_TabNoXButton, !b); }
     bool IsTabHasXButton() const { return !HasOption(Opt_TabNoXButton); }
+    void SetTabShowPath(bool b) { EnableOption(Opt_TabNoPath, !b); }
+    bool IsTabShowPath() const { return !HasOption(Opt_TabNoPath); }
     bool IsMouseScrollSwitchTabs() const { return HasOption2(Opt2_MouseScrollSwitchTabs); }
     void SetMouseScrollSwitchTabs(bool b) { EnableOption2(Opt2_MouseScrollSwitchTabs, b); }
     bool IsSortTabsDropdownAlphabetically() const { return HasOption2(Opt2_SortTabsDropdownAlphabetically); }
@@ -334,12 +337,9 @@ public:
         this->m_hideOutputPaneNotIfMemCheck = HideOutpuPaneNotIfMemCheck;
     }
     const bool& GetHideOutputPaneNotIfMemCheck() const { return m_hideOutputPaneNotIfMemCheck; }
-    void SetHideChangeMarkerMargin(bool hideChangeMarkerMargin)
-    {
-        this->m_hideChangeMarkerMargin = hideChangeMarkerMargin;
-    }
 
-    bool GetHideChangeMarkerMargin() const { return m_hideChangeMarkerMargin; }
+    void SetTrackChanges(bool b) { this->m_trackEditorChanges = b; }
+    bool IsTrackChanges() const { return m_trackEditorChanges; }
 
     bool GetIndentedComments() const { return m_indentedComments; }
     bool GetDisplayFoldMargin() const { return m_displayFoldMargin; }
@@ -359,7 +359,6 @@ public:
     bool GetHighlightCaretLine() const { return m_highlightCaretLine; }
     bool GetDisplayLineNumbers() const { return m_displayLineNumbers; }
     bool GetRelativeLineNumbers() const { return m_relativeLineNumbers; }
-    bool GetHighlightCurrentLineNumber() const { return m_highlightCurLineNumber; }
     bool GetShowIndentationGuidelines() const { return m_showIndentationGuidelines; }
     wxColour GetCaretLineColour() const { return m_caretLineColour; }
 
@@ -381,7 +380,6 @@ public:
     void SetHighlightCaretLine(bool b) { m_highlightCaretLine = b; }
     void SetDisplayLineNumbers(bool b) { m_displayLineNumbers = b; }
     void SetRelativeLineNumbers(bool b) { m_relativeLineNumbers = b; }
-    void SetHighlightCurrentLineNumber(bool b) { m_highlightCurLineNumber = b; }
     void SetShowIndentationGuidelines(bool b) { m_showIndentationGuidelines = b; }
     void SetCaretLineColour(wxColour c) { m_caretLineColour = c; }
 
@@ -494,6 +492,11 @@ public:
 
     void UpdateFromEditorConfig(const clEditorConfigSection& section);
 
+    void SetLineNumberHighlightCurrent(bool lineNumberHighlightCurrent)
+    {
+        this->m_lineNumberHighlightCurrent = lineNumberHighlightCurrent;
+    }
+    bool IsLineNumberHighlightCurrent() const { return m_lineNumberHighlightCurrent; }
     /**
      * Return an XML representation of this object
      * \return XML node

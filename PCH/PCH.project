@@ -38,6 +38,7 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="include">
+    <File Name="dummy.cpp"/>
     <File Name="precompiled_header_release_32.h"/>
     <File Name="../CodeLite/precompiled_header.h"/>
     <File Name="precompiled_header_dbg.h"/>
@@ -54,13 +55,13 @@
       <ResourceCompiler Options=""/>
     </GlobalSettings>
     <Configuration Name="Debug" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Static Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;$(shell wx-config --cxxflags  --unicode=yes)" C_Options="" Assembler="" Required="yes" PreCompiledHeader="precompiled_header_dbg.h" PCHInCommandLine="yes" PCHFlags="" PCHFlagsPolicy="1">
+      <Compiler Options="-g;$(shell wx-config --cxxflags  --unicode=yes)" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="1">
         <IncludePath Value="."/>
       </Compiler>
       <Linker Options="$(shell wx-config --libs  --unicode=yes)" Required="yes"/>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="lib$(ProjectName).a" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -99,7 +100,7 @@
       <Linker Options="$(shell wx-config  --libs --unicode=yes)" Required="yes"/>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="lib$(ProjectName).a" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -132,13 +133,13 @@
       </Completion>
     </Configuration>
     <Configuration Name="Release" CompilerType="GCC (x86_64)" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-O2;$(shell wx-config --cxxflags --debug=no --unicode=yes);" C_Options="" Assembler="" Required="yes" PreCompiledHeader="precompiled_header_release.h" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="1">
+      <Compiler Options="-O2;$(shell wx-config --cxxflags --debug=no --unicode=yes);" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="1">
         <IncludePath Value="."/>
       </Compiler>
       <Linker Options="-O2;$(shell wx-config --libs --debug=no --unicode=yes)" Required="no"/>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="lib$(ProjectName).a" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -177,7 +178,7 @@
       <Linker Options=";$(shell wx-config --libs --debug=no --unicode=yes)" Required="yes"/>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="lib$(ProjectName).a" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -210,13 +211,28 @@
       </Completion>
     </Configuration>
     <Configuration Name="Win_x64_Debug" CompilerType="GCC (x86_64)" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;-Wall;$(shell wx-config --cxxflags  --unicode=yes)" C_Options="" Assembler="" Required="yes" PreCompiledHeader="precompiled_header_dbg.h" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="1">
-        <IncludePath Value="."/>
+      <Compiler Options="-g;$(shell wx-config --cxxflags);-O0;-Wall" C_Options="" Assembler="" Required="yes" PreCompiledHeader="precompiled_header_dbg.h" PCHInCommandLine="yes" PCHFlags="" PCHFlagsPolicy="1">
+        <IncludePath Value="$(WorkspacePath)"/>
+        <IncludePath Value="$(WorkspacePath)/Interfaces"/>
+        <IncludePath Value="$(WorkspacePath)/CodeLite"/>
+        <IncludePath Value="$(WorkspacePath)/Plugin"/>
+        <IncludePath Value="$(WorkspacePath)/sdk/wxsqlite3/include"/>
+        <IncludePath Value="$(WorkspacePath)/sdk/libssh/include"/>
+        <Preprocessor Value="__WX__"/>
+        <Preprocessor Value="WXUSINGDLL"/>
+        <Preprocessor Value="WXUSINGDLL_WXSQLITE3"/>
+        <Preprocessor Value="WXUSINGDLL_SDK"/>
+        <Preprocessor Value="WXUSINGDLL_CL"/>
+        <Preprocessor Value="YY_NEVER_INTERACTIVE=1"/>
+        <Preprocessor Value="USE_SFTP=1"/>
+        <Preprocessor Value="USE_SFTP=1"/>
+        <Preprocessor Value="wxUSE_GUI=1"/>
+        <Preprocessor Value="CL_DEBUG_BUILD=1"/>
       </Compiler>
       <Linker Options="-O2;$(shell wx-config --libs --debug=no --unicode=yes)" Required="yes"/>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="lib$(ProjectName).a" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="no" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -249,13 +265,20 @@
       </Completion>
     </Configuration>
     <Configuration Name="Win_x64_Release" CompilerType="GCC (x86_64)" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-O2;-std=c++11;-Wall;$(shell wx-config --cxxflags --debug=no --unicode=yes)" C_Options="" Assembler="" Required="yes" PreCompiledHeader="precompiled_header_release.h" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="1">
+      <Compiler Options="$(shell wx-config --cxxflags --debug=no ); -O2" C_Options="" Assembler="" Required="yes" PreCompiledHeader="precompiled_header_release.h" PCHInCommandLine="yes" PCHFlags="" PCHFlagsPolicy="1">
         <IncludePath Value="."/>
+        <Preprocessor Value="__WX__"/>
+        <Preprocessor Value="WXUSINGDLL"/>
+        <Preprocessor Value="WXUSINGDLL_WXSQLITE3"/>
+        <Preprocessor Value="WXUSINGDLL_SDK"/>
+        <Preprocessor Value="WXUSINGDLL_CL"/>
+        <Preprocessor Value="YY_NEVER_INTERACTIVE=1"/>
+        <Preprocessor Value="USE_SFTP=1"/>
       </Compiler>
       <Linker Options="-O2;$(shell wx-config --libs --debug=no --unicode=yes)" Required="no"/>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="lib$(ProjectName).a" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="no" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -288,13 +311,13 @@
       </Completion>
     </Configuration>
     <Configuration Name="Win_x86_Release" CompilerType="GCC (i686)" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-O2;-std=c++11;-Wall;$(shell wx-config --cxxflags --debug=no --unicode=yes)" C_Options="" Assembler="" Required="yes" PreCompiledHeader="precompiled_header_release_32.h" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="1">
+      <Compiler Options="-O2;-std=c++11;-Wall;$(shell wx-config --cxxflags --debug=no --unicode=yes)" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="1">
         <IncludePath Value="."/>
       </Compiler>
       <Linker Options="-O2;$(shell wx-config --libs --debug=no --unicode=yes)" Required="no"/>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="lib$(ProjectName).a" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="no" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>

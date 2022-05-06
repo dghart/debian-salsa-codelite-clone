@@ -116,13 +116,14 @@ SFTP::SFTP(IManager* manager)
     EventNotifier::Get()->Bind(wxEVT_SFTP_SAVE_FILE, &SFTP::OnSaveFile, this);
     EventNotifier::Get()->Bind(wxEVT_SFTP_RENAME_FILE, &SFTP::OnRenameFile, this);
     EventNotifier::Get()->Bind(wxEVT_SFTP_DELETE_FILE, &SFTP::OnDeleteFile, this);
+    EventNotifier::Get()->Bind(wxEVT_SFTP_OPEN_FILE, &SFTP::OnOpenFile, this);
 
     // Add the "SFTP" page to the workspace pane
     Notebook* book = m_mgr->GetWorkspacePaneNotebook();
     if(IsPaneDetached(_("SFTP"))) {
         // Make the window child of the main panel (which is the grand parent of the notebook)
         DockablePane* cp =
-            new DockablePane(book->GetParent()->GetParent(), book, _("SFTP"), false, wxNullBitmap, wxSize(200, 200));
+            new DockablePane(book->GetParent()->GetParent(), book, _("SFTP"), false, wxNOT_FOUND, wxSize(200, 200));
         m_treeView = new SFTPTreeView(cp, this);
         cp->SetChildNoReparent(m_treeView);
 
@@ -133,22 +134,23 @@ SFTP::SFTP(IManager* manager)
 
     // Add the "SFTP Log" page to the output pane
     book = m_mgr->GetOutputPaneNotebook();
-    wxBitmap bmp = m_mgr->GetStdIcons()->LoadBitmap("upload");
+    auto images = book->GetBitmaps();
+    int bmp_index = images->Add("upload");
     if(IsPaneDetached(_("SFTP Log"))) {
         // Make the window child of the main panel (which is the grand parent of the notebook)
         DockablePane* cp =
-            new DockablePane(book->GetParent()->GetParent(), book, _("SFTP Log"), false, bmp, wxSize(200, 200));
+            new DockablePane(book->GetParent()->GetParent(), book, _("SFTP Log"), false, bmp_index, wxSize(200, 200));
         m_outputPane = new SFTPStatusPage(cp, this);
         cp->SetChildNoReparent(m_outputPane);
 
     } else {
         m_outputPane = new SFTPStatusPage(book, this);
-        book->AddPage(m_outputPane, _("SFTP Log"), false, bmp);
+        book->AddPage(m_outputPane, _("SFTP Log"), false, bmp_index);
     }
 
     // Create the helper for adding our tabs in the "more" menu
     m_tabToggler.reset(new clTabTogglerHelper(_("SFTP Log"), m_outputPane, _("SFTP"), m_treeView));
-    m_tabToggler->SetOutputTabBmp(m_mgr->GetStdIcons()->LoadBitmap("remote-folder"));
+    m_tabToggler->SetOutputTabBmp(bmp_index);
 
     SFTPWorkerThread::Instance()->SetNotifyWindow(m_outputPane);
     SFTPWorkerThread::Instance()->SetSftpPlugin(this);
@@ -246,11 +248,12 @@ void SFTP::UnPlug()
     EventNotifier::Get()->Unbind(wxEVT_SFTP_SAVE_FILE, &SFTP::OnSaveFile, this);
     EventNotifier::Get()->Unbind(wxEVT_SFTP_RENAME_FILE, &SFTP::OnRenameFile, this);
     EventNotifier::Get()->Unbind(wxEVT_SFTP_DELETE_FILE, &SFTP::OnDeleteFile, this);
+    EventNotifier::Get()->Unbind(wxEVT_SFTP_OPEN_FILE, &SFTP::OnOpenFile, this);
     EventNotifier::Get()->Unbind(wxEVT_INIT_DONE, &SFTP::OnInitDone, this);
     m_tabToggler.reset(NULL);
 
     // Delete the temporary files
-    wxFileName::Rmdir(clSFTP::GetDefaultDownloadFolder(), wxPATH_RMDIR_RECURSIVE);
+    wxFileName::Rmdir(clSFTP::GetDefaultDownloadFolder({}), wxPATH_RMDIR_RECURSIVE);
 }
 
 void SFTP::OnAccountManager(wxCommandEvent& e)
@@ -271,14 +274,19 @@ void SFTP::OnSetupWorkspaceMirroring(wxCommandEvent& e)
     }
 }
 
-void SFTP::OnWorkspaceOpened(wxCommandEvent& e)
+void SFTP::OnWorkspaceOpened(clWorkspaceEvent& e)
 {
     e.Skip();
-    m_workspaceFile = e.GetString();
-    SFTPWorkspaceSettings::Load(m_workspaceSettings, m_workspaceFile);
+    if(e.IsRemote()) {
+        m_workspaceFile.Clear();
+        m_workspaceSettings.Clear();
+    } else {
+        m_workspaceFile = e.GetString();
+        SFTPWorkspaceSettings::Load(m_workspaceSettings, m_workspaceFile);
+    }
 }
 
-void SFTP::OnWorkspaceClosed(wxCommandEvent& e)
+void SFTP::OnWorkspaceClosed(clWorkspaceEvent& e)
 {
     e.Skip();
     m_workspaceFile.Clear();
@@ -345,8 +353,7 @@ void SFTP::FileDownloadedSuccessfully(const SFTPClientData& cd)
     tooltip << "Local: " << cd.GetLocalPath() << "\n"
             << "Remote: " << cd.GetRemotePath();
 
-    wxBitmap bmp = m_mgr->GetStdIcons()->LoadBitmap("download");
-    IEditor* editor = m_mgr->OpenFile(cd.GetLocalPath(), bmp, tooltip);
+    IEditor* editor = m_mgr->OpenFile(cd.GetLocalPath(), "download", tooltip);
     if(editor) {
         // Tag this editor as a remote file
         SFTPClientData* pcd = new SFTPClientData(cd);
@@ -610,3 +617,9 @@ void SFTP::OpenFile(const wxString& remotePath, int lineNumber)
 }
 
 void SFTP::OnInitDone(wxCommandEvent& event) { event.Skip(); }
+
+void SFTP::OnOpenFile(clSFTPEvent& e)
+{
+    e.Skip();
+    OpenFile(e.GetRemoteFile(), e.GetLineNumber());
+}

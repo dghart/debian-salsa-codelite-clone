@@ -25,10 +25,12 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
+#include "clThemedMenuBar.hpp"
 #include "codelite_exports.h"
 #include "macros.h"
 #include "window_locker.h"
 #include "workspace.h"
+
 #include <wx/arrstr.h>
 #include <wx/bitmap.h>
 #include <wx/brush.h>
@@ -36,10 +38,10 @@
 #include <wx/ctrlsub.h>
 #include <wx/dc.h>
 #include <wx/dcgraph.h>
+#include <wx/infobar.h>
 #include <wx/propgrid/propgrid.h>
 #include <wx/string.h>
 #include <wx/variant.h>
-#include <wx/infobar.h>
 
 class wxDataViewCtrl;
 class IManager;
@@ -519,6 +521,20 @@ WXDLLIMPEXP_SDK void clRecalculateSTCHScrollBar(wxStyledTextCtrl* ctrl);
 WXDLLIMPEXP_SDK wxString clGetTextFromUser(const wxString& title, const wxString& message,
                                            const wxString& initialValue = "", int charsToSelect = wxNOT_FOUND,
                                            wxWindow* parent = NULL);
+
+/**
+ * @brief similar to wxDirSelector, but on a remote machine
+ */
+WXDLLIMPEXP_SDK pair<wxString, wxString>
+clRemoteFolderSelector(const wxString& title, const wxString& accountName = wxEmptyString, wxWindow* parent = NULL);
+
+/**
+ * @brief similar to wxFileSelector, but on a remote machine
+ */
+WXDLLIMPEXP_SDK pair<wxString, wxString> clRemoteFileSelector(const wxString& title,
+                                                              const wxString& accountName = wxEmptyString,
+                                                              const wxString& filter = wxEmptyString,
+                                                              wxWindow* parent = NULL);
 /**
  * @brief return the instance to the plugin manager. A convinience method
  */
@@ -574,8 +590,8 @@ WXDLLIMPEXP_SDK void clSetEditorFontEncoding(const wxString& encoding);
  * @param exepath [output]
  * @param hint list of directories to search
  */
-WXDLLIMPEXP_SDK bool clFindExecutable(const wxString& name, wxFileName& exepath,
-                                      const wxArrayString& hint = wxArrayString());
+WXDLLIMPEXP_SDK bool clFindExecutable(const wxString& name, wxFileName& exepath, const wxArrayString& hint = {},
+                                      const wxArrayString& suffix_list = {});
 
 /**
  * @brief given a menu and an item ID, return its position
@@ -642,5 +658,10 @@ WXDLLIMPEXP_SDK void clSetDialogSizeAndPosition(wxDialog* win, double ratio);
  * @brief return true if a C++ workspace is opened
  */
 WXDLLIMPEXP_SDK bool clIsCxxWorkspaceOpened();
+
+/**
+ * @brief return true if this is a Wayland session
+ */
+WXDLLIMPEXP_SDK bool clIsWaylandSession();
 
 #endif // GLOBALS_H

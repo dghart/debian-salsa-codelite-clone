@@ -26,7 +26,6 @@
 #define __workspacetab__
 
 #include "cl_command_event.h"
-#include "theme_handler_helper.h"
 #include "wxcrafter.h"
 #include <wx/panel.h>
 
@@ -38,7 +37,6 @@ class WorkspaceTab : public WorkspaceTabBase
 
     wxString m_caption;
     bool m_isLinkedToEditor;
-    ThemeHandlerHelper* m_themeHelper;
     ProjectSettingsDlg* m_dlg;
     clWorkspaceView* m_view;
     wxColour m_bgColour;
@@ -52,7 +50,6 @@ protected:
     virtual void OnPinnedCxxProjectContextMenu(wxDataViewEvent& event);
     void ProjectSettingsDlgClosed();
     void DoGoHome();
-    void DoConfigChanged(const wxString& newConfigName);
     void LoadCxxPinnedProjects();
     void SaveCxxPinnedProjects();
     /**
@@ -69,8 +66,6 @@ protected:
     void OnPaint(wxPaintEvent& event);
     void CreateGUIControls();
     void ConnectEvents();
-    void DoWorkspaceConfig();
-    void DoUpdateChoiceWithProjects();
 
     void OnLinkEditor(wxCommandEvent& e);
     void OnCollapseAll(wxCommandEvent& e);
@@ -82,16 +77,12 @@ protected:
     void OnShowFile(wxCommandEvent& e);
     void OnShowFileUI(wxUpdateUIEvent& e);
 
-    void OnWorkspaceLoaded(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& e);
+    void OnWorkspaceLoaded(clWorkspaceEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnProjectAdded(clCommandEvent& e);
     void OnProjectRemoved(clCommandEvent& e);
     void OnActiveEditorChanged(wxCommandEvent& e);
     void OnEditorClosing(wxCommandEvent& e);
-    void OnWorkspaceConfig(wxCommandEvent& e);
-    void OnConfigurationManager(wxCommandEvent& e);
-    void OnConfigChanged(clCommandEvent& e);
-    void OnActiveProjectChanged(clProjectSettingsEvent& e);
 
     void OnBuildStarted(clBuildEvent& event);
     void OnBuildEnded(clBuildEvent& event);

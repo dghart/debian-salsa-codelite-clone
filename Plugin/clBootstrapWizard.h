@@ -25,10 +25,11 @@
 
 #ifndef CLBOOSTRAPWIZARD_H
 #define CLBOOSTRAPWIZARD_H
+#include "ICompilerLocator.h"
 #include "clBoostrapWizardBase.h"
 #include "codelite_exports.h"
+
 #include <wx/bitmap.h>
-#include "ICompilerLocator.h"
 
 class WXDLLIMPEXP_SDK clBootstrapData
 {
@@ -42,6 +43,7 @@ public:
 class WXDLLIMPEXP_SDK clBootstrapWizard : public clBoostrapWizardBase
 {
     ICompilerLocator::CompilerVec_t m_compilers;
+    bool m_firstTime = false;
     bool m_globalThemeChanged = false;
     wxString m_selectedTheme;
 
@@ -49,12 +51,10 @@ public:
     int m_developmentProfile = 0;
 
 public:
-    clBootstrapWizard(wxWindow* parent);
+    clBootstrapWizard(wxWindow* parent, bool firstTime);
     virtual ~clBootstrapWizard();
     clBootstrapData GetData();
     wxArrayString GetSelectedPlugins();
-    bool GetUnSelectedPlugins(wxArrayString& plugins);
-
     bool IsRestartRequired();
 
 protected:
@@ -64,7 +64,8 @@ protected:
     virtual void OnInstallCompilerUI(wxUpdateUIEvent& event);
     virtual void OnScanForCompilers(wxCommandEvent& event);
     virtual void OnThemeSelected(wxCommandEvent& event);
-    
+
     void SetSelectedTheme(const wxString& themeName);
+    void DoUpdatePreview(const wxString& themeName);
 };
 #endif // CLBOOSTRAPWIZARD_H

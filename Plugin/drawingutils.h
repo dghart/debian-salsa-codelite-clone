@@ -27,10 +27,11 @@
 
 #include "clColours.h"
 #include "codelite_exports.h"
+#include "ieditor.h"
 #include "wx/colour.h"
 #include "wx/dc.h"
+
 #include <wx/dcgraph.h>
-#include "ieditor.h"
 
 enum class eButtonState {
     kNormal,
@@ -65,7 +66,23 @@ public:
     static void PaintStraightGradientBox(wxDC& dc, const wxRect& rect, const wxColour& startColor,
                                          const wxColour& endColor, bool vertical);
     static bool IsDark(const wxColour& col);
+    /**
+     * @brief return the default fixed font. We use the ColoursAndFontsManager to pick
+     * the best font
+     */
     static wxFont GetDefaultFixedFont();
+
+    /**
+     * @brief return a fallback fixed font incase we could not locate one in the
+     * settings
+     * @param win a window object. requires for DPI calculations
+     */
+    static wxFont GetFallbackFixedFont(const wxWindow* win, bool bold = false, bool italic = false);
+
+    static int GetFallbackFixedFontSize(const wxWindow* win);
+    static const wxString& GetFallbackFixedFontFace();
+    static int FixFontSize(int size, const wxWindow* win);
+
     static wxFont GetBestFixedFont(IEditor* editor = nullptr);
     static wxFont GetDefaultGuiFont();
     static wxBitmap CreateDisabledBitmap(const wxBitmap& bmp);
@@ -114,12 +131,10 @@ public:
     static bool DrawStippleBackground(const wxRect& rect, wxDC& dc);
 
     /**
-     * @brief convert wxDC into wxGCDC
-     * @param dc [in] dc
-     * @param gdc [in/out] graphics DC
-     * @return true on success, false otherwise
+     * @brief convert wxDC into wxGCDC. Return the a DC to work with.
+     * This function never fails
      */
-    static bool GetGCDC(wxDC& dc, wxGCDC& gdc);
+    static wxDC& GetGCDC(wxDC& dc, wxGCDC& gdc);
 
     /**
      * @brief Return true if the current theme dominant colour is dark

@@ -26,6 +26,7 @@
 #ifndef ZJSONNODE_H
 #define ZJSONNODE_H
 // clang-format off
+#include "wx/vector.h"
 #include <wx/string.h>
 #include <wx/variant.h>
 #include <wx/filename.h>
@@ -39,6 +40,7 @@
 #include <wx/font.h>
 #endif
 #include "macros.h"
+#include <vector>
 // clang-format on
 
 //////////////////////////////////////////////////////////////////////////
@@ -86,9 +88,14 @@ public:
     JSONItem namedObject(const wxString& name) const;
     bool hasNamedObject(const wxString& name) const;
 
+    JSONItem operator[](int index) const;
+    JSONItem operator[](const wxString& name) const;
+
     bool toBool(bool defaultValue = false) const;
     wxString toString(const wxString& defaultValue = wxEmptyString) const;
     wxArrayString toArrayString(const wxArrayString& defaultValue = wxArrayString()) const;
+    std::vector<double> toDoubleArray(const std::vector<double>& defaultValue = {}) const;
+    std::vector<int> toIntArray(const std::vector<int>& defaultValue = {}) const;
     JSONItem arrayItem(int pos) const;
 
     // Retuen the object type
@@ -133,6 +140,16 @@ public:
     static JSONItem createArray(const wxString& name = wxT(""));
 
     /**
+     * @brief add array to this json and return a referece to the newly added array
+     */
+    JSONItem AddArray(const wxString& name);
+
+    /**
+     * @brief add object to this json and return a referece to the newly added object
+     */
+    JSONItem AddObject(const wxString& name);
+
+    /**
      * @brief append new element to this json element
      */
     void append(const JSONItem& element);
@@ -144,7 +161,10 @@ public:
     JSONItem& addProperty(const wxString& name, long value);
     JSONItem& addProperty(const wxString& name, size_t value);
     JSONItem& addProperty(const wxString& name, bool value);
+    JSONItem& addProperty(const wxString& name, cJSON* pjson);
     JSONItem& addProperty(const wxString& name, const wxFileName& filename);
+    JSONItem& addProperty(const wxString& name, const std::vector<int>& arr_int);
+    JSONItem& addProperty(const wxString& name, const wxVector<int>& arr_int);
 
 #if wxUSE_GUI
     JSONItem& addProperty(const wxString& name, const wxSize& sz);
@@ -177,6 +197,10 @@ public:
      */
     void arrayAppend(const JSONItem& element);
     void arrayAppend(const wxString& value);
+    void arrayAppend(const char* value);
+    void arrayAppend(const std::string& value);
+    void arrayAppend(int number);
+    void arrayAppend(double number);
 
     bool isOk() const { return m_json != NULL; }
 

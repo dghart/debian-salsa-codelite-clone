@@ -6,6 +6,14 @@
     </Plugin>
   </Plugins>
   <VirtualDirectory Name="Detectors">
+    <File Name="LSPCTagsdDetector.cpp"/>
+    <File Name="LSPCTagsdDetector.hpp"/>
+    <File Name="LSPRustAnalyzerDetector.hpp"/>
+    <File Name="LSPRustAnalyzerDetector.cpp"/>
+    <File Name="LSPTypeScriptDetector.cpp"/>
+    <File Name="LSPTypeScriptDetector.hpp"/>
+    <File Name="LSPRlsDetector.hpp"/>
+    <File Name="LSPRlsDetector.cpp"/>
     <File Name="LSPPythonDetector.cpp"/>
     <File Name="LSPPythonDetector.hpp"/>
     <File Name="LSPDetectorManager.cpp"/>
@@ -26,6 +34,10 @@
     <File Name="UI.wxcp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="UI">
+    <File Name="LanguageServerLogView.cpp"/>
+    <File Name="LanguageServerLogView.h"/>
+    <File Name="LSPOutlineViewDlg.cpp"/>
+    <File Name="LSPOutlineViewDlg.h"/>
     <File Name="LanguageServerPage.cpp"/>
     <File Name="LanguageServerPage.h"/>
     <File Name="NewLanguageServerDlg.cpp"/>
@@ -62,18 +74,27 @@
       <ResourceCompiler Options=""/>
     </GlobalSettings>
     <Configuration Name="Win_x64_Debug" CompilerType="GCC (x86_64)" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;$(shell wx-config --cxxflags)" C_Options="-g;$(shell wx-config --cxxflags)" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+      <Compiler Options=";-g;$(shell wx-config --cxxflags);-O0;-Wall" C_Options=";-g" Assembler="" Required="yes" PreCompiledHeader="$(WorkspacePath)/PCH/precompiled_header_dbg.h" PCHInCommandLine="yes" PCHFlags="" PCHFlagsPolicy="2">
         <IncludePath Value="."/>
-        <IncludePath Value="../Interfaces"/>
-        <IncludePath Value="../CodeLite"/>
-        <IncludePath Value="../Plugin"/>
-        <IncludePath Value="../sdk/wxsqlite3/include"/>
+        <IncludePath Value="$(WorkspacePath)"/>
+        <IncludePath Value="$(WorkspacePath)/Interfaces"/>
+        <IncludePath Value="$(WorkspacePath)/CodeLite"/>
+        <IncludePath Value="$(WorkspacePath)/Plugin"/>
+        <IncludePath Value="$(WorkspacePath)/sdk/wxsqlite3/include"/>
+        <IncludePath Value="$(WorkspacePath)/sdk/libssh/include"/>
+        <Preprocessor Value="WXUSINGDLL_SDK"/>
+        <Preprocessor Value="WXUSINGDLL_CL"/>
+        <Preprocessor Value="WXUSINGDLL_SCI"/>
         <Preprocessor Value="__WX__"/>
         <Preprocessor Value="WXUSINGDLL"/>
         <Preprocessor Value="WXUSINGDLL_WXSQLITE3"/>
         <Preprocessor Value="WXUSINGDLL_SDK"/>
         <Preprocessor Value="WXUSINGDLL_CL"/>
         <Preprocessor Value="YY_NEVER_INTERACTIVE=1"/>
+        <Preprocessor Value="USE_SFTP=1"/>
+        <Preprocessor Value="USE_SFTP=1"/>
+        <Preprocessor Value="wxUSE_GUI=1"/>
+        <Preprocessor Value="CL_DEBUG_BUILD=1"/>
       </Compiler>
       <Linker Options="$(shell wx-config --libs std,stc);" Required="yes">
         <LibraryPath Value="$(WorkspacePath)/build-$(WorkspaceConfiguration)/lib"/>
@@ -83,7 +104,7 @@
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="LanguageServer-dbg.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="./DebugUnicode" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -118,7 +139,7 @@
       </Completion>
     </Configuration>
     <Configuration Name="Win_x64_Release" CompilerType="GCC (x86_64)" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="$(shell wx-config --cxxflags --debug=no ); -O2" C_Options="$(shell wx-config --cxxflags --debug=no ); -O2" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+      <Compiler Options="$(shell wx-config --cxxflags --debug=no ); -O2" C_Options="-O2" Assembler="" Required="yes" PreCompiledHeader="../PCH/precompiled_header_release.h" PCHInCommandLine="yes" PCHFlags="" PCHFlagsPolicy="2">
         <IncludePath Value="."/>
         <IncludePath Value="../Interfaces"/>
         <IncludePath Value="../CodeLite"/>
@@ -130,6 +151,7 @@
         <Preprocessor Value="WXUSINGDLL_SDK"/>
         <Preprocessor Value="WXUSINGDLL_CL"/>
         <Preprocessor Value="YY_NEVER_INTERACTIVE=1"/>
+        <Preprocessor Value="USE_SFTP=1"/>
       </Compiler>
       <Linker Options="-O2;$(shell wx-config --debug=no --libs std,stc );-s" Required="yes">
         <LibraryPath Value="$(WorkspacePath)/build-$(WorkspaceConfiguration)/lib"/>
@@ -139,7 +161,7 @@
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="LanguageServer.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="./ReleaseUnicode" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -195,7 +217,7 @@
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="LanguageServer.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="./ReleaseUnicode" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>

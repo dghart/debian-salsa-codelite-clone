@@ -30,6 +30,7 @@
 #include <wx/statbox.h>
 #include <wx/choicebk.h>
 #include <wx/splitter.h>
+#include "clThemedSplitterWindow.h"
 #include <wx/dataview.h>
 #include "clThemedListCtrl.h"
 #include <wx/toolbar.h>
@@ -57,7 +58,9 @@
 class DebuggerSettingsBaseDlg : public wxDialog
 {
 protected:
+    wxBoxSizer* bSizer1;
     wxNotebook* m_notebook;
+    wxBoxSizer* bSizer2;
     wxStdDialogButtonSizer* m_stdBtnSizer92;
     wxButton* m_buttonOK;
     wxButton* m_button96;
@@ -77,6 +80,7 @@ public:
 class DbgPageStartupCmdsBase : public wxPanel
 {
 protected:
+    wxBoxSizer* bSizer7;
     wxStyledTextCtrl* m_textCtrlStartupCommands;
 
 protected:
@@ -90,8 +94,12 @@ public:
 class PreDefinedTypesPageBase : public wxPanel
 {
 protected:
+    wxBoxSizer* bSizer11;
     wxPanel* m_panel2;
+    wxBoxSizer* bSizer4;
+    wxBoxSizer* bSizer5;
     wxListCtrl* m_listCtrl1;
+    wxBoxSizer* bSizer6;
     wxButton* m_buttonNewType;
     wxButton* m_buttonEdit;
     wxButton* m_buttonDelete;
@@ -118,11 +126,14 @@ public:
 class NewPreDefinedSetBaseDlg : public wxDialog
 {
 protected:
+    wxBoxSizer* bSizer17;
+    wxFlexGridSizer* fgSizer2;
     wxStaticText* m_staticText3;
     wxTextCtrl* m_textCtrlName;
     wxStaticText* m_staticText4;
     wxChoice* m_choiceCopyFrom;
     wxCheckBox* m_checkBoxMakeActive;
+    wxBoxSizer* bSizer18;
     wxButton* m_button9;
     wxButton* m_button10;
 
@@ -145,12 +156,17 @@ public:
 class DbgPageGeneralBase : public wxPanel
 {
 protected:
+    wxBoxSizer* bSizer18;
     wxPanel* m_panel6;
+    wxBoxSizer* bSizer16;
     wxNotebook* m_notebook73;
     wxPanel* m_panelGeneral;
+    wxBoxSizer* boxSizer81;
+    wxFlexGridSizer* flexGridSizer49;
     wxStaticText* m_staticText1;
     wxTextCtrl* m_textCtrDbgPath;
     wxButton* m_buttonBrowse;
+    wxBoxSizer* boxSizer86;
     wxCheckBox* m_checkBoxEnablePendingBreakpoints;
     wxCheckBox* m_checkBoxSetBreakpointsAfterMain;
     wxCheckBox* m_checkBreakAtWinMain;
@@ -159,13 +175,17 @@ protected:
     wxCheckBox* m_checkBoxRunAsSuperuser;
     wxCheckBox* m_checkBoxDefaultHexDisplay;
     wxPanel* m_panelTooltip;
+    wxBoxSizer* boxSizer83;
     wxCheckBox* m_showTooltipsRequiresControl;
     wxCheckBox* m_checkBoxAutoExpand;
     wxPanel* m_panelDisplay;
+    wxBoxSizer* boxSizer85;
+    wxFlexGridSizer* flexGridSizer102;
     wxStaticText* m_staticText2;
     wxSpinCtrl* m_spinCtrlStringSize;
     wxStaticText* m_staticText104;
     wxSpinCtrl* m_spinCtrlMaxElements;
+    wxFlexGridSizer* fgSizer21;
     wxCheckBox* m_checkBoxExpandLocals;
     wxCheckBox* m_checkBoxCharArrAsPtr;
     wxCheckBox* m_checkBoxUsePrettyPrinting;
@@ -209,12 +229,19 @@ public:
 class DbgPageMiscBase : public wxPanel
 {
 protected:
+    wxBoxSizer* bSizer19;
     wxPanel* m_panel7;
+    wxBoxSizer* bSizer17;
+    wxStaticBoxSizer* sbSizer2;
+    wxBoxSizer* boxSizer10;
     wxCheckBox* m_checkUseRelativePaths;
     wxCheckBox* m_checkBoxEnableLog;
     wxCheckBox* m_checkShowTerminal;
+    wxBoxSizer* boxSizer4;
     wxStaticText* m_staticText6;
     wxSpinCtrl* m_maxFramesSpinCtrl;
+    wxStaticBoxSizer* sbSizer6;
+    wxGridSizer* gSizer5;
     wxCheckBox* m_checkBoxDebugAssert;
     wxStaticText* m_staticText5;
     wxTextCtrl* m_textCtrlCygwinPathCommand;
@@ -241,9 +268,13 @@ public:
 class DbgPagePreDefTypesBase : public wxPanel
 {
 protected:
+    wxBoxSizer* bSizer21;
     wxPanel* m_panel6;
+    wxBoxSizer* bSizer16;
+    wxBoxSizer* bSizer14;
     wxButton* m_buttonNewSet;
     wxButton* m_buttonDeleteSet;
+    wxStaticBoxSizer* sbSizer5;
     wxChoicebook* m_notebookPreDefTypes;
 
 protected:
@@ -265,12 +296,16 @@ public:
 class DebuggerDisassemblyTabBase : public wxPanel
 {
 protected:
+    wxBoxSizer* boxSizer14;
+    wxFlexGridSizer* flexGridSizer22;
     wxStaticText* m_staticText24;
     wxTextCtrl* m_textCtrlCurFunction;
-    wxSplitterWindow* m_splitter51;
+    clThemedSplitterWindow* m_splitter51;
     wxPanel* m_splitterPage55;
+    wxBoxSizer* boxSizer61;
     wxStyledTextCtrl* m_stc;
     wxPanel* m_splitterPage59;
+    wxBoxSizer* boxSizer63;
     clThemedListCtrl* m_dvListCtrlRegisters;
 
 protected:
@@ -283,7 +318,7 @@ public:
     wxPanel* GetSplitterPage55() { return m_splitterPage55; }
     clThemedListCtrl* GetDvListCtrlRegisters() { return m_dvListCtrlRegisters; }
     wxPanel* GetSplitterPage59() { return m_splitterPage59; }
-    wxSplitterWindow* GetSplitter51() { return m_splitter51; }
+    clThemedSplitterWindow* GetSplitter51() { return m_splitter51; }
     DebuggerDisassemblyTabBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
                                const wxSize& size = wxSize(500, 300), long style = wxTAB_TRAVERSAL);
     virtual ~DebuggerDisassemblyTabBase();
@@ -292,6 +327,7 @@ public:
 class LocalsTableBase : public wxPanel
 {
 protected:
+    wxBoxSizer* boxSizer29;
     clToolBar* m_toolbar;
     clThemedTreeCtrl* m_listTable;
 

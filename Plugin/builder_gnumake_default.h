@@ -29,6 +29,7 @@
 #include "codelite_exports.h"
 #include "project.h"
 #include "workspace.h"
+
 #include <wx/txtstrm.h>
 #include <wx/wfstream.h>
 /*
@@ -37,8 +38,11 @@
  */
 class WXDLLIMPEXP_SDK BuilderGnuMake : public Builder
 {
+protected:
     size_t m_objectChunks;
     Project::FilesMap_t* m_projectFilesMetadata;
+    bool m_isWindows = false;
+    bool m_isMSYSEnv = false;
 
 protected:
     enum eBuildFlags {
@@ -66,6 +70,11 @@ public:
                                           const wxString& arguments, const wxString& fileName, wxString& errMsg);
     virtual wxString GetPORebuildCommand(const wxString& project, const wxString& confToBuild,
                                          const wxString& arguments);
+    virtual OptimalBuildConfig GetOptimalBuildConfig(const wxString& projectType) const;
+
+protected:
+    virtual wxString MakeDir(const wxString& path);
+    virtual wxString GetIntermediateDirectory(ProjectPtr proj, BuildConfigPtr bldConf) const;
 
 protected:
     virtual void CreateListMacros(ProjectPtr proj, const wxString& confToBuild, wxString& text);
@@ -80,11 +89,13 @@ protected:
                                          const wxString& arguments, bool isCommandlineCommand) const;
 
     bool SendBuildEvent(int eventId, const wxString& projectName, const wxString& configurationName);
+    bool HandleResourceFiles() const;
+    bool IsResourceFile(const Compiler::CmpFileTypeInfo& file_type) const;
 
 private:
     void GenerateMakefile(ProjectPtr proj, const wxString& confToBuild, bool force, const wxArrayString& depsProj);
     void CreateConfigsVariables(ProjectPtr proj, BuildConfigPtr bldConf, wxString& text);
-    void CreateMakeDirsTarget(ProjectPtr proj, BuildConfigPtr bldConf, const wxString& targetName, wxString& text);
+    void CreateMakeDirsTarget(const wxString& targetName, wxString& text);
     void CreateTargets(const wxString& type, BuildConfigPtr bldConf, wxString& text, const wxString& projName);
     void CreatePreBuildEvents(ProjectPtr proj, BuildConfigPtr bldConf, wxString& text);
     void CreatePostBuildEvents(ProjectPtr proj, BuildConfigPtr bldConf, wxString& text);

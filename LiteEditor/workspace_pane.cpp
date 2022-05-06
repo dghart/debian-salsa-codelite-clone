@@ -22,10 +22,10 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "workspace_pane.h"
 #include "Notebook.h"
-#include "clTabRendererClassic.h"
-#include "clTabRendererCurved.h"
-#include "clTabRendererSquare.h"
+#include "clTabRendererDefault.hpp"
+#include "clTabRendererMinimal.hpp"
 #include "clTabTogglerHelper.h"
 #include "clWorkspaceView.h"
 #include "cl_aui_dock_art.h"
@@ -47,11 +47,9 @@
 #include "macros.h"
 #include "manager.h"
 #include "openwindowspanel.h"
-#include "parse_thread.h"
 #include "pluginmanager.h"
 #include "tabgroupspane.h"
 #include "windowstack.h"
-#include "workspace_pane.h"
 #include "workspacetab.h"
 #include <algorithm>
 #include <wx/app.h>
@@ -68,14 +66,24 @@
 #endif
 
 WorkspacePane::WorkspacePane(wxWindow* parent, const wxString& caption, wxAuiManager* mgr)
-    : wxPanel(parent)
-    , m_caption(caption)
+    : m_caption(caption)
     , m_mgr(mgr)
 {
+    int style = wxTAB_TRAVERSAL;
+    if(!wxPanel::Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, style)) {
+        return;
+    }
+    SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
+
     CreateGUIControls();
     EventNotifier::Get()->Bind(wxEVT_INIT_DONE, &WorkspacePane::OnInitDone, this);
     EventNotifier::Get()->Bind(wxEVT_EDITOR_CONFIG_CHANGED, &WorkspacePane::OnSettingsChanged, this);
     EventNotifier::Get()->Bind(wxEVT_SHOW_WORKSPACE_TAB, &WorkspacePane::OnToggleWorkspaceTab, this);
+    EventNotifier::Get()->Bind(wxEVT_SYS_COLOURS_CHANGED, [this](clCommandEvent& e) {
+        e.Skip();
+        SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
+        Refresh();
+    });
 }
 
 WorkspacePane::~WorkspacePane()
@@ -101,15 +109,13 @@ void WorkspacePane::CreateGUIControls()
 #else
     long style = (kNotebook_Default | kNotebook_AllowDnD);
 #endif
-    if(EditorConfigST::Get()->GetOptions()->IsTabColourDark()) {
-        style &= ~kNotebook_LightTabs;
-        style |= kNotebook_DarkTabs;
-    }
     style |= kNotebook_UnderlineActiveTab;
-    if(EditorConfigST::Get()->GetOptions()->IsMouseScrollSwitchTabs()) { style |= kNotebook_MouseScrollSwitchTabs; }
+    if(EditorConfigST::Get()->GetOptions()->IsMouseScrollSwitchTabs()) {
+        style |= kNotebook_MouseScrollSwitchTabs;
+    }
 #endif
 
-    m_book = new Notebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, style);
+    m_book = new Notebook(this, wxID_ANY, wxDefaultPosition, wxSize(300, -1), style);
     m_book->SetTabDirection(EditorConfigST::Get()->GetOptions()->GetWorkspaceTabsDirection());
     m_book->Bind(wxEVT_BOOK_FILELIST_BUTTON_CLICKED, &WorkspacePane::OnWorkspaceBookFileListMenu, this);
 
@@ -149,12 +155,12 @@ void WorkspacePane::CreateGUIControls()
 
     name = _("Workspace");
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, wxNullBitmap, wxSize(200, 200));
+        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, wxNOT_FOUND, wxSize(200, 200));
         m_workspaceTab = new WorkspaceTab(cp, name);
         cp->SetChildNoReparent(m_workspaceTab);
     } else {
         m_workspaceTab = new WorkspaceTab(m_book, name);
-        m_book->AddPage(m_workspaceTab, name, true, wxNullBitmap);
+        m_book->AddPage(m_workspaceTab, name, true, wxNOT_FOUND);
     }
     m_tabs.insert(std::make_pair(name, Tab(name, m_workspaceTab)));
     mgr->AddWorkspaceTab(name);
@@ -162,7 +168,7 @@ void WorkspacePane::CreateGUIControls()
     // Add the explorer tab
     name = _("Explorer");
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, wxNullBitmap, wxSize(200, 200));
+        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, wxNOT_FOUND, wxSize(200, 200));
         m_explorer = new FileExplorer(cp, name);
         cp->SetChildNoReparent(m_explorer);
     } else {
@@ -175,11 +181,11 @@ void WorkspacePane::CreateGUIControls()
     // Add the "File Explorer" view to the list of files managed by the workspace-view
     m_workspaceTab->GetView()->AddPage(m_explorer, _("File Explorer"), false);
 
-// Add the Open Windows Panel (Tabs)
-#ifndef __WXOSX__
+    // Add the Open Windows Panel (Tabs)
+    //#ifndef __WXOSX__
     name = _("Tabs");
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, wxNullBitmap, wxSize(200, 200));
+        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, wxNOT_FOUND, wxSize(200, 200));
         m_openWindowsPane = new OpenWindowsPanel(cp, name);
         cp->SetChildNoReparent(m_openWindowsPane);
     } else {
@@ -188,12 +194,12 @@ void WorkspacePane::CreateGUIControls()
     }
     m_tabs.insert(std::make_pair(name, Tab(name, m_openWindowsPane)));
     mgr->AddWorkspaceTab(name);
-#endif
+    //#endif
 
     // Add the Tabgroups tab
     name = _("Tabgroups");
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, wxNullBitmap, wxSize(200, 200));
+        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, wxNOT_FOUND, wxSize(200, 200));
         m_TabgroupsPane = new TabgroupsPane(cp, name);
         cp->SetChildNoReparent(m_TabgroupsPane);
     } else {
@@ -203,7 +209,9 @@ void WorkspacePane::CreateGUIControls()
     m_tabs.insert(std::make_pair(name, Tab(name, m_TabgroupsPane)));
     mgr->AddWorkspaceTab(name);
 
-    if(m_book->GetPageCount() > 0) { m_book->SetSelection((size_t)0); }
+    if(m_book->GetPageCount() > 0) {
+        m_book->SetSelection((size_t)0);
+    }
     m_mgr->Update();
 }
 
@@ -232,8 +240,8 @@ void WorkspacePane::UpdateProgress(int val)
 
 typedef struct {
     wxString text;
-    wxWindow* win;
-    wxBitmap bmp;
+    wxWindow* win = nullptr;
+    int bmp = wxNOT_FOUND;
 } tagTabInfo;
 
 #include "file_logger.h"
@@ -242,7 +250,8 @@ void WorkspacePane::ApplySavedTabOrder() const
 
     wxArrayString tabs;
     int index = -1;
-    if(!clConfig::Get().GetWorkspaceTabOrder(tabs, index)) return;
+    if(!clConfig::Get().GetWorkspaceTabOrder(tabs, index))
+        return;
 
     // There are (currently) 4 'standard' panes and a variable number of plugin ones
     // NB Since we're only dealing with panes currently in the notebook, this shouldn't
@@ -250,13 +259,15 @@ void WorkspacePane::ApplySavedTabOrder() const
     std::vector<tagTabInfo> vTempstore;
     for(size_t t = 0; t < tabs.GetCount(); ++t) {
         wxString title = tabs.Item(t);
-        if(title.empty()) { continue; }
+        if(title.empty()) {
+            continue;
+        }
         for(size_t n = 0; n < m_book->GetPageCount(); ++n) {
             if(title == m_book->GetPageText(n)) {
                 tagTabInfo Tab;
                 Tab.text = title;
                 Tab.win = m_book->GetPage(n);
-                Tab.bmp = m_book->GetPageBitmap(n);
+                Tab.bmp = m_book->GetPageBitmapIndex(n);
 
                 vTempstore.push_back(Tab);
                 m_book->RemovePage(n);
@@ -308,7 +319,9 @@ void WorkspacePane::DoShowTab(bool show, const wxString& title)
                 // we've got a match
                 m_book->RemovePage(i);
                 wxWindow* win = DoGetControlByName(title);
-                if(win) { win->Show(false); }
+                if(win) {
+                    win->Show(false);
+                }
                 break;
             }
         }
@@ -331,7 +344,8 @@ void WorkspacePane::DoShowTab(bool show, const wxString& title)
         wxArrayString detachedPanes;
         detachedPanes = dpi.GetPanes();
 
-        if(IS_DETACHED(title)) return;
+        if(IS_DETACHED(title))
+            return;
 
         wxWindow* win = DoGetControlByName(title);
         if(win) {
@@ -382,11 +396,14 @@ bool WorkspacePane::IsTabVisible(int flag)
         break;
     }
 
-    if(!win || title.IsEmpty()) return false;
+    if(!win || title.IsEmpty())
+        return false;
 
     // if the control exists in the notebook, return true
     for(size_t i = 0; i < m_book->GetPageCount(); ++i) {
-        if(m_book->GetPageText(i) == title) { return true; }
+        if(m_book->GetPageText(i) == title) {
+            return true;
+        }
     }
     return win && win->IsShown();
 }
@@ -414,11 +431,6 @@ void WorkspacePane::OnSettingsChanged(wxCommandEvent& event)
 #if !USE_AUI_NOTEBOOK
     m_book->SetArt(GetNotebookRenderer());
 #endif
-    if(EditorConfigST::Get()->GetOptions()->IsTabColourDark()) {
-        m_book->SetStyle((m_book->GetStyle() & ~kNotebook_LightTabs) | kNotebook_DarkTabs);
-    } else {
-        m_book->SetStyle((m_book->GetStyle() & ~kNotebook_DarkTabs) | kNotebook_LightTabs);
-    }
 }
 
 void WorkspacePane::OnToggleWorkspaceTab(clCommandEvent& event)
@@ -441,7 +453,9 @@ void WorkspacePane::OnToggleWorkspaceTab(clCommandEvent& event)
     } else {
         // hide the tab
         int where = GetNotebook()->GetPageIndex(t.m_label);
-        if(where != wxNOT_FOUND) { GetNotebook()->RemovePage(where); }
+        if(where != wxNOT_FOUND) {
+            GetNotebook()->RemovePage(where);
+        }
     }
 }
 
@@ -465,7 +479,7 @@ void WorkspacePane::OnWorkspaceBookFileListMenu(clContextMenuEvent& event)
             continue;
         }
 
-        if(hiddenTabsMenu->GetMenuItemCount() == 0) {
+        if(menu->GetMenuItemCount() > 0 && hiddenTabsMenu->GetMenuItemCount() == 0) {
             // we are adding the first menu item
             menu->AppendSeparator();
         }
@@ -474,7 +488,9 @@ void WorkspacePane::OnWorkspaceBookFileListMenu(clContextMenuEvent& event)
         hiddenTabsMenu->Append(tabId, label);
 
         // If the tab is detached, disable it's menu entry
-        if(dpi.GetPanes().Index(label) != wxNOT_FOUND) { hiddenTabsMenu->Enable(tabId, false); }
+        if(dpi.GetPanes().Index(label) != wxNOT_FOUND) {
+            hiddenTabsMenu->Enable(tabId, false);
+        }
 
         // Bind the event
         hiddenTabsMenu->Bind(
@@ -492,4 +508,12 @@ void WorkspacePane::OnWorkspaceBookFileListMenu(clContextMenuEvent& event)
     } else {
         menu->AppendSubMenu(hiddenTabsMenu, _("Hidden Tabs"), _("Hidden Tabs"));
     }
+}
+
+void WorkspacePane::ShowTab(const wxString& name, bool show)
+{
+    clCommandEvent show_event(wxEVT_SHOW_WORKSPACE_TAB);
+    show_event.SetString(name);
+    show_event.SetSelected(show);
+    EventNotifier::Get()->ProcessEvent(show_event);
 }

@@ -22,7 +22,7 @@ DebuggerSettingsBaseDlg::DebuggerSettingsBaseDlg(wxWindow* parent, wxWindowID id
         bBitmapLoaded = true;
     }
 
-    wxBoxSizer* bSizer1 = new wxBoxSizer(wxVERTICAL);
+    bSizer1 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(bSizer1);
 
     m_notebook = new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(500, 300)), wxBK_DEFAULT);
@@ -30,7 +30,7 @@ DebuggerSettingsBaseDlg::DebuggerSettingsBaseDlg(wxWindow* parent, wxWindowID id
 
     bSizer1->Add(m_notebook, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
-    wxBoxSizer* bSizer2 = new wxBoxSizer(wxHORIZONTAL);
+    bSizer2 = new wxBoxSizer(wxHORIZONTAL);
 
     bSizer1->Add(bSizer2, 0, wxALL | wxALIGN_CENTER_HORIZONTAL, WXC_FROM_DIP(5));
 
@@ -81,7 +81,7 @@ DbgPageStartupCmdsBase::DbgPageStartupCmdsBase(wxWindow* parent, wxWindowID id, 
         bBitmapLoaded = true;
     }
 
-    wxBoxSizer* bSizer7 = new wxBoxSizer(wxVERTICAL);
+    bSizer7 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(bSizer7);
 
     m_textCtrlStartupCommands =
@@ -143,17 +143,17 @@ PreDefinedTypesPageBase::PreDefinedTypesPageBase(wxWindow* parent, wxWindowID id
         bBitmapLoaded = true;
     }
 
-    wxBoxSizer* bSizer11 = new wxBoxSizer(wxVERTICAL);
+    bSizer11 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(bSizer11);
 
     m_panel2 = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), wxTAB_TRAVERSAL);
 
     bSizer11->Add(m_panel2, 1, wxEXPAND, WXC_FROM_DIP(5));
 
-    wxBoxSizer* bSizer4 = new wxBoxSizer(wxVERTICAL);
+    bSizer4 = new wxBoxSizer(wxVERTICAL);
     m_panel2->SetSizer(bSizer4);
 
-    wxBoxSizer* bSizer5 = new wxBoxSizer(wxHORIZONTAL);
+    bSizer5 = new wxBoxSizer(wxHORIZONTAL);
 
     bSizer4->Add(bSizer5, 1, wxEXPAND, WXC_FROM_DIP(5));
 
@@ -162,7 +162,7 @@ PreDefinedTypesPageBase::PreDefinedTypesPageBase(wxWindow* parent, wxWindowID id
 
     bSizer5->Add(m_listCtrl1, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
-    wxBoxSizer* bSizer6 = new wxBoxSizer(wxVERTICAL);
+    bSizer6 = new wxBoxSizer(wxVERTICAL);
 
     bSizer5->Add(bSizer6, 0, wxEXPAND, WXC_FROM_DIP(5));
 
@@ -228,10 +228,10 @@ NewPreDefinedSetBaseDlg::NewPreDefinedSetBaseDlg(wxWindow* parent, wxWindowID id
         bBitmapLoaded = true;
     }
 
-    wxBoxSizer* bSizer17 = new wxBoxSizer(wxVERTICAL);
+    bSizer17 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(bSizer17);
 
-    wxFlexGridSizer* fgSizer2 = new wxFlexGridSizer(0, 2, 0, 0);
+    fgSizer2 = new wxFlexGridSizer(0, 2, 0, 0);
     fgSizer2->SetFlexibleDirection(wxBOTH);
     fgSizer2->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
     fgSizer2->AddGrowableCol(1);
@@ -272,7 +272,7 @@ NewPreDefinedSetBaseDlg::NewPreDefinedSetBaseDlg(wxWindow* parent, wxWindowID id
 
     bSizer17->Add(0, 0, 1, wxEXPAND, WXC_FROM_DIP(5));
 
-    wxBoxSizer* bSizer18 = new wxBoxSizer(wxHORIZONTAL);
+    bSizer18 = new wxBoxSizer(wxHORIZONTAL);
 
     bSizer17->Add(bSizer18, 0, wxALL | wxALIGN_CENTER_HORIZONTAL, WXC_FROM_DIP(5));
 
@@ -317,14 +317,14 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
         bBitmapLoaded = true;
     }
 
-    wxBoxSizer* bSizer18 = new wxBoxSizer(wxVERTICAL);
+    bSizer18 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(bSizer18);
 
     m_panel6 = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), wxTAB_TRAVERSAL);
 
     bSizer18->Add(m_panel6, 1, wxEXPAND, WXC_FROM_DIP(5));
 
-    wxBoxSizer* bSizer16 = new wxBoxSizer(wxVERTICAL);
+    bSizer16 = new wxBoxSizer(wxVERTICAL);
     m_panel6->SetSizer(bSizer16);
 
     m_notebook73 =
@@ -337,10 +337,10 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
                                  wxTAB_TRAVERSAL);
     m_notebook73->AddPage(m_panelGeneral, _("General"), false);
 
-    wxBoxSizer* boxSizer81 = new wxBoxSizer(wxVERTICAL);
+    boxSizer81 = new wxBoxSizer(wxVERTICAL);
     m_panelGeneral->SetSizer(boxSizer81);
 
-    wxFlexGridSizer* flexGridSizer49 = new wxFlexGridSizer(0, 3, 0, 0);
+    flexGridSizer49 = new wxFlexGridSizer(0, 3, 0, 0);
     flexGridSizer49->SetFlexibleDirection(wxBOTH);
     flexGridSizer49->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
     flexGridSizer49->AddGrowableCol(1);
@@ -366,14 +366,14 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
 
     flexGridSizer49->Add(m_buttonBrowse, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
 
-    wxBoxSizer* boxSizer86 = new wxBoxSizer(wxVERTICAL);
+    boxSizer86 = new wxBoxSizer(wxVERTICAL);
 
     boxSizer81->Add(boxSizer86, 0, wxEXPAND, WXC_FROM_DIP(5));
 
     m_checkBoxEnablePendingBreakpoints =
         new wxCheckBox(m_panelGeneral, wxID_ANY, _("Enable pending breakpoints"), wxDefaultPosition,
                        wxDLG_UNIT(m_panelGeneral, wxSize(-1, -1)), 0);
-    m_checkBoxEnablePendingBreakpoints->SetValue(false);
+    m_checkBoxEnablePendingBreakpoints->SetValue(true);
     m_checkBoxEnablePendingBreakpoints->SetToolTip(
         _("Some breakpoints can't be applied before the program is run, or even later. This is especially a problem "
           "when trying to debug inside a library that is dynamically loaded (CodeLite itself contains examples of "
@@ -437,13 +437,13 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
                                  wxTAB_TRAVERSAL);
     m_notebook73->AddPage(m_panelTooltip, _("Tooltip"), false);
 
-    wxBoxSizer* boxSizer83 = new wxBoxSizer(wxVERTICAL);
+    boxSizer83 = new wxBoxSizer(wxVERTICAL);
     m_panelTooltip->SetSizer(boxSizer83);
 
     m_showTooltipsRequiresControl =
         new wxCheckBox(m_panelTooltip, wxID_ANY, _("Use CTRL key to evaluate expressions under the cursor"),
                        wxDefaultPosition, wxDLG_UNIT(m_panelTooltip, wxSize(-1, -1)), 0);
-    m_showTooltipsRequiresControl->SetValue(false);
+    m_showTooltipsRequiresControl->SetValue(true);
     m_showTooltipsRequiresControl->SetToolTip(
         _("When enabled, codelite will evaluate the expression under the cursor only if the CTRL key is down. "
           "\nOtherwise, it will evaluate it automatically"));
@@ -460,10 +460,10 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
                                  wxTAB_TRAVERSAL);
     m_notebook73->AddPage(m_panelDisplay, _("Display"), false);
 
-    wxBoxSizer* boxSizer85 = new wxBoxSizer(wxVERTICAL);
+    boxSizer85 = new wxBoxSizer(wxVERTICAL);
     m_panelDisplay->SetSizer(boxSizer85);
 
-    wxFlexGridSizer* flexGridSizer102 = new wxFlexGridSizer(0, 2, 0, 0);
+    flexGridSizer102 = new wxFlexGridSizer(0, 2, 0, 0);
     flexGridSizer102->SetFlexibleDirection(wxBOTH);
     flexGridSizer102->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
     flexGridSizer102->AddGrowableCol(1);
@@ -497,7 +497,7 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
 
     flexGridSizer102->Add(m_spinCtrlMaxElements, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
-    wxFlexGridSizer* fgSizer21 = new wxFlexGridSizer(0, 2, 0, 0);
+    fgSizer21 = new wxFlexGridSizer(0, 2, 0, 0);
     fgSizer21->SetFlexibleDirection(wxBOTH);
     fgSizer21->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
 
@@ -521,7 +521,7 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
 
     m_checkBoxUsePrettyPrinting = new wxCheckBox(m_panelDisplay, wxID_ANY, _("Enable GDB Pretty Printing"),
                                                  wxDefaultPosition, wxDLG_UNIT(m_panelDisplay, wxSize(-1, -1)), 0);
-    m_checkBoxUsePrettyPrinting->SetValue(false);
+    m_checkBoxUsePrettyPrinting->SetValue(true);
     m_checkBoxUsePrettyPrinting->SetToolTip(
         _("If ticked, examining the contents of e.g. std::string, wxString, wxArrayString will be much easier"));
 
@@ -531,7 +531,7 @@ DbgPageGeneralBase::DbgPageGeneralBase(wxWindow* parent, wxWindowID id, const wx
 
     m_checkBoxPrintObjectOn = new wxCheckBox(m_panelDisplay, wxID_ANY, _("Print object ON"), wxDefaultPosition,
                                              wxDLG_UNIT(m_panelDisplay, wxSize(-1, -1)), 0);
-    m_checkBoxPrintObjectOn->SetValue(false);
+    m_checkBoxPrintObjectOn->SetValue(true);
     m_checkBoxPrintObjectOn->SetToolTip(
         _("When displaying a pointer to an object, identify the actual (derived) type of the object rather than the "
           "declared type, using the virtual function table."));
@@ -568,21 +568,21 @@ DbgPageMiscBase::DbgPageMiscBase(wxWindow* parent, wxWindowID id, const wxPoint&
         bBitmapLoaded = true;
     }
 
-    wxBoxSizer* bSizer19 = new wxBoxSizer(wxVERTICAL);
+    bSizer19 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(bSizer19);
 
     m_panel7 = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), wxTAB_TRAVERSAL);
 
     bSizer19->Add(m_panel7, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
-    wxBoxSizer* bSizer17 = new wxBoxSizer(wxVERTICAL);
+    bSizer17 = new wxBoxSizer(wxVERTICAL);
     m_panel7->SetSizer(bSizer17);
 
-    wxStaticBoxSizer* sbSizer2 = new wxStaticBoxSizer(new wxStaticBox(m_panel7, wxID_ANY, wxT("")), wxVERTICAL);
+    sbSizer2 = new wxStaticBoxSizer(new wxStaticBox(m_panel7, wxID_ANY, wxT("")), wxVERTICAL);
 
     bSizer17->Add(sbSizer2, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, WXC_FROM_DIP(5));
 
-    wxBoxSizer* boxSizer10 = new wxBoxSizer(wxVERTICAL);
+    boxSizer10 = new wxBoxSizer(wxVERTICAL);
 
     sbSizer2->Add(boxSizer10, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
@@ -605,7 +605,7 @@ DbgPageMiscBase::DbgPageMiscBase(wxWindow* parent, wxWindowID id, const wxPoint&
 
     boxSizer10->Add(m_checkShowTerminal, 0, wxALL, WXC_FROM_DIP(5));
 
-    wxBoxSizer* boxSizer4 = new wxBoxSizer(wxHORIZONTAL);
+    boxSizer4 = new wxBoxSizer(wxHORIZONTAL);
 
     boxSizer10->Add(boxSizer4, 0, wxEXPAND, WXC_FROM_DIP(5));
 
@@ -624,12 +624,11 @@ DbgPageMiscBase::DbgPageMiscBase(wxWindow* parent, wxWindowID id, const wxPoint&
 
     boxSizer4->Add(m_maxFramesSpinCtrl, 0, wxALL, WXC_FROM_DIP(5));
 
-    wxStaticBoxSizer* sbSizer6 =
-        new wxStaticBoxSizer(new wxStaticBox(m_panel7, wxID_ANY, _("MinGW / Cygwin:")), wxVERTICAL);
+    sbSizer6 = new wxStaticBoxSizer(new wxStaticBox(m_panel7, wxID_ANY, _("MinGW / Cygwin:")), wxVERTICAL);
 
     bSizer17->Add(sbSizer6, 0, wxLEFT | wxRIGHT | wxEXPAND, WXC_FROM_DIP(5));
 
-    wxGridSizer* gSizer5 = new wxGridSizer(0, 1, 0, 0);
+    gSizer5 = new wxGridSizer(0, 1, 0, 0);
 
     sbSizer6->Add(gSizer5, 0, wxEXPAND, WXC_FROM_DIP(5));
 
@@ -694,17 +693,17 @@ DbgPagePreDefTypesBase::DbgPagePreDefTypesBase(wxWindow* parent, wxWindowID id, 
         bBitmapLoaded = true;
     }
 
-    wxBoxSizer* bSizer21 = new wxBoxSizer(wxVERTICAL);
+    bSizer21 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(bSizer21);
 
     m_panel6 = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), wxTAB_TRAVERSAL);
 
     bSizer21->Add(m_panel6, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
-    wxBoxSizer* bSizer16 = new wxBoxSizer(wxVERTICAL);
+    bSizer16 = new wxBoxSizer(wxVERTICAL);
     m_panel6->SetSizer(bSizer16);
 
-    wxBoxSizer* bSizer14 = new wxBoxSizer(wxHORIZONTAL);
+    bSizer14 = new wxBoxSizer(wxHORIZONTAL);
 
     bSizer16->Add(bSizer14, 0, wxALIGN_RIGHT, WXC_FROM_DIP(5));
 
@@ -720,8 +719,7 @@ DbgPagePreDefTypesBase::DbgPagePreDefTypesBase(wxWindow* parent, wxWindowID id, 
 
     bSizer14->Add(m_buttonDeleteSet, 0, wxALL, WXC_FROM_DIP(5));
 
-    wxStaticBoxSizer* sbSizer5 =
-        new wxStaticBoxSizer(new wxStaticBox(m_panel6, wxID_ANY, _("Available sets:")), wxVERTICAL);
+    sbSizer5 = new wxStaticBoxSizer(new wxStaticBox(m_panel6, wxID_ANY, _("Available sets:")), wxVERTICAL);
 
     bSizer16->Add(sbSizer5, 1, wxEXPAND, WXC_FROM_DIP(5));
 
@@ -770,10 +768,10 @@ DebuggerDisassemblyTabBase::DebuggerDisassemblyTabBase(wxWindow* parent, wxWindo
         bBitmapLoaded = true;
     }
 
-    wxBoxSizer* boxSizer14 = new wxBoxSizer(wxVERTICAL);
+    boxSizer14 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(boxSizer14);
 
-    wxFlexGridSizer* flexGridSizer22 = new wxFlexGridSizer(0, 2, 0, 0);
+    flexGridSizer22 = new wxFlexGridSizer(0, 2, 0, 0);
     flexGridSizer22->SetFlexibleDirection(wxBOTH);
     flexGridSizer22->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
     flexGridSizer22->AddGrowableCol(1);
@@ -793,8 +791,8 @@ DebuggerDisassemblyTabBase::DebuggerDisassemblyTabBase(wxWindow* parent, wxWindo
 
     flexGridSizer22->Add(m_textCtrlCurFunction, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
-    m_splitter51 = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
-                                        wxSP_LIVE_UPDATE | wxSP_NO_XP_THEME | wxSP_3DSASH);
+    m_splitter51 = new clThemedSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
+                                              wxSP_LIVE_UPDATE | wxSP_NO_XP_THEME | wxSP_3DSASH);
     m_splitter51->SetSashGravity(0.5);
     m_splitter51->SetMinimumPaneSize(10);
 
@@ -803,11 +801,11 @@ DebuggerDisassemblyTabBase::DebuggerDisassemblyTabBase(wxWindow* parent, wxWindo
     m_splitterPage55 = new wxPanel(m_splitter51, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_splitter51, wxSize(-1, -1)),
                                    wxTAB_TRAVERSAL);
 
-    wxBoxSizer* boxSizer61 = new wxBoxSizer(wxVERTICAL);
+    boxSizer61 = new wxBoxSizer(wxVERTICAL);
     m_splitterPage55->SetSizer(boxSizer61);
 
     m_stc = new wxStyledTextCtrl(m_splitterPage55, wxID_ANY, wxDefaultPosition,
-                                 wxDLG_UNIT(m_splitterPage55, wxSize(-1, -1)), 0);
+                                 wxDLG_UNIT(m_splitterPage55, wxSize(-1, -1)), wxBORDER_NONE);
     // Configure the fold margin
     m_stc->SetMarginType(4, wxSTC_MARGIN_SYMBOL);
     m_stc->SetMarginMask(4, wxSTC_MASK_FOLDERS);
@@ -843,20 +841,20 @@ DebuggerDisassemblyTabBase::DebuggerDisassemblyTabBase(wxWindow* parent, wxWindo
     m_stc->SetKeyWords(3, wxT(""));
     m_stc->SetKeyWords(4, wxT(""));
 
-    boxSizer61->Add(m_stc, 1, wxALL | wxEXPAND, WXC_FROM_DIP(2));
+    boxSizer61->Add(m_stc, 1, wxEXPAND, WXC_FROM_DIP(2));
 
     m_splitterPage59 = new wxPanel(m_splitter51, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_splitter51, wxSize(-1, -1)),
                                    wxTAB_TRAVERSAL);
     m_splitter51->SplitVertically(m_splitterPage55, m_splitterPage59, 0);
 
-    wxBoxSizer* boxSizer63 = new wxBoxSizer(wxVERTICAL);
+    boxSizer63 = new wxBoxSizer(wxVERTICAL);
     m_splitterPage59->SetSizer(boxSizer63);
 
     m_dvListCtrlRegisters =
         new clThemedListCtrl(m_splitterPage59, wxID_ANY, wxDefaultPosition,
                              wxDLG_UNIT(m_splitterPage59, wxSize(-1, -1)), wxDV_ENABLE_SEARCH | wxDV_ROW_LINES);
 
-    boxSizer63->Add(m_dvListCtrlRegisters, 1, wxALL | wxEXPAND, WXC_FROM_DIP(2));
+    boxSizer63->Add(m_dvListCtrlRegisters, 1, wxEXPAND, WXC_FROM_DIP(2));
 
     m_dvListCtrlRegisters->AppendTextColumn(_("Register"), wxDATAVIEW_CELL_INERT, WXC_FROM_DIP(-2), wxALIGN_LEFT,
                                             wxDATAVIEW_COL_RESIZABLE);
@@ -889,7 +887,7 @@ LocalsTableBase::LocalsTableBase(wxWindow* parent, wxWindowID id, const wxPoint&
         bBitmapLoaded = true;
     }
 
-    wxBoxSizer* boxSizer29 = new wxBoxSizer(wxVERTICAL);
+    boxSizer29 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(boxSizer29);
 
     m_toolbar = new clToolBar(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), wxTB_FLAT);
@@ -900,7 +898,7 @@ LocalsTableBase::LocalsTableBase(wxWindow* parent, wxWindowID id, const wxPoint&
     m_listTable = new clThemedTreeCtrl(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
                                        wxTR_SINGLE | wxTR_ROW_LINES | wxTR_HIDE_ROOT | wxTR_ENABLE_SEARCH);
 
-    boxSizer29->Add(m_listTable, 1, wxALL | wxEXPAND, WXC_FROM_DIP(2));
+    boxSizer29->Add(m_listTable, 1, wxEXPAND, WXC_FROM_DIP(2));
 
     SetName(wxT("LocalsTableBase"));
     SetSize(wxDLG_UNIT(this, wxSize(500, 300)));

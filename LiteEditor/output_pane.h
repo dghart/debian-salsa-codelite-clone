@@ -27,9 +27,11 @@
 
 #include <wx/panel.h>
 
+#include "Notebook.h"
 #include "cl_command_event.h"
 #include "shelltab.h"
 
+class BuildTab;
 class ClangOutputTab;
 class FindResultsTab;
 #if CL_USE_NEW_BUILD_TAB
@@ -43,6 +45,7 @@ class TaskPanel;
 class OutputPaneBook;
 class FindUsageTab;
 
+using namespace std;
 /**
  * \ingroup LiteEditor
  * This class represents the default bottom pane in the editor
@@ -64,42 +67,30 @@ class OutputPane : public wxPanel
 protected:
     struct Tab {
         wxString m_label;
-        wxWindow* m_window;
-        wxBitmap m_bmp;
+        wxWindow* m_window = nullptr;
+        int m_bmpIndex = wxNOT_FOUND;
 
-        Tab(const wxString& label, wxWindow* win, const wxBitmap& bmp = wxNullBitmap)
+        Tab(const wxString& label, wxWindow* win, int bmpIndex = wxNOT_FOUND)
             : m_label(label)
             , m_window(win)
-            , m_bmp(bmp)
+            , m_bmpIndex(bmpIndex)
         {
         }
 
-        Tab()
-            : m_window(NULL)
-        {
-        }
+        Tab() {}
     };
-    std::map<wxString, Tab> m_tabs;
+    unordered_map<wxString, Tab> m_tabs;
 
 private:
     wxString m_caption;
-    Notebook* m_book;
+    Notebook* m_book = nullptr;
     FindResultsTab* m_findResultsTab;
     ReplaceInFilesPanel* m_replaceResultsTab;
-
-#if CL_USE_NEW_BUILD_TAB
-    NewBuildTab* m_buildWin;
-#else
-    BuildTab* m_buildWin;
-#endif
-
+    // NewBuildTab* m_buildWin;
     ShellTab* m_outputWind;
     TaskPanel* m_taskPanel;
     FindUsageTab* m_showUsageTab;
-
-#if HAS_LIBCLANG
-    ClangOutputTab* m_clangOutputTab;
-#endif
+    BuildTab* m_build_tab = nullptr;
 
     bool m_buildInProgress;
 
@@ -130,6 +121,11 @@ public:
      */
     virtual ~OutputPane();
 
+    /**
+     * @brief show or hide tab by name
+     */
+    void ShowTab(const wxString& name, bool show);
+
     Notebook* GetNotebook() { return m_book; }
     const wxString& GetCaption() const { return m_caption; }
 
@@ -140,7 +136,7 @@ public:
 
     FindResultsTab* GetFindResultsTab() { return m_findResultsTab; }
     ReplaceInFilesPanel* GetReplaceResultsTab() { return m_replaceResultsTab; }
-    NewBuildTab* GetBuildTab() { return m_buildWin; }
+    BuildTab* GetBuildTab() { return m_build_tab; }
     ShellTab* GetOutputWindow() { return m_outputWind; }
     FindUsageTab* GetShowUsageTab() { return m_showUsageTab; }
 };

@@ -1,6 +1,8 @@
 #include "TextView.h"
-#include <wx/sizer.h>
+
 #include "wxTerminalOptions.h"
+
+#include <wx/sizer.h>
 #include <wx/wupdlock.h>
 
 TextView::TextView(wxWindow* parent, wxWindowID winid)
@@ -201,7 +203,6 @@ int TextView::GetCurrentStyle()
     key << bg.GetAsString() << ":" << textColour.GetAsString() << ":" << (f.GetWeight() == wxFONTWEIGHT_BOLD);
     if(m_styles.count(key)) { return m_styles[key]; }
     ++m_nextStyle;
-
     m_ctrl->StyleSetBackground(m_nextStyle, bg);
     m_ctrl->StyleSetForeground(m_nextStyle, textColour);
     m_ctrl->StyleSetFont(m_nextStyle, f);

@@ -57,12 +57,19 @@ EditorSettingsDockingWindows::EditorSettingsDockingWindows(wxWindow* parent)
     m_checkBoxHideCaptions->SetValue(!options->IsShowDockingWindowCaption());
     m_checkBoxEnsureCaptionsVisible->SetValue(options->IsEnsureCaptionsVisible());
     m_checkBoxShowXButton->SetValue(options->IsTabHasXButton());
+    m_checkBoxShowPath->SetValue(options->IsTabShowPath());
     m_checkBoxNavBarSortDropdown->SetValue(options->IsSortNavBarDropdown());
     m_checkBoxCustomCaptionColour->SetValue(clConfig::Get().Read("UseCustomCaptionsColour", false));
+    m_checkBoxHideTabBar->SetValue(clConfig::Get().Read("HideTabBar", false));
     m_cpCaptionColour->SetColour(DrawingUtils::GetCaptionColour());
 
+#if CL_USE_NATIVEBOOK
+    m_checkBoxHideTabBar->SetValue(false);
+    m_checkBoxHideTabBar->Enable(false);
+#endif
+
     m_choiceTabStyle->Append(clTabRenderer::GetRenderers());
-    wxString selection = clConfig::Get().Read("TabStyle", wxString("MINIMAL"));
+    wxString selection = clConfig::Get().Read("TabStyle", wxString("DEFAULT"));
     m_choiceTabStyle->SetStringSelection(selection);
 
     m_checkBoxMouseScrollSwitchTabs->SetValue(options->IsMouseScrollSwitchTabs());
@@ -145,6 +152,7 @@ void EditorSettingsDockingWindows::Save(OptionsConfigPtr options)
     clConfig::Get().Write("ActiveTabMarkerColour", m_colourPickerMarker->GetColour());
     clConfig::Get().Write("UseCustomCaptionsColour", m_checkBoxCustomCaptionColour->IsChecked());
     clConfig::Get().Write("CustomCaptionColour", m_cpCaptionColour->GetColour());
+    clConfig::Get().Write("HideTabBar", m_checkBoxHideTabBar->IsChecked());
 
     options->SetHideOutpuPaneOnUserClick(m_checkBoxHideOutputPaneOnClick->IsChecked());
     options->SetHideOutputPaneNotIfBuild(m_checkBoxHideOutputPaneNotIfBuild->IsChecked());
@@ -170,6 +178,7 @@ void EditorSettingsDockingWindows::Save(OptionsConfigPtr options)
     options->SetCtrlTabEnabled(m_checkBoxEnableTabSwitchingKey->IsChecked());
     options->SetSortNavBarDropdown(m_checkBoxNavBarSortDropdown->IsChecked());
     options->SetTabHasXButton(m_checkBoxShowXButton->IsChecked());
+    options->SetTabShowPath(m_checkBoxShowPath->IsChecked());
     options->SetMouseScrollSwitchTabs(m_checkBoxMouseScrollSwitchTabs->IsChecked());
     options->SetSortTabsDropdownAlphabetically(m_checkBoxSortTabsDropdownAlphabetically->IsChecked());
 
@@ -238,4 +247,13 @@ void EditorSettingsDockingWindows::OnEnsureCaptionsVisibleUI(wxUpdateUIEvent& ev
 void EditorSettingsDockingWindows::OnUseCustomCaptionColourUI(wxUpdateUIEvent& event)
 {
     event.Enable(m_checkBoxCustomCaptionColour->IsChecked());
+}
+
+void EditorSettingsDockingWindows::OnUsingNativeBookUI(wxUpdateUIEvent& event)
+{
+#if CL_USE_NATIVEBOOK
+    event.Enable(false);
+#else
+    event.Enable(true);
+#endif
 }

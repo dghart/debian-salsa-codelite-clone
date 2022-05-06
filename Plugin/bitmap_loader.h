@@ -26,19 +26,23 @@
 #ifndef BITMAP_LOADER_H
 #define BITMAP_LOADER_H
 
+#include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "fileextmanager.h"
 #include "wxStringHash.h"
+
 #include <vector>
 #include <wx/bitmap.h>
 #include <wx/filename.h>
 #include <wx/imaglist.h>
 
+using namespace std;
+
 #ifndef __WXMSW__
 namespace std
 {
 template <> struct hash<FileExtManager::FileType> {
-    std::size_t operator()(const FileExtManager::FileType& t) const { return hash<int>{}((int)t); }
+    size_t operator()(const FileExtManager::FileType& t) const { return hash<int>{}((int)t); }
 };
 } // namespace std
 #endif
@@ -46,8 +50,8 @@ template <> struct hash<FileExtManager::FileType> {
 class WXDLLIMPEXP_SDK clMimeBitmaps
 {
     /// Maps between image-id : index in the list
-    std::unordered_map<int, int> m_fileIndexMap;
-    std::vector<wxBitmap> m_bitmaps;
+    unordered_map<int, int> m_fileIndexMap;
+    vector<wxBitmap> m_bitmaps;
 
 public:
     clMimeBitmaps();
@@ -65,15 +69,55 @@ public:
     void AddBitmap(const wxBitmap& bitmap, int type);
     void Clear();
     bool IsEmpty() const { return m_bitmaps.empty(); }
-    std::vector<wxBitmap>& GetBitmaps() { return m_bitmaps; }
-    const std::vector<wxBitmap>& GetBitmaps() const { return m_bitmaps; }
+    vector<wxBitmap>& GetBitmaps() { return m_bitmaps; }
+    const vector<wxBitmap>& GetBitmaps() const { return m_bitmaps; }
 };
 
-class WXDLLIMPEXP_SDK BitmapLoader
+class WXDLLIMPEXP_SDK clBitmaps;
+
+class WXDLLIMPEXP_SDK clBitmapList : public wxEvtHandler
 {
+    size_t m_index = 0;
+    struct BmpInfo {
+        wxBitmap* bmp_ptr = nullptr;          // if this is set, it means that it is part of the BitmapLoader class
+        wxBitmap bmp = wxNullBitmap;          // user provided bitmap
+        wxBitmap bmp_disabled = wxNullBitmap; // this one is always a one that we provide
+        wxString name;
+        int ref_count = 1;
+    };
+    unordered_map<size_t, BmpInfo> m_bitmaps;
+    unordered_map<wxString, size_t> m_nameToIndex;
+
+protected:
+    void OnBitmapsUpdated(clCommandEvent& event);
+    size_t FindIdByName(const wxString& name) const;
+    size_t DoAdd(const wxBitmap& bmp, const wxBitmap& bmpDisabled, const wxString& bmp_name, bool user_bmp);
+
 public:
-    typedef std::unordered_map<FileExtManager::FileType, wxBitmap> BitmapMap_t;
-    typedef std::vector<wxBitmap> Vec_t;
+    clBitmapList();
+    virtual ~clBitmapList();
+    size_t Add(const wxBitmap& bmp, const wxString& name);
+    size_t Add(const wxString& bmp_name, int size = wxNOT_FOUND);
+    size_t size() const { return m_bitmaps.size(); }
+    bool empty() const { return m_bitmaps.empty(); }
+    const wxBitmap& Get(size_t index, bool disabledBmp);
+    const wxBitmap& Get(const wxString& name, bool disabledBmp);
+    void Delete(size_t index);
+    void Delete(const wxString& name);
+    void clear();
+    /**
+     * @brief return bitmap name for a given index
+     */
+    const wxString& GetBitmapName(size_t index) const;
+};
+
+class WXDLLIMPEXP_SDK BitmapLoader : public wxEvtHandler
+{
+    friend class clBitmaps;
+
+public:
+    typedef unordered_map<FileExtManager::FileType, wxBitmap> BitmapMap_t;
+    typedef vector<wxBitmap> Vec_t;
 
     enum eBitmapId {
         kClass = 1000,
@@ -105,9 +149,9 @@ public:
 
 protected:
     wxFileName m_zipPath;
-    static std::unordered_map<wxString, wxBitmap> m_toolbarsBitmaps;
-    static std::unordered_map<wxString, wxString> m_manifest;
-    std::unordered_map<FileExtManager::FileType, int> m_fileIndexMap;
+    unordered_map<wxString, wxBitmap> m_toolbarsBitmaps;
+    unordered_map<wxString, wxString> m_manifest;
+    unordered_map<FileExtManager::FileType, int> m_fileIndexMap;
     bool m_bMapPopulated;
     size_t m_toolbarIconSize;
     clMimeBitmaps m_mimeBitmaps;
@@ -116,12 +160,10 @@ protected:
     wxIcon GetIcon(const wxBitmap& bmp) const;
 
 private:
-    BitmapLoader();
-    ~BitmapLoader();
+    BitmapLoader(bool darkTheme);
+    virtual ~BitmapLoader();
 
 public:
-    static BitmapLoader* Create() { return new BitmapLoader(); }
-
     clMimeBitmaps& GetMimeBitmaps() { return m_mimeBitmaps; }
     const clMimeBitmaps& GetMimeBitmaps() const { return m_mimeBitmaps; }
 
@@ -157,10 +199,32 @@ protected:
     void CreateMimeList();
 
 private:
-    void initialize();
+    void Initialize(bool darkTheme);
+    static void SetActiveBitmaps();
+    void OnSysColoursChanged(clCommandEvent& event);
 
 public:
     const wxBitmap& LoadBitmap(const wxString& name, int requestedSize = 16);
 };
 
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_BITMAPS_UPDATED, clCommandEvent);
+class WXDLLIMPEXP_SDK clBitmaps : public wxEvtHandler
+{
+    BitmapLoader* m_lightBitmaps = nullptr;
+    BitmapLoader* m_darkBitmaps = nullptr;
+    BitmapLoader* m_activeBitmaps = nullptr;
+
+protected:
+    void Initialise();
+    void OnSysColoursChanged(clCommandEvent& event);
+
+protected:
+    clBitmaps();
+    virtual ~clBitmaps();
+
+public:
+    static clBitmaps& Get();
+    BitmapLoader* GetLoader();
+    void SysColoursChanged();
+};
 #endif // BITMAP_LOADER_H

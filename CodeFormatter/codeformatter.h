@@ -38,6 +38,8 @@ enum FormatterEngine {
     kFormatEnginePhpCsFixer,
     kFormatEnginePhpcbf,
     kFormatEngineWxXmlDocument,
+    kFormatEngineRust,
+    kFormatEngineJSON,
 };
 
 class CodeFormatter : public IPlugin
@@ -71,10 +73,12 @@ private:
     void DoFormatWithBuildInPhp(wxString& content);
     void DoFormatWithPhpCsFixer(const wxFileName& fileName);
     void DoFormatWithClang(const wxFileName& fileName);
+    void DoFormatWithRustfmt(IEditor* editor, const wxFileName& fileName);
     void DoFormatWithClang(wxString& content, const wxFileName& fileName, int& cursorPosition,
                            const int& selStart = wxNOT_FOUND, const int& selEnd = wxNOT_FOUND);
     void DoFormatWithAstyle(wxString& content, const bool& appendEOL = true);
     void DoFormatWithWxXmlDocument(const wxFileName& fileName);
+    void DoFormatWithcJSON(const wxFileName& fileName);
 
     void OnPhpSettingsChanged(clCommandEvent& event);
     void OnScanFilesCompleted(const std::vector<wxFileName>& files);

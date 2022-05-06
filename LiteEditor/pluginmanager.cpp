@@ -22,6 +22,9 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "pluginmanager.h"
+
+#include "BuildTab.hpp"
 #include "app.h"
 #include "bitmap_loader.h"
 #include "build_settings_config.h"
@@ -43,19 +46,18 @@
 #include "fileview.h"
 #include "frame.h"
 #include "generalinfo.h"
-#include "jobqueue.h"
 #include "language.h"
 #include "macromanager.h"
 #include "manager.h"
-#include "new_build_tab.h"
 #include "optionsconfig.h"
 #include "plugin_version.h"
-#include "pluginmanager.h"
+#include "procutils.h"
 #include "sessionmanager.h"
 #include "workspace_pane.h"
 #include "workspacetab.h"
 #include "wx/filename.h"
 #include "wx/xrc/xmlres.h"
+
 #include <wx/dir.h>
 #include <wx/log.h>
 #include <wx/tokenzr.h>
@@ -144,8 +146,9 @@ void PluginManager::Load()
         return;
     }
 
-    else if(pp == CodeLiteApp::PP_FromList)
+    else if(pp == CodeLiteApp::PP_FromList) {
         allowedPlugins = app->GetAllowedPlugins();
+    }
 
     wxString pluginsDir = clStandardPaths::Get().GetPluginsDirectory();
     if(wxDir::Exists(pluginsDir)) {
@@ -223,6 +226,8 @@ void PluginManager::Load()
             PluginInfo* pluginInfo = pfnGetPluginInfo();
 
             wxString pname = pluginInfo->GetName();
+            m_installedPlugins.insert({ pname, *pluginInfo });
+
             pname.MakeLower().Trim().Trim(false);
 
             // Check the policy
@@ -235,10 +240,6 @@ void PluginManager::Load()
 
             // If the plugin does not exist in the m_pluginsData, assume its the first time we see it
             bool firstTimeLoading = (m_pluginsData.GetPlugins().count(pluginInfo->GetName()) == 0);
-
-            // Add the plugin information
-            m_pluginsData.AddPlugin((*pluginInfo));
-
             if(firstTimeLoading && pluginInfo->HasFlag(PluginInfo::kDisabledByDefault)) {
                 m_pluginsData.DisablePlugin(pluginInfo->GetName());
                 wxDELETE(dl);
@@ -281,11 +282,11 @@ void PluginManager::Load()
         // Let the plugins plug their menu in the 'Plugins' menu at the menu bar
         // the create menu will be placed as a sub menu of the 'Plugin' menu
         wxMenu* pluginsMenu = NULL;
-        wxMenuItem* menuitem = clMainFrame::Get()->GetMenuBar()->FindItem(XRCID("manage_plugins"), &pluginsMenu);
+        wxMenuItem* menuitem = clMainFrame::Get()->GetMainMenuBar()->FindItem(XRCID("manage_plugins"), &pluginsMenu);
         if(pluginsMenu && menuitem) {
-            std::map<wxString, IPlugin*>::iterator iter = m_plugins.begin();
-            for(; iter != m_plugins.end(); ++iter) {
-                IPlugin* plugin = iter->second;
+            for(auto& vt : m_plugins) {
+                IPlugin* plugin = vt.second;
+                plugin->SetPluginsMenu(pluginsMenu);
                 plugin->CreatePluginMenu(pluginsMenu);
             }
         }
@@ -383,9 +384,10 @@ Notebook* PluginManager::GetOutputPaneNotebook() { return clMainFrame::Get()->Ge
 
 Notebook* PluginManager::GetWorkspacePaneNotebook() { return clMainFrame::Get()->GetWorkspacePane()->GetNotebook(); }
 
-IEditor* PluginManager::OpenFile(const wxString& fileName, const wxBitmap& bmp, const wxString& tooltip)
+IEditor* PluginManager::OpenFile(const wxString& fileName, const wxString& bmpResourceName, const wxString& tooltip)
 {
-    IEditor* editor = clMainFrame::Get()->GetMainBook()->OpenFile(fileName, bmp, tooltip);
+    int bmp_index = clMainFrame::Get()->GetMainBook()->GetBitmapIndexOrAdd(bmpResourceName);
+    IEditor* editor = clMainFrame::Get()->GetMainBook()->OpenFile(fileName, bmp_index, tooltip);
     if(editor) {
         editor->SetActive();
     }
@@ -446,7 +448,6 @@ wxAuiManager* PluginManager::GetDockingManager() { return m_dockingManager; }
 
 EnvironmentConfig* PluginManager::GetEnv() { return EnvironmentConfig::Instance(); }
 
-JobQueue* PluginManager::GetJobQueue() { return JobQueueSingleton::Instance(); }
 wxString PluginManager::GetProjectExecutionCommand(const wxString& projectName, wxString& wd)
 {
     return ManagerST::Get()->GetProjectExecutionCommand(projectName, wd, false);
@@ -518,9 +519,9 @@ void PluginManager::EnableToolbars()
 {
     // In case, plugins are now allowed to insert toolbars, disable the toolbars_menu item
     if(AllowToolbar() == false) {
-        int ii = clMainFrame::Get()->GetMenuBar()->FindMenu(wxT("View"));
+        int ii = clMainFrame::Get()->GetMainMenuBar()->FindMenu(wxT("View"));
         if(ii != wxNOT_FOUND) {
-            wxMenu* viewMenu = clMainFrame::Get()->GetMenuBar()->GetMenu(ii);
+            wxMenu* viewMenu = clMainFrame::Get()->GetMainMenuBar()->GetMenu(ii);
             wxMenuItem* item = viewMenu->FindItem(XRCID("toolbars_menu"));
             if(item) {
                 item->Enable(false);
@@ -570,10 +571,11 @@ bool PluginManager::ClosePage(const wxFileName& filename)
 
 wxWindow* PluginManager::FindPage(const wxString& text) { return clMainFrame::Get()->GetMainBook()->FindPage(text); }
 
-bool PluginManager::AddPage(wxWindow* win, const wxString& text, const wxString& tooltip, const wxBitmap& bmp,
-                            bool selected)
+bool PluginManager::AddPage(wxWindow* win, const wxString& text, const wxString& tooltip,
+                            const wxString& bmpResourceName, bool selected)
 {
-    return clMainFrame::Get()->GetMainBook()->AddPage(win, text, tooltip, bmp, selected);
+    int bmp_index = clMainFrame::Get()->GetMainBook()->GetBitmapIndexOrAdd(bmpResourceName);
+    return clMainFrame::Get()->GetMainBook()->AddBookPage(win, text, tooltip, bmp_index, selected, wxNOT_FOUND);
 }
 
 bool PluginManager::SelectPage(wxWindow* win) { return clMainFrame::Get()->GetMainBook()->SelectPage(win); }
@@ -606,10 +608,8 @@ bool PluginManager::IsShutdownInProgress() const { return ManagerST::Get()->IsSh
 
 BitmapLoader* PluginManager::GetStdIcons()
 {
-    if(!m_bmpLoader) {
-        m_bmpLoader = BitmapLoader::Create();
-    }
-    return m_bmpLoader;
+    // return the current bitmap loader
+    return clBitmaps::Get().GetLoader();
 }
 
 wxArrayString PluginManager::GetProjectCompileFlags(const wxString& projectName, bool isCppFile)
@@ -689,7 +689,7 @@ wxArrayString PluginManager::GetProjectCompileFlags(const wxString& projectName,
 
 void PluginManager::AddEditorPage(wxWindow* page, const wxString& name, const wxString& tooltip)
 {
-    clMainFrame::Get()->GetMainBook()->AddPage(page, name, tooltip, wxNullBitmap, true);
+    clMainFrame::Get()->GetMainBook()->AddBookPage(page, name, tooltip, wxNOT_FOUND, true, wxNOT_FOUND);
 }
 
 wxPanel* PluginManager::GetEditorPaneNotebook() { return clMainFrame::Get()->GetMainBook(); }
@@ -735,7 +735,7 @@ size_t PluginManager::GetAllEditors(IEditor::List_t& editors, bool inOrder)
     return editors.size();
 }
 
-size_t PluginManager::GetAllBreakpoints(BreakpointInfo::Vec_t& breakpoints)
+size_t PluginManager::GetAllBreakpoints(clDebuggerBreakpoint::Vec_t& breakpoints)
 {
     breakpoints.clear();
     ManagerST::Get()->GetBreakpointsMgr()->GetBreakpoints(breakpoints);
@@ -744,7 +744,7 @@ size_t PluginManager::GetAllBreakpoints(BreakpointInfo::Vec_t& breakpoints)
 
 void PluginManager::DeleteAllBreakpoints() { ManagerST::Get()->GetBreakpointsMgr()->DelAllBreakpoints(); }
 
-void PluginManager::SetBreakpoints(const BreakpointInfo::Vec_t& breakpoints)
+void PluginManager::SetBreakpoints(const clDebuggerBreakpoint::Vec_t& breakpoints)
 {
     ManagerST::Get()->GetBreakpointsMgr()->DelAllBreakpoints();
     for(size_t i = 0; i < breakpoints.size(); ++i) {
@@ -918,7 +918,7 @@ void PluginManager::DisplayMessage(const wxString& message, int flags,
     return clMainFrame::Get()->GetMessageBar()->DisplayMessage(message, flags, buttons);
 }
 
-void PluginManager::GetBreakpoints(std::vector<BreakpointInfo>& bpList)
+void PluginManager::GetBreakpoints(std::vector<clDebuggerBreakpoint>& bpList)
 {
     ManagerST::Get()->GetBreakpointsMgr()->GetBreakpoints(bpList);
 }
@@ -926,4 +926,11 @@ void PluginManager::GetBreakpoints(std::vector<BreakpointInfo>& bpList)
 void PluginManager::ShowBuildMenu(clToolBar* toolbar, wxWindowID buttonId)
 {
     clMainFrame::Get()->ShowBuildMenu(toolbar, buttonId);
+}
+
+clMenuBar* PluginManager::GetMenuBar() { return clMainFrame::Get()->GetMainMenuBar(); }
+
+void PluginManager::OpenFileAndAsyncExecute(const wxString& fileName, std::function<void(IEditor*)>&& func)
+{
+    clMainFrame::Get()->GetMainBook()->OpenFileAsync(fileName, std::move(func));
 }

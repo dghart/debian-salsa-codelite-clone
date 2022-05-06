@@ -5,6 +5,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "wxCodeCompletionBoxBase.h"
+
 #include "codelite_exports.h"
 
 // Declare the bitmap loading function
@@ -25,7 +26,7 @@ wxCodeCompletionBoxBase::wxCodeCompletionBoxBase(wxWindow* parent, long style)
     wxBoxSizer* mainSizer = new wxBoxSizer(wxHORIZONTAL);
     this->SetSizer(mainSizer);
 
-    m_mainPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(400, 200)), wxTAB_TRAVERSAL);
+    m_mainPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), wxTAB_TRAVERSAL);
 
     mainSizer->Add(m_mainPanel, 1, wxEXPAND, WXC_FROM_DIP(0));
 
@@ -35,11 +36,13 @@ wxCodeCompletionBoxBase::wxCodeCompletionBoxBase(wxWindow* parent, long style)
     m_list = new clThemedListCtrl(m_mainPanel, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_mainPanel, wxSize(-1, -1)),
                                   wxDV_NO_HEADER | wxDV_ROW_LINES | wxDV_SINGLE | wxBORDER_NONE);
 
-    boxSizer43->Add(m_list, 1, wxEXPAND, WXC_FROM_DIP(1));
+    boxSizer43->Add(m_list, 1, wxALL | wxEXPAND, WXC_FROM_DIP(1));
 
     SetName(wxT("wxCodeCompletionBoxBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
     m_list->Connect(wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED,
                     wxDataViewEventHandler(wxCodeCompletionBoxBase::OnSelectionChanged), NULL, this);

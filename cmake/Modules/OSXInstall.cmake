@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 
 if(APPLE)
     set( PLUGINS_DIR ${CMAKE_BINARY_DIR}/codelite.app/Contents/SharedSupport/plugins)
@@ -236,12 +236,13 @@ macro(OSX_MAKE_BUNDLE_DIRECTORY)
              )
 
         ## codelite-clang-format
-        file(COPY ${CL_SRC_ROOT}/sdk/clang/lib/clang-format.osx 
+        file(COPY ${CL_SRC_ROOT}/tools/macOS/clang-format 
              DESTINATION 
                   ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/)
-                  
-        file(RENAME ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/clang-format.osx 
-             ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/codelite-clang-format)
+
+        file(COPY ${CL_SRC_ROOT}/tools/macOS/clangd 
+             DESTINATION 
+                  ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/)
         
         ## folders
         install(
@@ -264,10 +265,6 @@ macro(OSX_MAKE_BUNDLE_DIRECTORY)
             PATTERN ".svn" EXCLUDE
             PATTERN ".git" EXCLUDE
         )
-        
-        install(FILES ${CL_SRC_ROOT}/Runtime/config/accelerators.conf.default 
-                DESTINATION 
-                    ${CMAKE_BINARY_DIR}/codelite.app/Contents/SharedSupport/config)
                     
         install(FILES ${CL_SRC_ROOT}/Runtime/config/codelite.layout.default 
                 DESTINATION 

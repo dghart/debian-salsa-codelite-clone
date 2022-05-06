@@ -30,7 +30,6 @@
 #include "cl_command_event.h"
 #include "imanager.h"
 #include "openwindowspanelbase.h"
-#include "theme_handler_helper.h"
 #include <map>
 
 class clToolBar;
@@ -80,8 +79,8 @@ protected:
     void OnIdle(wxIdleEvent& event);
     void OnEditorModified(clCommandEvent& event);
     void OnEditorSaved(clCommandEvent& event);
-    void OnWorkspaceClosed(wxCommandEvent& event);
-    void OnWorkspaceClosing(wxCommandEvent& event);
+    void OnWorkspaceClosed(clWorkspaceEvent& event);
+    void OnWorkspaceClosing(clWorkspaceEvent& event);
 
     DECLARE_EVENT_TABLE()
 

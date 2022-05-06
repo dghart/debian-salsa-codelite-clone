@@ -3,6 +3,7 @@
 
 #include "NewProjectDialogBase.h"
 #include "project.h"
+
 #include <codelite_exports.h>
 #include <list>
 #include <map>
@@ -14,6 +15,7 @@
 class WXDLLIMPEXP_SDK NewProjectDialog : public NewProjectDialogBase
 {
 protected:
+    virtual void OnCompilerChanged(wxCommandEvent& event);
     virtual void OnOK(wxCommandEvent& event);
     virtual void OnNameTyped(wxCommandEvent& event);
     virtual void OnPathSelected(wxFileDirPickerEvent& event);

@@ -6,6 +6,7 @@
 #include "LSP/JSONObject.h"
 #include "basic_types.h"
 #include "codelite_exports.h"
+
 #include <vector>
 #include <wx/sharedptr.h>
 
@@ -37,14 +38,75 @@ public:
     TextDocumentPositionParams();
     virtual ~TextDocumentPositionParams() {}
 
-    virtual void FromJSON(const JSONItem& json, IPathConverter::Ptr_t pathConverter);
-    virtual JSONItem ToJSON(const wxString& name, IPathConverter::Ptr_t pathConverter) const;
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
 
     void SetPosition(const Position& position) { this->m_position = position; }
     void SetTextDocument(const TextDocumentIdentifier& textDocument) { this->m_textDocument = textDocument; }
     const Position& GetPosition() const { return m_position; }
     const TextDocumentIdentifier& GetTextDocument() const { return m_textDocument; }
 };
+
+//===----------------------------------------------------------------------------------
+// TextDocumentPositionParams
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL ReferenceParams : public TextDocumentPositionParams
+{
+    bool m_includeDeclaration = true;
+
+public:
+    ReferenceParams(bool includeDeclaration);
+    virtual ~ReferenceParams() {}
+
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
+    void SetIncludeDeclaration(bool includeDeclaration) { this->m_includeDeclaration = includeDeclaration; }
+    bool IsIncludeDeclaration() const { return m_includeDeclaration; }
+};
+
+//===----------------------------------------------------------------------------------
+// SemanticTokensParams
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL SemanticTokensParams : public Params
+{
+    TextDocumentIdentifier m_textDocument;
+
+public:
+    SemanticTokensParams();
+    virtual ~SemanticTokensParams() {}
+
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
+
+    void SetTextDocument(const TextDocumentIdentifier& textDocument) { this->m_textDocument = textDocument; }
+    const TextDocumentIdentifier& GetTextDocument() const { return m_textDocument; }
+};
+
+struct WXDLLIMPEXP_CL SemanticTokenRange {
+    int line = wxNOT_FOUND;
+    int column = wxNOT_FOUND;
+    int length = wxNOT_FOUND;
+    int token_type = wxNOT_FOUND;
+};
+
+//===----------------------------------------------------------------------------------
+// DocumentSymbolParams
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL DocumentSymbolParams : public Params
+{
+    TextDocumentIdentifier m_textDocument;
+
+public:
+    DocumentSymbolParams();
+    virtual ~DocumentSymbolParams() {}
+
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
+
+    void SetTextDocument(const TextDocumentIdentifier& textDocument) { this->m_textDocument = textDocument; }
+    const TextDocumentIdentifier& GetTextDocument() const { return m_textDocument; }
+};
+
 //===----------------------------------------------------------------------------------
 // CompletionParams
 //===----------------------------------------------------------------------------------
@@ -54,8 +116,8 @@ public:
     CompletionParams();
     virtual ~CompletionParams() {}
 
-    virtual void FromJSON(const JSONItem& json, IPathConverter::Ptr_t pathConverter);
-    virtual JSONItem ToJSON(const wxString& name, IPathConverter::Ptr_t pathConverter) const;
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
 };
 
 //===----------------------------------------------------------------------------------
@@ -69,8 +131,8 @@ public:
     DidOpenTextDocumentParams();
     virtual ~DidOpenTextDocumentParams() {}
 
-    virtual void FromJSON(const JSONItem& json, IPathConverter::Ptr_t pathConverter);
-    virtual JSONItem ToJSON(const wxString& name, IPathConverter::Ptr_t pathConverter) const;
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
 
     DidOpenTextDocumentParams& SetTextDocument(const TextDocumentItem& textDocument)
     {
@@ -91,8 +153,8 @@ public:
     DidCloseTextDocumentParams();
     virtual ~DidCloseTextDocumentParams() {}
 
-    virtual void FromJSON(const JSONItem& json, IPathConverter::Ptr_t pathConverter);
-    virtual JSONItem ToJSON(const wxString& name, IPathConverter::Ptr_t pathConverter) const;
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
     DidCloseTextDocumentParams& SetTextDocument(const TextDocumentIdentifier& textDocument)
     {
         this->m_textDocument = textDocument;
@@ -113,8 +175,8 @@ public:
     DidChangeTextDocumentParams();
     virtual ~DidChangeTextDocumentParams() {}
 
-    virtual void FromJSON(const JSONItem& json, IPathConverter::Ptr_t pathConverter);
-    virtual JSONItem ToJSON(const wxString& name, IPathConverter::Ptr_t pathConverter) const;
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
     DidChangeTextDocumentParams& SetContentChanges(const std::vector<TextDocumentContentChangeEvent>& contentChanges)
     {
         this->m_contentChanges = contentChanges;
@@ -141,8 +203,8 @@ public:
     DidSaveTextDocumentParams();
     virtual ~DidSaveTextDocumentParams() {}
 
-    virtual void FromJSON(const JSONItem& json, IPathConverter::Ptr_t pathConverter);
-    virtual JSONItem ToJSON(const wxString& name, IPathConverter::Ptr_t pathConverter) const;
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
     DidSaveTextDocumentParams& SetTextDocument(const TextDocumentIdentifier& textDocument)
     {
         this->m_textDocument = textDocument;

@@ -1,5 +1,7 @@
 #include "wxc_project_metadata.h"
-#include <event_notifier.h>
+
+#include "event_notifier.h"
+
 #include <wx/ffile.h>
 #include <wx/filename.h>
 
@@ -8,6 +10,7 @@ const wxEventType wxEVT_CMD_WXCRAFTER_PROJECT_SYNCHED = wxNewEventType();
 
 wxcProjectMetadata::wxcProjectMetadata()
     : m_objCounter(0)
+    , m_useHpp(true)
     , m_firstWindowId(10000)
     , m_useEnum(true)
     , m_useUnderscoreMacro(true)
@@ -21,12 +24,12 @@ wxcProjectMetadata::~wxcProjectMetadata() {}
 
 void wxcProjectMetadata::FromJSON(const JSONElement& json)
 {
-    m_objCounter = json.namedObject(wxT("m_objCounter")).toInt();
-    m_generatedFilesDir = json.namedObject(wxT("m_generatedFilesDir")).toString();
-    m_includeFiles = json.namedObject(wxT("m_includeFiles")).toArrayString();
-    m_bitmapFunction = json.namedObject(wxT("m_bitmapFunction")).toString();
-    m_bitmapsFile = json.namedObject(wxT("m_bitmapsFile")).toString();
-    m_GenerateCodeTypes = json.namedObject(wxT("m_GenerateCodeTypes")).toInt(wxcGenerateCPPCode);
+    m_objCounter = json.namedObject("m_objCounter").toInt();
+    m_generatedFilesDir = json.namedObject("m_generatedFilesDir").toString();
+    m_includeFiles = json.namedObject("m_includeFiles").toArrayString();
+    m_bitmapFunction = json.namedObject("m_bitmapFunction").toString();
+    m_bitmapsFile = json.namedObject("m_bitmapsFile").toString();
+    m_GenerateCodeTypes = json.namedObject("m_GenerateCodeTypes").toInt(wxcGenerateCPPCode);
     m_outputFileName = json.namedObject("m_outputFileName").toString();
     m_firstWindowId = json.namedObject("m_firstWindowId").toInt(m_firstWindowId);
     m_useEnum = json.namedObject("m_useEnum").toBool(true);
@@ -34,12 +37,22 @@ void wxcProjectMetadata::FromJSON(const JSONElement& json)
     m_addHandlers = json.namedObject("m_addHandlers").toBool(m_addHandlers);
 
     wxcSettings::Get().MergeCustomControl(json.namedObject("m_templateClasses"));
-    if(m_bitmapFunction.IsEmpty()) { DoGenerateBitmapFunctionName(); }
+    if(m_bitmapFunction.IsEmpty()) {
+        DoGenerateBitmapFunctionName();
+    }
+
+    // for backward-compatibility, we continue to use .h file extension if it's already there
+    wxFileName headerFile = BaseCppFile();
+    headerFile.SetExt("h");
+    if(headerFile.IsRelative()) {
+        headerFile.MakeAbsolute(GetProjectPath());
+    }
+    m_useHpp = !headerFile.FileExists();
 }
 
 JSONElement wxcProjectMetadata::ToJSON()
 {
-    JSONElement metadata = JSONElement::createObject(wxT("metadata"));
+    JSONElement metadata = JSONElement::createObject("metadata");
     UpdatePaths();
 
     metadata.addProperty("m_generatedFilesDir", m_generatedFilesDir);
@@ -65,22 +78,24 @@ void wxcProjectMetadata::AppendCustomControlsJSON(const wxArrayString& controls,
 wxString wxcProjectMetadata::GetCppFileName() const
 {
     wxFileName cpp(m_generatedFilesDir, m_projectFile);
-    cpp.SetExt(wxT("cpp"));
+    cpp.SetExt("cpp");
     return cpp.GetFullPath();
 }
 
 wxString wxcProjectMetadata::GetXrcFileName() const
 {
     wxFileName xrc(m_projectFile);
-    if(!xrc.IsAbsolute()) { xrc = wxFileName(m_generatedFilesDir, m_projectFile); }
-    xrc.SetExt(wxT("xrc"));
+    if(!xrc.IsAbsolute()) {
+        xrc = wxFileName(m_generatedFilesDir, m_projectFile);
+    }
+    xrc.SetExt("xrc");
     return xrc.GetFullPath();
 }
 
 wxString wxcProjectMetadata::GetHeaderFileName() const
 {
     wxFileName header(m_generatedFilesDir, m_projectFile);
-    header.SetExt(wxT("h"));
+    header.SetExt(GetHeaderFileExt());
     return header.GetFullPath();
 }
 
@@ -105,17 +120,15 @@ wxString wxcProjectMetadata::GetGeneratedFilesDir() const
 
 wxFileName wxcProjectMetadata::BaseCppFile() const
 {
-    wxFileName sourceFile;
     wxFileName baseFile(GetGeneratedFilesDir(), GetOutputFileName());
-    sourceFile = baseFile;
-    sourceFile.SetExt(wxT("cpp"));
-    return sourceFile;
+    baseFile.SetExt("cpp");
+    return baseFile;
 }
 
 wxFileName wxcProjectMetadata::BaseHeaderFile() const
 {
     wxFileName f = BaseCppFile();
-    f.SetExt("h");
+    f.SetExt(GetHeaderFileExt());
     return f;
 }
 
@@ -139,6 +152,7 @@ void wxcProjectMetadata::Reset()
     m_bitmapsFile.Clear();
     m_additionalFiles.clear();
     m_outputFileName.Clear();
+    m_useHpp = true;
     m_useEnum = true;
     m_useUnderscoreMacro = true;
     m_firstWindowId = 10000;
@@ -148,33 +162,37 @@ void wxcProjectMetadata::Reset()
 void wxcProjectMetadata::DoGenerateBitmapFunctionName()
 {
     m_bitmapFunction.Clear();
-    wxString name = wxFileName::CreateTempFileName(wxT("wxCrafter"));
+    wxString name = wxFileName::CreateTempFileName("wxCrafter");
     wxFileName fn(name);
     name.Clear();
-    name << fn.GetName() << wxT("InitBitmapResources");
+    name << fn.GetName() << "InitBitmapResources";
     m_bitmapFunction = name;
 }
 
 wxString wxcProjectMetadata::DoGenerateBitmapsFile() const
 {
-    if(GetProjectFile().IsEmpty()) return wxT("");
+    if(GetProjectFile().IsEmpty()) {
+        return "";
+    }
 
     wxFileName projectFileName(GetProjectFile());
     wxFileName fn = wxFileName(GetProjectPath(), projectFileName.GetFullName());
     wxString projectName = projectFileName.GetName();
 
     const wxArrayString& dirs = projectFileName.GetDirs();
-    wxString lastDirName = dirs.IsEmpty() ? wxT("") : dirs.Last();
+    wxString lastDirName = dirs.IsEmpty() ? "" : dirs.Last();
     lastDirName.MakeLower();
 
-    fn.SetName(projectName + wxT("_") + lastDirName + wxT("_bitmaps"));
-    fn.SetExt(wxT("cpp"));
+    fn.SetName(projectName + "_" + lastDirName + "_bitmaps");
+    fn.SetExt("cpp");
     return fn.GetFullName();
 }
 
 wxString wxcProjectMetadata::GetBitmapsFile() const
 {
-    if(m_bitmapsFile.IsEmpty()) { return DoGenerateBitmapsFile(); }
+    if(m_bitmapsFile.IsEmpty()) {
+        return DoGenerateBitmapsFile();
+    }
 
     return m_bitmapsFile;
 }
@@ -187,10 +205,10 @@ void wxcProjectMetadata::Serialize(const wxcWidget::List_t& topLevelsList, const
     root.toElement().append(p.ToJSON());
 
     // The windows
-    JSONElement windows = JSONElement::createArray(wxT("windows"));
+    JSONElement windows = JSONElement::createArray("windows");
     root.toElement().append(windows);
 
-    wxFFile fp(filename.GetFullPath(), wxT("w+b"));
+    wxFFile fp(filename.GetFullPath(), "w+b");
     if(fp.IsOpened()) {
 
         wxcWidget::List_t::const_iterator iter = topLevelsList.begin();
@@ -215,6 +233,8 @@ wxString wxcProjectMetadata::GetOutputFileName() const
     return m_outputFileName;
 }
 
+wxString wxcProjectMetadata::GetHeaderFileExt() const { return m_useHpp ? "hpp" : "h"; }
+
 void wxcProjectMetadata::SetProjectFile(const wxString& filename)
 {
     this->m_projectFile = filename;
@@ -223,6 +243,10 @@ void wxcProjectMetadata::SetProjectFile(const wxString& filename)
 
 void wxcProjectMetadata::UpdatePaths()
 {
-    if(m_generatedFilesDir.IsEmpty()) { m_generatedFilesDir = "."; }
-    if(m_bitmapsFile.IsEmpty()) { m_bitmapsFile = DoGenerateBitmapsFile(); }
+    if(m_generatedFilesDir.IsEmpty()) {
+        m_generatedFilesDir = ".";
+    }
+    if(m_bitmapsFile.IsEmpty()) {
+        m_bitmapsFile = DoGenerateBitmapsFile();
+    }
 }

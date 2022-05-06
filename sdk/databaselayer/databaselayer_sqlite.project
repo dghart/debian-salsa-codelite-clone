@@ -102,7 +102,7 @@
       <Linker Options="" Required="yes"/>
       <ResourceCompiler Options="" Required="yes"/>
       <General OutputFile="libdatabaselayersqliteud.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -142,7 +142,7 @@
       <Linker Options="" Required="yes"/>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="libdatabaselayersqliteu.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -188,7 +188,7 @@
       <Linker Options="" Required="yes"/>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="libdatabaselayersqliteu.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -229,7 +229,7 @@
       <Linker Options="$(shell wx-config --libs  --unicode=yes)" Required="yes"/>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="libdatabaselayersqliteud.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -240,7 +240,7 @@
       </Debugger>
       <PreBuild/>
       <PostBuild>
-        <Command Enabled="yes">copy "$(OutputFile)" ..\Runtime</Command>
+        <Command Enabled="yes">copy "$(OutputFile)"  ..\..\Runtime</Command>
       </PostBuild>
       <CustomBuild Enabled="no">
         <RebuildCommand/>
@@ -264,7 +264,7 @@
       </Completion>
     </Configuration>
     <Configuration Name="Win_x64_Release" CompilerType="GCC (x86_64)" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-O2;-std=c++11;$(shell wx-config --cxxflags --unicode=yes --debug=no);-Winvalid-pch" C_Options="-O2" Assembler="" Required="yes" PreCompiledHeader="../../PCH/precompiled_header_release.h" PCHInCommandLine="yes" PCHFlags="$(shell wx-config --cxxflags --unicode=yes --debug=no) -O2" PCHFlagsPolicy="0">
+      <Compiler Options="-O2;-std=c++11;$(shell wx-config --cxxflags --unicode=yes --debug=no);-Winvalid-pch" C_Options="-O2" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="$(shell wx-config --cxxflags --unicode=yes --debug=no) -O2" PCHFlagsPolicy="0">
         <IncludePath Value="include/wx/dblayer/include"/>
         <IncludePath Value="src/sqlite3"/>
         <Preprocessor Value="WXMAKINGDLL_DATABASELAYER"/>
@@ -274,7 +274,7 @@
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="libdatabaselayersqliteu.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="Default" DbgSetName="">
         <![CDATA[]]>
       </Environment>
@@ -309,7 +309,7 @@
       </Completion>
     </Configuration>
     <Configuration Name="Win_x86_Release" CompilerType="GCC (i686)" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="$(shell wx-config --cxxflags --unicode=yes --debug=no);-O2;-Winvalid-pch" C_Options="-O2" Assembler="" Required="yes" PreCompiledHeader="../../PCH/precompiled_header_release_32.h" PCHInCommandLine="yes" PCHFlags="$(shell wx-config --cxxflags --unicode=yes --debug=no) -O2" PCHFlagsPolicy="0">
+      <Compiler Options="$(shell wx-config --cxxflags --unicode=yes --debug=no);-O2;-Winvalid-pch" C_Options="-O2" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="$(shell wx-config --cxxflags --unicode=yes --debug=no) -O2" PCHFlagsPolicy="0">
         <IncludePath Value="include/wx/dblayer/include"/>
         <IncludePath Value="src/sqlite3"/>
         <Preprocessor Value="WXMAKINGDLL_DATABASELAYER"/>
@@ -317,7 +317,7 @@
       <Linker Options="$(shell wx-config --libs --debug=no --unicode=yes)" Required="yes"/>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="libdatabaselayersqliteu.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="CodeLite Make Generator"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="Default" DbgSetName="">
         <![CDATA[]]>
       </Environment>

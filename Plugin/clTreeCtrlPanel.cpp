@@ -1,7 +1,8 @@
+#include "clTreeCtrlPanel.h"
+
 #include "clFileOrFolderDropTarget.h"
 #include "clFileSystemEvent.h"
 #include "clToolBar.h"
-#include "clTreeCtrlPanel.h"
 #include "clTreeCtrlPanelDefaultPage.h"
 #include "clWorkspaceView.h"
 #include "cl_config.h"
@@ -13,6 +14,7 @@
 #include "ieditor.h"
 #include "imanager.h"
 #include "macros.h"
+
 #include <imanager.h>
 #include <wx/app.h>
 #include <wx/dir.h>
@@ -29,13 +31,23 @@ clTreeCtrlPanel::clTreeCtrlPanel(wxWindow* parent)
     , m_newfileTemplateHighlightLen(wxStrlen("Untitled"))
 {
     ::MSWSetNativeTheme(GetTreeCtrl());
-    m_bmpLoader = clGetManager()->GetStdIcons();
     GetTreeCtrl()->SetFont(DrawingUtils::GetDefaultGuiFont());
 
     m_toolbar = new clEnhancedToolBar(this);
     GetSizer()->Insert(0, m_toolbar, 0, wxEXPAND);
-    m_toolbar->AddTool(XRCID("link_editor"), _("Link Editor"), m_bmpLoader->LoadBitmap("link_editor"), "",
-                       wxITEM_CHECK);
+    clBitmapList* images = new clBitmapList;
+    m_toolbar->AddTool(XRCID("link_editor"), _("Link Editor"), images->Add("link_editor"), "", wxITEM_CHECK);
+    m_toolbar->AddTool(XRCID("collapse_folders"), _("Fold Tree"), images->Add("fold"), "", wxITEM_NORMAL);
+    m_toolbar->AssignBitmaps(images);
+
+    Bind(
+        wxEVT_TOOL,
+        [this](wxCommandEvent& e) {
+            e.Skip();
+            m_treeCtrl->CollapseAll();
+            m_treeCtrl->Expand(m_treeCtrl->GetRootItem());
+        },
+        XRCID("collapse_folders"));
     m_toolbar->Realize();
     m_toolbar->Bind(wxEVT_TOOL, &clTreeCtrlPanel::OnLinkEditor, this, XRCID("link_editor"));
     m_toolbar->Bind(wxEVT_UPDATE_UI, &clTreeCtrlPanel::OnLinkEditorUI, this, XRCID("link_editor"));
@@ -44,7 +56,14 @@ clTreeCtrlPanel::clTreeCtrlPanel(wxWindow* parent)
     SetDropTarget(new clFileOrFolderDropTarget(this));
     GetTreeCtrl()->SetDropTarget(new clFileOrFolderDropTarget(this));
     Bind(wxEVT_DND_FOLDER_DROPPED, &clTreeCtrlPanel::OnFolderDropped, this);
-    GetTreeCtrl()->SetBitmaps(m_bmpLoader->GetStandardMimeBitmapListPtr());
+    GetTreeCtrl()->SetBitmaps(clBitmaps::Get().GetLoader()->GetStandardMimeBitmapListPtr());
+
+    // Bind and respond to the bitmaps-updated event
+    EventNotifier::Get()->Bind(wxEVT_BITMAPS_UPDATED, [this](clCommandEvent& event) {
+        event.Skip();
+        GetTreeCtrl()->SetBitmaps(clBitmaps::Get().GetLoader()->GetStandardMimeBitmapListPtr());
+        GetTreeCtrl()->Refresh();
+    });
     GetTreeCtrl()->AddRoot(_("Folders"), wxNOT_FOUND, wxNOT_FOUND, new clTreeCtrlData(clTreeCtrlData::kRoot));
 
     EventNotifier::Get()->Bind(wxEVT_ACTIVE_EDITOR_CHANGED, &clTreeCtrlPanel::OnActiveEditorChanged, this);
@@ -296,9 +315,9 @@ wxTreeItemId clTreeCtrlPanel::DoAddFile(const wxTreeItemId& parent, const wxStri
     clTreeCtrlData* cd = new clTreeCtrlData(clTreeCtrlData::kFile);
     cd->SetPath(filename.GetFullPath());
 
-    int imgIdx = m_bmpLoader->GetMimeImageId(filename.GetFullName());
+    int imgIdx = clBitmaps::Get().GetLoader()->GetMimeImageId(filename.GetFullName());
     if(imgIdx == wxNOT_FOUND) {
-        imgIdx = m_bmpLoader->GetMimeImageId(FileExtManager::TypeText);
+        imgIdx = clBitmaps::Get().GetLoader()->GetMimeImageId(FileExtManager::TypeText);
     }
     wxTreeItemId fileItem = GetTreeCtrl()->AppendItem(parent, filename.GetFullName(), imgIdx, imgIdx, cd);
     // Add this entry to the index
@@ -340,8 +359,8 @@ wxTreeItemId clTreeCtrlPanel::DoAddFolder(const wxTreeItemId& parent, const wxSt
         }
     }
 
-    int imgIdx = m_bmpLoader->GetMimeImageId(FileExtManager::TypeFolder);
-    int imgOpenedIDx = m_bmpLoader->GetMimeImageId(FileExtManager::TypeFolderExpanded);
+    int imgIdx = clBitmaps::Get().GetLoader()->GetMimeImageId(FileExtManager::TypeFolder);
+    int imgOpenedIDx = clBitmaps::Get().GetLoader()->GetMimeImageId(FileExtManager::TypeFolderExpanded);
     wxTreeItemId itemFolder = GetTreeCtrl()->AppendItem(parent, displayName, imgIdx, imgOpenedIDx, cd);
 
     // Add this entry to the index
@@ -425,7 +444,7 @@ void clTreeCtrlPanel::OnNewFile(wxCommandEvent& event)
     GetTreeCtrl()->SortChildren(item);
     // Open the file in the editor
     clGetManager()->OpenFile(file.GetFullPath());
-    CallAfter(&clTreeCtrlPanel::SelectItem, newFile);
+    SelectItem(newFile);
 
     // Notify about file creation
     clFileSystemEvent fsEvent(wxEVT_FILE_CREATED);
@@ -455,7 +474,7 @@ void clTreeCtrlPanel::OnNewFolder(wxCommandEvent& event)
     // Add it to the tree view
     wxTreeItemId newFile = DoAddFolder(item, file.GetPath());
     GetTreeCtrl()->SortChildren(item);
-    CallAfter(&clTreeCtrlPanel::SelectItem, newFile);
+    SelectItem(newFile);
 
     // Notify about folder creation
     clFileSystemEvent fsEvent(wxEVT_FOLDER_CREATED);
@@ -667,6 +686,8 @@ void clTreeCtrlPanel::OnRenameFile(wxCommandEvent& event)
     }
 }
 
+void clTreeCtrlPanel::ExpandToFileVoid(const wxFileName& filename) { ExpandToFile(filename); }
+
 bool clTreeCtrlPanel::ExpandToFile(const wxFileName& filename)
 {
     wxArrayString topFolders;
@@ -742,7 +763,7 @@ void clTreeCtrlPanel::OnActiveEditorChanged(wxCommandEvent& event)
 {
     event.Skip();
     if(clGetManager()->GetActiveEditor() && (m_options & kLinkToEditor)) {
-        ExpandToFile(clGetManager()->GetActiveEditor()->GetFileName());
+        CallAfter(&clTreeCtrlPanel::ExpandToFileVoid, clGetManager()->GetActiveEditor()->GetFileName());
     }
 }
 
@@ -977,11 +998,18 @@ void clTreeCtrlPanel::OnLinkEditor(wxCommandEvent& event)
     if(GetConfig()) {
         GetConfig()->Write("FileExplorer/Options", m_options);
     }
+
+    auto editor = clGetManager()->GetActiveEditor();
+    if((m_options & kLinkToEditor) && editor) {
+        // show the active editor's item
+        CallAfter(&clTreeCtrlPanel::ExpandToFileVoid, clGetManager()->GetActiveEditor()->GetFileName());
+    }
 }
 
 void clTreeCtrlPanel::OnLinkEditorUI(wxUpdateUIEvent& event)
 {
-    if(IsFolderOpened()) {
+    auto editor = clGetManager()->GetActiveEditor();
+    if(editor && IsFolderOpened()) {
         event.Enable(true);
         event.Check(m_options & kLinkToEditor);
     } else {
