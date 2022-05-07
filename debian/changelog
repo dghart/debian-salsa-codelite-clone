@@ -27,6 +27,7 @@ codelite (16.0.0+dfsg2-1) UNRELEASED; urgency=medium
   * Bump debhelper to 13.
   * Add clangd, clang-format and universal-ctags to recommends
     in codelite-plugins.
+  * Drop websocketpp-dev as recommends for codelite-plugins.
   * Fix spelling in previous changelog entry.
   * d/copyright:
     - Remove copyright entries for files that no longer exists.

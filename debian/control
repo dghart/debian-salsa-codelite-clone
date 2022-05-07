@@ -59,7 +59,6 @@ Recommends:
  nodejs,
  qt5-qmake,
  valgrind,
- websocketpp-dev,
  libasio-dev,
  universal-ctags,
 Description: Powerful and lightweight IDE - plugins
