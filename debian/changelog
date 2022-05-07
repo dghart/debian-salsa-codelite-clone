@@ -19,6 +19,7 @@ codelite (16.0.0+dfsg-1) UNRELEASED; urgency=medium
     - ctagsd
     - ctagsd-tests
   * Add file d/not-installed.
+  * Bump debhelper to 13.
 
  -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Fri, 06 May 2022 23:48:11 +0200
 
