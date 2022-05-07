@@ -12,6 +12,7 @@ codelite (16.0.0+dfsg-1) UNRELEASED; urgency=medium
     - auto-gitignore, no longer needed.
   * New patch: 03_remove-bundled-universal-ctags.patch.
     Using already packaged universal-ctags instead.
+  * Add forwarded not-needed, to 24_default_no_check_for_updates.patch.
   * Remove four library and binaries no longer shipped.
   * Drop dpkg-dev as build-dependency.
   * Remove old break/replace, no longer needed.
