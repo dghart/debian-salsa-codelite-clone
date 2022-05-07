@@ -4,3 +4,7 @@ codelite-plugins binary: hardening-no-fortify-functions
 
 # Lintian decided that the archive file phprefactor.phar was a script.
 codelite-plugins binary: script-not-executable
+
+# This is part of 'Remoty' plugin. This script is sent to the remote
+# machine, and is therefore never executed on the host machine.
+python3-script-but-no-python3-dep

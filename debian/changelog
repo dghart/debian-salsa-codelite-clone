@@ -34,6 +34,9 @@ codelite (16.0.0+dfsg2-1) UNRELEASED; urgency=medium
     - Include entries for new files.
   * Update version restriction on cmake.
   * Drop version constraint on cppcheck.
+  * Add lintian-override for 'python3-script-but-no-python3-dep'. Part of
+    'Remoty' plugin. The mentioned script is sent to remote machine and,
+    is therefore never executed on host.
 
  -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Fri, 06 May 2022 23:48:11 +0200
 
