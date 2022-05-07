@@ -1,4 +1,4 @@
-codelite (16.0.0+dfsg2-1) UNRELEASED; urgency=medium
+codelite (16.0.0+dfsg2-1) unstable; urgency=medium
 
   * QA upload.
   * New upstream release.
@@ -38,7 +38,7 @@ codelite (16.0.0+dfsg2-1) UNRELEASED; urgency=medium
     'Remoty' plugin. The mentioned script is sent to remote machine and,
     is therefore never executed on host.
 
- -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Fri, 06 May 2022 23:48:11 +0200
+ -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Sat, 07 May 2022 22:47:01 +0200
 
 codelite (14.0+dfsg-2) unstable; urgency=medium
 
