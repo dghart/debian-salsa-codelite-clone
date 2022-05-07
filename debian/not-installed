@@ -1,5 +1,3 @@
-usr/bin/codelite-remote
 usr/lib/codelite/liblibcodelite.so
 usr/lib/codelite/libplugin.so
-usr/lib/codelite/Remoty.so
 usr/share/codelite/LICENSE

@@ -1,6 +1,7 @@
-usr/bin/codelite-lsp-helper usr/lib/codelite
-usr/bin/ctagsd usr/lib/codelite
-usr/bin/ctagsd-tests usr/lib/codelite
+usr/bin/codelite-lsp-helper     usr/lib/codelite
+usr/bin/codelite-remote         usr/lib/codelite
+usr/bin/ctagsd                  usr/lib/codelite
+usr/bin/ctagsd-tests            usr/lib/codelite
 usr/lib/codelite/AutoSave.so
 usr/lib/codelite/CMakePlugin.so
 usr/lib/codelite/CodeFormatter.so
@@ -17,6 +18,7 @@ usr/lib/codelite/MemCheck.so
 usr/lib/codelite/Outline.so
 usr/lib/codelite/PHPLint.so
 usr/lib/codelite/QMakePlugin.so
+usr/lib/codelite/Remoty.so
 usr/lib/codelite/Rust.so
 usr/lib/codelite/SmartCompletion.so
 usr/lib/codelite/SFTP.so
