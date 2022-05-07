@@ -54,7 +54,7 @@ Depends:
 Recommends:
  clangd,
  clang-format,
- cppcheck (>= 1.54),
+ cppcheck,
  libunittest++-dev,
  nodejs,
  qt5-qmake,
