@@ -1,1 +1,2 @@
 usr/bin/cppcheck                usr/lib/codelite/codelite_cppcheck
+usr/bin/ctags-universal         usr/lib/codelite/codelite-ctags

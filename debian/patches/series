@@ -1,5 +1,6 @@
 01_remove-bundled-cppcheck.patch
 02_remove-bundled-wxsqlite.patch
+03_remove-bundled-universal-ctags.patch
 04_remove-bundled-unittest++.patch
 05_build-flags.patch
 09_use-x-terminal-editor.patch

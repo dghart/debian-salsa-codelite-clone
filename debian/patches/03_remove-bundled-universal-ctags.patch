@@ -1,0 +1,24 @@
+From: =?utf-8?b?IkjDpXZhcmQgRi4gQWFzZW4i?= <havard.f.aasen@pfft.no>
+Date: Sat, 7 May 2022 17:10:48 +0200
+Subject: Remove bundled universal-ctags
+
+Forwarded: not-needed
+---
+ CMakeLists.txt | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a030c69..6d6a900 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -620,10 +620,6 @@ add_subdirectory(CodeLite)
+ add_subdirectory(Plugin)
+ add_subdirectory(PCH)
+ 
+-if(UNIX)
+-    add_subdirectory(universal-ctags)
+-endif()
+-
+ if (WXC_APP)
+     add_subdirectory(wxcrafter)
+ else()

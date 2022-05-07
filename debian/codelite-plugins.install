@@ -1,4 +1,3 @@
-usr/bin/codelite-ctags usr/lib/codelite
 usr/bin/codelite-lsp-helper usr/lib/codelite
 usr/bin/ctagsd usr/lib/codelite
 usr/bin/ctagsd-tests usr/lib/codelite
