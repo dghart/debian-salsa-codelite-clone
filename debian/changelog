@@ -22,6 +22,7 @@ codelite (16.0.0+dfsg-1) UNRELEASED; urgency=medium
   * Bump debhelper to 13.
   * Add clangd, clang-format and universal-ctags to recommends
     in codelite-plugins.
+  * Fix spelling in previous changelog entry.
 
  -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Fri, 06 May 2022 23:48:11 +0200
 
@@ -38,10 +39,10 @@ codelite (14.0+dfsg-2) unstable; urgency=medium
     - Remove '--as-needed' flag, used by default.
     - No longer needed to specify include and library path for LLVM.
   * Update architectures to build with liblldb-dev.
-  * Remove renamed and unused lintian tag for codelit.
+  * Remove renamed and unused lintian tag for codelite.
   * d/watch: Bump to version 4.
   * Remove duplicated debhelper dependency.
-  * Add upstream metadata:: Bug-Database, Bug-Submit, Repository
+  * Add upstream metadata: Bug-Database, Bug-Submit, Repository
     and Repository-Browse.
   * Update architectures for llvm and libclang-dev.
   * Remove unused lintian override for package codelite-plugins.
