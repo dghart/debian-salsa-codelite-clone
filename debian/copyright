@@ -137,6 +137,9 @@ Files: Runtime/gdb_printers/libstdcxx/v6/printers.py
 Copyright: 2008-2013 Free Software Foundation, Inc.
 License: GPL-3+
 
+Files: Runtime/gdb_printers/wx.py
+Copyright: 2009 Vadim Zeitlin
+License: wxWindows
 
 Files: ZoomNavigator/*
 Copyright: 2013 Brandon Captain <bcaptain404@gmail.com>

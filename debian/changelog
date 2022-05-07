@@ -23,7 +23,9 @@ codelite (16.0.0+dfsg-1) UNRELEASED; urgency=medium
   * Add clangd, clang-format and universal-ctags to recommends
     in codelite-plugins.
   * Fix spelling in previous changelog entry.
-  * d/copyright: Remove copyright entries for files that no longer exists.
+  * d/copyright:
+    - Remove copyright entries for files that no longer exists.
+    - Include entries for new files.
 
  -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Fri, 06 May 2022 23:48:11 +0200
 
