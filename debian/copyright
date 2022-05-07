@@ -7,7 +7,6 @@ Files-Excluded:
  *.dll
  codelitephp/bin
  icons
- patches
  sdk/asio*
  sdk/astyle
  sdk/clang
@@ -23,6 +22,8 @@ Files-Excluded:
  sdk/wxflatnotebook
  sdk/wxsqlite3
  sqlite3
+ tools
+ universal-ctags
  SpellChecker/hunspell
  Runtime/debugserver
  Runtime/src
