@@ -3,6 +3,7 @@ codelite (16.0.0+dfsg-1) UNRELEASED; urgency=medium
   * QA upload.
   * New upstream release.
   * Rebase patches and convert to gbp-pq.
+  * Desktop file now includes the 'IDE' category. Closes: #923492
   * Drop patches:
     - 26_remove_hardcoded_x86.patch, included upstream
     - 28_spelling.patch, included upstream
