@@ -28,6 +28,7 @@ codelite (16.0.0+dfsg-1) UNRELEASED; urgency=medium
   * d/copyright:
     - Remove copyright entries for files that no longer exists.
     - Include entries for new files.
+  * Update version restriction on cmake.
 
  -- Håvard F. Aasen <havard.f.aasen@pfft.no>  Fri, 06 May 2022 23:48:11 +0200
 
