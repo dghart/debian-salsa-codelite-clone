@@ -1,3 +1,7 @@
+usr/bin/codelite-ctags usr/lib/codelite
+usr/bin/codelite-lsp-helper usr/lib/codelite
+usr/bin/ctagsd usr/lib/codelite
+usr/bin/ctagsd-tests usr/lib/codelite
 usr/lib/codelite/AutoSave.so
 usr/lib/codelite/CMakePlugin.so
 usr/lib/codelite/CodeFormatter.so
@@ -10,11 +14,11 @@ usr/lib/codelite/EOSWiki.so
 usr/lib/codelite/ExternalTools.so
 usr/lib/codelite/HelpPlugin.so
 usr/lib/codelite/LanguageServer.so
-usr/bin/codelite-lsp-helper usr/lib/codelite
 usr/lib/codelite/MemCheck.so
 usr/lib/codelite/Outline.so
 usr/lib/codelite/PHPLint.so
 usr/lib/codelite/QMakePlugin.so
+usr/lib/codelite/Rust.so
 usr/lib/codelite/SmartCompletion.so
 usr/lib/codelite/SFTP.so
 usr/lib/codelite/SpellCheck.so
