@@ -1,3 +1,11 @@
+codelite (16.0.0+dfsg2-2) experimental; urgency=medium
+
+  * QA upload.
+  * Build against the wxWidgets 3.2 (and the wxWidgets 3.2 build of wxSQLite).
+    New patch: codelite-16.0.0+dfsg2/debian/patches/ (Closes: #1019796)
+
+ -- Olly Betts <olly@survex.com>  Mon, 19 Sep 2022 16:07:32 +1200
+
 codelite (16.0.0+dfsg2-1) unstable; urgency=medium
 
   * QA upload.

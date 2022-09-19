@@ -1,0 +1,18 @@
+Description: Fixes for wxWidgets 3.2 compatibility
+ These have already been addressed upstream.
+Author: Olly Betts <olly@survex.com>
+Bug-Debian: https://bugs.debian.org/1019796
+Forwarded: not-needed
+Last-Update: 2022-09-19
+
+--- codelite-16.0.0+dfsg2.orig/wxcrafter/myxh_propgrid.cpp
++++ codelite-16.0.0+dfsg2/wxcrafter/myxh_propgrid.cpp
+@@ -48,7 +48,7 @@ wxObject* MyWxPropGridXmlHandler::DoCrea
+ 
+         // add the splitter property after the children were added
+         int splitterLeft = GetBool("splitterleft");
+-        if(splitterLeft) { m_pgmgr->GetPage(0)->SetSplitterLeft(); }
++        if(splitterLeft) { m_pgmgr->SetSplitterLeft(); }
+ 
+         int splitterPos = GetLong("splitterpos", wxNOT_FOUND);
+         if(splitterPos != wxNOT_FOUND) { m_pgmgr->GetPage(0)->SetSplitterPosition(splitterPos); }

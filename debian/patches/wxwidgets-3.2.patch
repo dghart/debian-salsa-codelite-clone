@@ -1,0 +1,29 @@
+Description: Update hardcoded references to wxWidgets 3.0
+ The wxsqlite library encodes the wxWidgets MAJOR.MINOR.
+Author: Olly Betts <olly@survex.com>
+Bug-Debian: https://bugs.debian.org/1019796
+Forwarded: no
+Last-Update: 2022-09-19
+
+--- codelite-16.0.0+dfsg2.orig/CodeLite/CMakeLists.txt
++++ codelite-16.0.0+dfsg2/CodeLite/CMakeLists.txt
+@@ -121,7 +121,7 @@ target_link_libraries(libcodelite
+                       ${wxWidgets_LIBRARIES}
+                       -L"${CL_LIBPATH}"
+                       ${SQLite3_LIBRARIES}
+-                      -lwxsqlite3-3.0
++                      -lwxsqlite3-3.2
+                       ${LIBSSH_LIB}
+                       ${GTK_LIBS}
+                       ${ADDITIONAL_LIBRARIES}
+--- codelite-16.0.0+dfsg2.orig/wxcrafter/CMakeLists.txt
++++ codelite-16.0.0+dfsg2/wxcrafter/CMakeLists.txt
+@@ -111,7 +111,7 @@ if ( NOT WXC_APP )
+ 
+ if (NOT OFFICIAL_CL_BUILD)
+     target_link_libraries(${PLUGIN_NAME} ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES}
+-                          -lwxsqlite3-3.0
++                          -lwxsqlite3-3.2
+                           ${SQLite3_LIBRARIES}
+                           libcodelite
+                           plugin)
