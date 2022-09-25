@@ -1,3 +1,10 @@
+codelite (16.0.0+dfsg2-3) unstable; urgency=medium
+
+  * QA upload.
+  * Upload to unstable.
+
+ -- Olly Betts <olly@survex.com>  Sun, 25 Sep 2022 09:53:47 +1300
+
 codelite (16.0.0+dfsg2-2) experimental; urgency=medium
 
   * QA upload.
