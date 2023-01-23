@@ -13,10 +13,17 @@
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
+#include <wx/window.h>
 #include <wx/xrc/xmlres.h>
 
 wxDEFINE_EVENT(wxEVT_REMOTEDIR_DIR_CONTEXT_MENU_SHOWING, clContextMenuEvent);
 wxDEFINE_EVENT(wxEVT_REMOTEDIR_FILE_CONTEXT_MENU_SHOWING, clContextMenuEvent);
+
+namespace
+{
+// we dont use FileUtis::IsHidden since it checks for local file existance on windows
+bool is_hidden(const wxString& name) { return !name.empty() && name[0] == '.'; }
+} // namespace
 
 clRemoteDirCtrl::clRemoteDirCtrl(wxWindow* parent)
     : wxPanel(parent)
@@ -30,9 +37,13 @@ clRemoteDirCtrl::clRemoteDirCtrl(wxWindow* parent)
     GetSizer()->Add(m_treeCtrl, 1, wxEXPAND);
     GetSizer()->Fit(this);
 
+    // set the default bitmaps
+    m_treeCtrl->SetBitmaps(clGetManager()->GetStdIcons()->GetStandardMimeBitmapListPtr());
+
     // events
     EventNotifier::Get()->Bind(wxEVT_BITMAPS_UPDATED, [this](clCommandEvent& e) {
         e.Skip();
+        // update the bitmaps
         m_treeCtrl->SetBitmaps(clGetManager()->GetStdIcons()->GetStandardMimeBitmapListPtr());
     });
 
@@ -46,7 +57,7 @@ clRemoteDirCtrl::clRemoteDirCtrl(wxWindow* parent)
         // same kind
         return (a->GetFullName().CmpNoCase(b->GetFullName()) < 0);
     };
-    m_treeCtrl->SetSortFunction(SortFunc);
+    m_treeCtrl->SetSortFunction(std::move(SortFunc));
 }
 
 clRemoteDirCtrl::~clRemoteDirCtrl()
@@ -80,8 +91,16 @@ bool clRemoteDirCtrl::Open(const wxString& path, const SSHAccountInfo& account)
     clRemoteDirCtrlItemData* cd = new clRemoteDirCtrlItemData(path);
     cd->SetFolder();
 
+    // only display the dir name not its full path
+    wxString displayString = path.AfterLast('/');
+    displayString.Trim();
+
+    if(displayString.empty()) {
+        displayString = path;
+    }
+
     wxTreeItemId root = m_treeCtrl->AddRoot(
-        path, clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFolder), wxNOT_FOUND, cd);
+        displayString, clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFolder), wxNOT_FOUND, cd);
     m_treeCtrl->AppendItem(root, "<dummy>");
     DoExpandItem(root);
     return true;
@@ -121,29 +140,32 @@ void clRemoteDirCtrl::DoExpandItem(const wxTreeItemId& item)
     for(auto entry : entries) {
         if(entry->GetName() == "." || entry->GetName() == "..")
             continue;
+
         // determine the icon index
+        bool isHidden = is_hidden(entry->GetName());
         int imgIdx = wxNOT_FOUND;
         int expandImgIDx = wxNOT_FOUND;
         if(entry->IsFolder()) {
-            imgIdx = clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFolder);
-            expandImgIDx = clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFolderExpanded);
+            imgIdx = clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFolder, isHidden);
+            expandImgIDx = clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFolderExpanded, isHidden);
         } else if(entry->IsFile()) {
-            imgIdx = clGetManager()->GetStdIcons()->GetMimeImageId(entry->GetName());
+            imgIdx = clGetManager()->GetStdIcons()->GetMimeImageId(entry->GetName(), isHidden);
         }
 
         if(entry->IsSymlink()) {
             if(entry->IsFile()) {
-                imgIdx = clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFileSymlink);
+                imgIdx = clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFileSymlink, isHidden);
 
             } else {
-                imgIdx = clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFolderSymlink);
-                expandImgIDx = clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFolderSymlinkExpanded);
+                imgIdx = clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFolderSymlink, isHidden);
+                expandImgIDx =
+                    clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeFolderSymlinkExpanded, isHidden);
             }
         }
 
         // default bitmap
         if(imgIdx == wxNOT_FOUND) {
-            imgIdx = clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeText);
+            imgIdx = clGetManager()->GetStdIcons()->GetMimeImageId(FileExtManager::TypeText, isHidden);
         }
 
         wxString path;
@@ -164,9 +186,15 @@ void clRemoteDirCtrl::DoExpandItem(const wxTreeItemId& item)
         }
 
         wxTreeItemId child = m_treeCtrl->AppendItem(item, entry->GetName(), imgIdx, expandImgIDx, childClientData);
+
         // if its type folder, add a fake child item
         if(entry->IsFolder()) {
             m_treeCtrl->AppendItem(child, "<dummy>");
+        }
+
+        if(isHidden) {
+            // a hidden item, use a disabled colour
+            m_treeCtrl->SetItemTextColour(child, m_treeCtrl->GetColours().GetGrayText());
         }
     }
 }
@@ -193,7 +221,7 @@ void clRemoteDirCtrl::OnContextMenu(wxContextMenuEvent& event)
         menu.Append(wxID_OPEN, _("Open"));
         menu.Bind(
             wxEVT_MENU,
-            [this, item, items](wxCommandEvent& event) {
+            [this, items](wxCommandEvent& event) {
                 event.Skip();
                 // open the items
                 for(const auto& i : items) {
@@ -205,7 +233,7 @@ void clRemoteDirCtrl::OnContextMenu(wxContextMenuEvent& event)
         menu.Append(wxID_DOWN, _("Download and Open Containing Folder..."));
         menu.Bind(
             wxEVT_MENU,
-            [this, item](wxCommandEvent& event) {
+            [this](wxCommandEvent& event) {
                 event.Skip();
                 auto items = GetSelections();
                 if(items.empty()) {
@@ -277,6 +305,19 @@ void clRemoteDirCtrl::OnContextMenu(wxContextMenuEvent& event)
             },
             XRCID("delete-file"));
     }
+    // common
+    menu.AppendSeparator();
+    menu.Append(XRCID("copy-path"), _("Copy path"));
+    menu.Bind(
+        wxEVT_MENU,
+        [this, item](wxCommandEvent& event) {
+            event.Skip();
+            auto cd = GetItemData(item);
+            CHECK_PTR_RET(cd);
+            ::CopyToClipboard(cd->GetFullPath());
+            clGetManager()->SetStatusMessage(_("Path copied to clipboard"));
+        },
+        XRCID("copy-path"));
     // let others know that we are about to show the context menu for this control
     clContextMenuEvent menuEvent(cd->IsFolder() ? wxEVT_REMOTEDIR_DIR_CONTEXT_MENU_SHOWING
                                                 : wxEVT_REMOTEDIR_FILE_CONTEXT_MENU_SHOWING);
@@ -421,7 +462,7 @@ void clRemoteDirCtrl::DoDelete(const wxTreeItemId& item)
 
     wxString message;
     message << _("Are you sure you want to delete the selected items?");
-    if(::wxMessageBox(message, "Confirm", wxYES_NO | wxCANCEL | wxICON_QUESTION) != wxYES) {
+    if(::wxMessageBox(message, "Confirm", wxYES_NO | wxCANCEL | wxICON_WARNING) != wxYES) {
         return;
     }
 

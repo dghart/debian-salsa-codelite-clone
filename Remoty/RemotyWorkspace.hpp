@@ -2,13 +2,17 @@
 #define REMOTEWORKSPACE_HPP
 
 #include "IWorkspace.h" // Base class: IWorkspace
+#include "JSON.h"
 #include "LSP/LSPEvent.h"
+#include "asyncprocess.h"
 #include "clCodeLiteRemoteProcess.hpp"
 #include "clFileSystemEvent.h"
 #include "clFileSystemWorkspaceConfig.hpp"
 #include "clRemoteFinderHelper.hpp"
 #include "clRemoteTerminal.hpp"
+#include "clSFTPEvent.h"
 #include "cl_command_event.h"
+#include "ieditor.h"
 #include "ssh_account_info.h"
 #include "wx/event.h"
 
@@ -19,6 +23,19 @@
 #define WORKSPACE_TYPE_NAME "Remote over SSH"
 
 class RemotyWorkspaceView;
+
+struct LSPParams {
+    wxString lsp_name;
+    wxString command;
+    std::vector<wxString> languages;
+    size_t priority = 80;
+    wxString working_directory;
+    clEnvList_t env;
+
+    void From(const JSONItem& json);
+    bool IsOk() const;
+};
+
 class RemotyWorkspace : public IWorkspace
 {
 private:
@@ -38,6 +55,7 @@ private:
     bool m_buildInProgress = false;
     std::unordered_map<wxString, bool> m_old_servers_state;
     wxArrayString m_installedLSPs;
+    wxString m_listLspOutput;
 
 public:
     RemotyWorkspace();
@@ -45,36 +63,33 @@ public:
     virtual ~RemotyWorkspace();
 
 protected:
-    void ConfigureLsp(const wxString& output);
-    void DoConfigureLSP(const wxString& lsp_name, const wxString& command, const std::vector<wxString>& languages,
-                        size_t priority, const wxString& working_directory);
-
     void BindEvents();
     void UnbindEvents();
     void Initialise();
     void OnOpenWorkspace(clCommandEvent& event);
+    void OnReloadWorkspace(clCommandEvent& event);
     void OnCloseWorkspace(clCommandEvent& event);
     void DoClose(bool notify);
-    void StartCodeLiteRemote(clCodeLiteRemoteProcess* proc, const wxString& context, bool restart = false);
+    /**
+     * @brief restart the remote process. If it is already running and `restart` is set to false
+     * do nothing. Otherwise, stop and start it again
+     */
+    void RestartCodeLiteRemote(clCodeLiteRemoteProcess* proc, const wxString& context, bool restart = false);
     void OnOpenResourceFile(clCommandEvent& event);
     void OnShutdown(clCommandEvent& event);
     void OnInitDone(wxCommandEvent& event);
     void OnLSPOpenFile(LSPEvent& event);
     void OnDownloadFile(clCommandEvent& event);
+    void OnStopFindInFiles(clFindInFilesEvent& event);
 
-    // keep the LSPs state as it were before we added our remote ones
-    // and disable them
-    void LSPStoreAndDisableCurrent();
-    // restore the LSPs state
-    void LSPRestore();
+    void OnSftpSaveError(clCommandEvent& event);
+    void OnSftpSaveSuccess(clCommandEvent& event);
 
     /// codelite-remote exec handlers
     void DoProcessBuildOutput(const wxString& output, bool is_completed);
 
     /// open a workspace file
     void DoOpen(const wxString& path, const wxString& account);
-
-    void DeleteLspEntries();
     void OnCodeLiteRemoteTerminated(clCommandEvent& event);
 
     IProcess* DoRunSSHProcess(const wxString& scriptContent, bool sync = false);
@@ -102,24 +117,19 @@ protected:
     void OnCodeLiteRemoteFindProgress(clFindInFilesEvent& event);
     void OnCodeLiteRemoteFindDone(clFindInFilesEvent& event);
 
-    void OnCodeLiteRemoteListLSPsOutputDone(clCommandEvent& event);
-    void OnCodeLiteRemoteListLSPsOutput(clCommandEvent& event);
-
     void OnCodeLiteRemoteListFilesProgress(clCommandEvent& event);
     void OnCodeLiteRemoteListFilesDone(clCommandEvent& event);
 
-    wxString GetRemoteWorkingDir() const;
     wxString CreateEnvScriptContent() const;
     wxString UploadScript(const wxString& content, const wxString& script_path = wxEmptyString) const;
-    /**
-     * @brief scan for remote lsps and configure them
-     */
-    void ScanForLSPs();
+
+    void RestoreSession();
 
 public:
     // IWorkspace
     wxString GetActiveProjectName() const override { return wxEmptyString; }
-    wxFileName GetFileName() const override;
+    wxString GetFileName() const override;
+    wxString GetDir() const override;
     wxString GetFilesMask() const override;
     wxFileName GetProjectFileName(const wxString& projectName) const override;
     void GetProjectFiles(const wxString& projectName, wxArrayString& files) const override;
@@ -128,8 +138,31 @@ public:
     wxArrayString GetWorkspaceProjects() const override;
     bool IsBuildSupported() const override;
     bool IsProjectSupported() const override;
+    wxString GetDebuggerName() const override;
+    bool IsRemote() const override { return true; }
+    wxString GetSshAccount() const override;
+
+    /**
+     * @brief return the remote workspace directory (on the remote machine)
+     */
+    wxString GetRemoteWorkingDir() const;
     wxString GetName() const override;
     void SetProjectActive(const wxString& name) override;
+    /**
+     * @brief open workspace with at a given path (remote) and ssh account
+     * @param path workspace file path (on the remote machine)
+     * @param account ssh account defined in CodeLite
+     */
+    void OpenWorkspace(const wxString& path, const wxString& account);
+    /**
+     * @brief Attempt to open a remote file and open it in the editor
+     */
+    IEditor* OpenFile(const wxString& remote_file_path);
+
+    /**
+     * @brief attempt to load and edit codelite-remote.json file for this workspace
+     */
+    void OpenAndEditCodeLiteRemoteJson();
 
     // API
     bool IsOpened() const;

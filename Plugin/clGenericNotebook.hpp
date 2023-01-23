@@ -79,6 +79,7 @@ protected:
     void PositionFilelistButton();
 
 protected:
+    void OnActivateApp(wxActivateEvent& e);
     void OnPaint(wxPaintEvent& e);
     void OnEraseBG(wxEraseEvent& e);
     void OnSize(wxSizeEvent& event);
@@ -192,6 +193,9 @@ public:
      */
     bool SetPageText(size_t page, const wxString& text);
     wxString GetPageText(size_t page) const;
+
+    void SetPageModified(size_t page, bool modified);
+    bool IsModified(size_t page) const;
 
     void AddPage(clTabInfo::Ptr_t tab);
     bool InsertPage(size_t index, clTabInfo::Ptr_t tab);
@@ -332,6 +336,9 @@ public:
      * @brief Returns the string for the given page
      */
     wxString GetPageText(size_t page) const { return m_tabCtrl->GetPageText(page); }
+
+    void SetPageModified(size_t page, bool modified) { m_tabCtrl->SetPageModified(page, modified); }
+    bool IsModified(size_t page) const { return m_tabCtrl->IsModified(page); }
 
     /**
      * @brief set the image for the given page

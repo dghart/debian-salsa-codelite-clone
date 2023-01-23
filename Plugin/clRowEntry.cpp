@@ -3,6 +3,7 @@
 #include "clCellValue.h"
 #include "clHeaderBar.h"
 #include "clHeaderItem.h"
+#include "clSystemSettings.h"
 #include "clTreeCtrl.h"
 #include "file_logger.h"
 
@@ -20,8 +21,18 @@
 #define wxCONTROL_NONE 0
 #endif
 
+#ifdef __WXGTK__
+#define SELECTION_RECT_DEFLATE 1
+#elif defined(__WXMSW__)
+#define SELECTION_RECT_DEFLATE 2
+#else
+#define SELECTION_RECT_DEFLATE 3
+#endif
+
 namespace
 {
+const wxString COLOUR_TEXT = " #FFFFFF ";
+
 struct clClipperHelper {
     bool m_used = false;
     wxRect m_oldRect;
@@ -60,30 +71,57 @@ struct clClipperHelper {
 
 wxString GetTextForRendering(const wxString& text)
 {
-    if(text.find('\n') != wxString::npos) {
-        wxString fixed_text = text;
-        fixed_text.Replace("\n", "\\n");
+    size_t pos = text.find('\n');
+    if(pos != wxString::npos) {
+        wxString fixed_text = text.Mid(0, pos - 1);
+        if(fixed_text.length() != text.length()) {
+            fixed_text << "...";
+        }
         return fixed_text;
     } else {
         return text;
     }
 }
 
+namespace
+{
+    void draw_selection(wxDC& dc, const wxRect& rect, const wxColour& pen_colour, const wxColour& brush_colour,
+                        double radius = 3.0)
+    {
+        wxBrush brush(brush_colour);
+        wxPen pen(pen_colour);
+
+        wxDCBrushChanger brush_changer(dc, brush);
+        wxDCPenChanger pen_changer(dc, pen);
+
+        dc.SetPen(pen);
+        dc.SetBrush(brush);
+        dc.DrawRoundedRectangle(rect, radius);
+    }
+} // namespace
+
 void DoDrawSimpleSelection(wxWindow* win, wxDC& dc, const wxRect& rect, const clColours& colours)
 {
-    wxColour c = win->HasFocus() ? colours.GetSelItemBgColour() : colours.GetSelItemBgColourNoFocus();
-    dc.SetPen(c);
-    dc.SetBrush(c);
-    dc.DrawRectangle(rect);
+    wxUnusedVar(win);
+    wxRect r = rect;
+    r.Deflate(SELECTION_RECT_DEFLATE);
+    r = r.CenterIn(rect);
+    draw_selection(dc, r, colours.GetSelItemBgColour(), colours.GetSelItemBgColour());
+}
+
+void DrawButton(wxWindow* win, wxDC& dc, const wxRect& button_rect, const clCellValue& cell)
+{
+    DrawingUtils::DrawButton(dc, win, button_rect, cell.GetButtonUnicodeSymbol(), wxNullBitmap, eButtonKind::kNormal,
+                             cell.GetButtonState());
 }
 } // namespace
 
 #ifdef __WXMSW__
 int clRowEntry::X_SPACER = 4;
-int clRowEntry::Y_SPACER = 0;
+int clRowEntry::Y_SPACER = 2;
 #elif defined(__WXOSX__)
 int clRowEntry::X_SPACER = 4;
-int clRowEntry::Y_SPACER = 2;
+int clRowEntry::Y_SPACER = 4;
 #else
 int clRowEntry::X_SPACER = 5;
 int clRowEntry::Y_SPACER = 2;
@@ -120,12 +158,14 @@ clRowEntry::clRowEntry(clTreeCtrl* tree, const wxString& label, int bitmapIndex,
     : m_tree(tree)
     , m_model(tree ? &tree->GetModel() : nullptr)
 {
-    // Fill the verctor with items constructed using the _non_ default constructor
-    // to makes sure that IsOk() returns TRUE
-    m_cells.resize(m_tree->GetHeader()->empty() ? 1 : m_tree->GetHeader()->size(),
-                   clCellValue("", -1, -1)); // at least one column
-    clCellValue cv(label, bitmapIndex, bitmapSelectedIndex);
-    m_cells[0] = cv;
+    if(m_tree) {
+        // Fill the verctor with items constructed using the _non_ default constructor
+        // to makes sure that IsOk() returns TRUE
+        m_cells.resize(m_tree->GetHeader()->empty() ? 1 : m_tree->GetHeader()->size(),
+                       clCellValue("", -1, -1)); // at least one column
+        clCellValue cv(label, bitmapIndex, bitmapSelectedIndex);
+        m_cells[0] = cv;
+    }
 }
 
 clRowEntry::clRowEntry(clTreeCtrl* tree, bool checked, const wxString& label, int bitmapIndex, int bitmapSelectedIndex)
@@ -134,10 +174,12 @@ clRowEntry::clRowEntry(clTreeCtrl* tree, bool checked, const wxString& label, in
 {
     // Fill the verctor with items constructed using the _non_ default constructor
     // to makes sure that IsOk() returns TRUE
-    m_cells.resize(m_tree->GetHeader()->empty() ? 1 : m_tree->GetHeader()->size(),
-                   clCellValue("", -1, -1)); // at least one column
-    clCellValue cv(checked, label, bitmapIndex, bitmapSelectedIndex);
-    m_cells[0] = cv;
+    if(m_tree) {
+        m_cells.resize(m_tree->GetHeader()->empty() ? 1 : m_tree->GetHeader()->size(),
+                       clCellValue("", -1, -1)); // at least one column
+        clCellValue cv(checked, label, bitmapIndex, bitmapSelectedIndex);
+        m_cells[0] = cv;
+    }
 }
 
 clRowEntry::~clRowEntry()
@@ -365,23 +407,46 @@ void clRowEntry::ClearRects()
     m_rowRect = wxRect();
 }
 
-vector<size_t> clRowEntry::GetColumnWidths(wxWindow* win, wxDC& dc)
+std::vector<size_t> clRowEntry::GetColumnWidths(wxWindow* win, wxDC& dc)
 {
-    vector<size_t> v;
+    wxDCFontChanger font_changer(dc);
+
+    std::vector<size_t> v;
     wxRect rowRect = GetItemRect();
     int itemIndent = IsListItem() ? clHeaderItem::X_SPACER : (GetIndentsCount() * m_tree->GetIndent());
-    wxFont f = m_tree->GetDefaultFont();
-    dc.SetFont(f);
+
+    // set default font
+    const wxFont default_font = m_tree->GetDefaultFont();
     v.reserve(m_cells.size());
+
+    int COLOUR_TEXT_LEN = wxNOT_FOUND;
+    COLOUR_TEXT_LEN = wxNOT_FOUND;
 
     for(size_t i = 0; i < m_cells.size(); ++i) {
         auto& cell = m_cells[i];
+
+        // use the tree font to calculate the width
+        dc.SetFont(default_font);
+
+        // unless cell font is valid
+        if(cell.GetFont().IsOk()) {
+            // cell
+            dc.SetFont(cell.GetFont());
+        }
+
         v.emplace_back();
         size_t& width = v.back();
 
         if((i == 0) && !IsListItem()) {
             // space for the button
             width += rowRect.GetHeight();
+        }
+
+        if(cell.IsColour()) {
+            if(COLOUR_TEXT_LEN == wxNOT_FOUND) {
+                COLOUR_TEXT_LEN = dc.GetTextExtent(COLOUR_TEXT).GetWidth();
+            }
+            width += COLOUR_TEXT_LEN;
         }
 
         if(cell.IsBool()) {
@@ -405,12 +470,21 @@ vector<size_t> clRowEntry::GetColumnWidths(wxWindow* win, wxDC& dc)
             }
         }
 
-        wxString text_to_render = GetTextForRendering(cell.GetValueString());
-        width += (i == 0 ? itemIndent : clHeaderItem::X_SPACER);
-        width += dc.GetTextExtent(text_to_render).GetWidth();
-        width += X_SPACER;
+        // do we have text to redner?
+        // if we dont and we have a header, use the header's label
+        wxString label = cell.GetValueString();
+        if(label.empty() && m_tree->GetHeader() && m_tree->GetHeader()->size() >= i) {
+            label = m_tree->GetHeader()->Item(i).GetLabel();
+        }
 
-        if(cell.IsChoice()) {
+        if(!label.empty()) {
+            wxString text_to_render = GetTextForRendering(label);
+            width += (i == 0 ? itemIndent : clHeaderItem::X_SPACER);
+            width += dc.GetTextExtent(text_to_render).GetWidth();
+            width += X_SPACER;
+        }
+
+        if(cell.HasButton()) {
             width += X_SPACER;
             width += GetCheckBoxWidth(win);
             width += X_SPACER;
@@ -419,15 +493,35 @@ vector<size_t> clRowEntry::GetColumnWidths(wxWindow* win, wxDC& dc)
     return v;
 }
 
+void clRowEntry::RenderBackground(wxDC& dc, long tree_style, const clColours& c, int row_index)
+{
+    wxRect rowRect = GetItemRect();
+    bool zebraColouring = (tree_style & wxTR_ROW_LINES) || (tree_style & wxDV_ROW_LINES);
+    bool even_row = ((row_index % 2) == 0);
+
+    clColours colours = c;
+    if(zebraColouring) {
+        // Set Zebra colouring, only if no user colour was provided for the given line
+        colours.SetItemBgColour(even_row ? c.GetAlternateColour() : c.GetBgColour());
+    }
+
+    // Override default item bg colour with the user's one
+    if(GetBgColour().IsOk()) {
+        colours.SetItemBgColour(GetBgColour());
+    }
+
+    wxRect selectionRect = rowRect;
+    wxPoint deviceOrigin = dc.GetDeviceOrigin();
+    selectionRect.SetX(-deviceOrigin.x);
+    draw_selection(dc, selectionRect, colours.GetItemBgColour(), colours.GetItemBgColour(), 0.0);
+}
+
 void clRowEntry::Render(wxWindow* win, wxDC& dc, const clColours& c, int row_index, clSearchText* searcher)
 {
     wxUnusedVar(searcher);
     wxRect rowRect = GetItemRect();
     bool zebraColouring = (m_tree->HasStyle(wxTR_ROW_LINES) || m_tree->HasStyle(wxDV_ROW_LINES));
     bool even_row = ((row_index % 2) == 0);
-
-    // Define the clipping region
-    bool hasHeader = (m_tree->GetHeader() && !m_tree->GetHeader()->empty());
 
     // Not cell related
     clColours colours = c;
@@ -440,19 +534,22 @@ void clRowEntry::Render(wxWindow* win, wxDC& dc, const clColours& c, int row_ind
     if(GetBgColour().IsOk()) {
         colours.SetItemBgColour(GetBgColour());
     }
+
     wxRect selectionRect = rowRect;
     wxPoint deviceOrigin = dc.GetDeviceOrigin();
     selectionRect.SetX(-deviceOrigin.x);
-    if(IsSelected()) {
+
+    // set a base colour for the item
+    dc.SetBrush(colours.GetItemBgColour());
+    dc.SetPen(colours.GetItemBgColour());
+    dc.DrawRectangle(rowRect);
+
+    if(IsSelected() && !m_tree->IsDisabled()) {
         DrawSimpleSelection(win, dc, selectionRect, colours);
-    } else if(IsHovered()) {
-        dc.SetPen(colours.GetHoverBgColour());
-        dc.SetBrush(colours.GetHoverBgColour());
-        dc.DrawRectangle(selectionRect);
+    } else if(IsHovered() && !m_tree->IsDisabled()) {
+        draw_selection(dc, selectionRect, colours.GetHoverBgColour(), colours.GetHoverBgColour());
     } else if(colours.GetItemBgColour().IsOk()) {
-        dc.SetBrush(colours.GetItemBgColour());
-        dc.SetPen(colours.GetItemBgColour());
-        dc.DrawRectangle(selectionRect);
+        draw_selection(dc, selectionRect, colours.GetItemBgColour(), colours.GetItemBgColour(), 0.0);
     }
 
     // Per cell drawings
@@ -465,28 +562,29 @@ void clRowEntry::Render(wxWindow* win, wxDC& dc, const clColours& c, int row_ind
             f = cell.GetFont();
         }
 
-        if(cell.GetTextColour().IsOk()) {
+        if(m_tree->IsDisabled()) {
+            // if the tree is disabled, use a gray text to draw the text
+            colours.SetItemTextColour(colours.GetGrayText());
+            colours.SetSelItemTextColour(colours.GetGrayText());
+
+        } else if(cell.GetTextColour().IsOk()) {
             colours.SetItemTextColour(cell.GetTextColour());
         }
+
         if(cell.GetBgColour().IsOk()) {
             colours.SetItemBgColour(cell.GetBgColour());
         }
+
         dc.SetFont(f);
         wxColour buttonColour = IsSelected() ? colours.GetSelItemTextColour() : colours.GetItemTextColour();
         wxRect cellRect = GetCellRect(i);
-
-        // We use a helper class to clip the drawings this ensures that if we exit the scope
-        // the clipping region is restored properly
-        clClipperHelper clipper(dc);
-        if(hasHeader && !last_cell) {
-            clipper.Clip(cellRect);
-        }
 
         int textXOffset = cellRect.GetX();
         if((i == 0) && !IsListItem()) {
             // The expand button is only make sense for the first cell
             if(HasChildren()) {
-                wxRect buttonRect = GetButtonRect();
+                wxRect assignedRectForButton = GetButtonRect();
+                wxRect buttonRect = assignedRectForButton;
                 buttonRect.Deflate(1);
                 textXOffset += buttonRect.GetWidth();
 
@@ -497,13 +595,13 @@ void clRowEntry::Render(wxWindow* win, wxDC& dc, const clColours& c, int row_ind
                     continue;
                 }
 
-                buttonRect.Deflate((buttonRect.GetWidth() / 4), (buttonRect.GetHeight() / 4));
+                buttonRect.Deflate((buttonRect.GetWidth() / 3), (buttonRect.GetHeight() / 3));
                 wxRect tribtn = buttonRect;
                 dc.SetPen(wxPen(buttonColour, 2));
                 if(IsExpanded()) {
                     dc.SetPen(wxPen(buttonColour, 2));
                     tribtn.SetHeight(tribtn.GetHeight() - tribtn.GetHeight() / 2);
-                    tribtn = tribtn.CenterIn(buttonRect);
+                    tribtn = tribtn.CenterIn(assignedRectForButton);
                     wxPoint middleLeft = wxPoint((tribtn.GetLeft() + tribtn.GetWidth() / 2), tribtn.GetBottom());
                     dc.DrawLine(tribtn.GetTopLeft(), middleLeft);
                     dc.DrawLine(tribtn.GetTopRight(), middleLeft);
@@ -565,34 +663,61 @@ void clRowEntry::Render(wxWindow* win, wxDC& dc, const clColours& c, int row_ind
         }
 
         // Draw the text
-        wxString text_to_render = GetTextForRendering(cell.GetValueString());
-        wxRect textRect(dc.GetTextExtent(text_to_render));
-        textRect = textRect.CenterIn(rowRect, wxVERTICAL);
-        int textY = textRect.GetY();
-        int textX = (i == 0 ? itemIndent : clHeaderItem::X_SPACER) + textXOffset;
-        RenderText(win, dc, colours, text_to_render, textX, textY, i);
-        textXOffset += textRect.GetWidth();
-        textXOffset += X_SPACER;
+        if(!cell.GetValueString().empty()) {
+            // clip the drawing region
+            wxRect clip_rect = cellRect;
+            if(cell.HasButton()) {
+                clip_rect.SetWidth(clip_rect.GetWidth() - clip_rect.GetHeight() - 1);
+            }
+            clClipperHelper clipper(dc);
+            clipper.Clip(clip_rect);
 
-        if(cell.IsChoice()) {
+            wxString text_to_render = GetTextForRendering(cell.GetValueString());
+            wxRect textRect(dc.GetTextExtent(text_to_render));
+            textRect = textRect.CenterIn(rowRect, wxVERTICAL);
+            int textY = textRect.GetY();
+            int textX = (i == 0 ? itemIndent : clHeaderItem::X_SPACER) + textXOffset;
+            RenderText(win, dc, colours, text_to_render, textX, textY, i);
+            textXOffset += textRect.GetWidth();
+            textXOffset += X_SPACER;
+        }
+
+        // By default, a cell has no action button
+        cell.SetButtonRect(wxRect());
+        if(cell.HasButton()) {
             // draw the drop down arrow. Make it aligned to the right
-            wxRect dropDownRect(cellRect.GetTopRight().x - rowRect.GetHeight(), rowRect.GetY(), rowRect.GetHeight(),
-                                rowRect.GetHeight());
-            dropDownRect = dropDownRect.CenterIn(rowRect, wxVERTICAL);
-            dropDownRect.Deflate(1);
-            dc.SetPen(colours.GetHeaderVBorderColour());
-            dc.SetBrush(colours.GetHeaderVBorderColour());
-            dc.DrawRectangle(dropDownRect);
-            dropDownRect.Inflate(1);
-            DrawingUtils::DrawDropDownArrow(win, dc, dropDownRect,
-                                            colours.IsLightTheme() ? wxColour("DARK GREY") : wxColour("WHITE"));
+            textXOffset += X_SPACER;
+            wxRect button_rect(textXOffset, rowRect.GetY(), rowRect.GetHeight(), rowRect.GetHeight());
+            button_rect = button_rect.CenterIn(rowRect, wxVERTICAL);
+            // Draw a button with the unicode symbol in it
+            if(IsSelected()) {
+                DrawButton(win, dc, button_rect, cell);
+            }
             // Keep the rect to test clicks
-            cell.SetDropDownRect(dropDownRect);
-            textXOffset += dropDownRect.GetWidth();
+            cell.SetButtonRect(button_rect);
+            textXOffset += button_rect.GetWidth();
             textXOffset += X_SPACER;
 
-        } else {
-            cell.SetDropDownRect(wxRect());
+        } else if(cell.IsButton()) {
+            // the centire cell is a button
+            wxRect button_rect = cellRect;
+            button_rect.Deflate(1);
+            button_rect = button_rect.CenterIn(cellRect);
+            DrawingUtils::DrawButton(dc, win, button_rect, cell.GetValueString(), wxNullBitmap, eButtonKind::kNormal,
+                                     cell.GetButtonState());
+            cell.SetButtonRect(button_rect);
+
+        } else if(cell.IsColour()) {
+            wxRect rr = cellRect;
+            rr.Deflate(1);
+
+            // since the method `DrawingUtils::DrawColourPicker` is not familiar with our spacing policy
+            // move the drawing rectangle to the X_SPACER position
+            // rr.SetX(rr.GetX() + X_SPACER);
+            // rr.SetWidth(rr.GetWidth() - X_SPACER);
+            wxRect button_rect =
+                DrawingUtils::DrawColourPicker(win, dc, rr, cell.GetValueColour(), cell.GetButtonState());
+            cell.SetButtonRect(button_rect);
         }
 
         if(!last_cell) {
@@ -654,30 +779,20 @@ void clRowEntry::RenderTextSimple(wxWindow* win, wxDC& dc, const clColours& colo
                                   size_t col)
 {
     wxUnusedVar(win);
-    wxUnusedVar(col);
 
-    // fix multiline text
-#ifdef __WXMSW__
-    if(m_tree->IsNativeTheme()) {
-        dc.SetTextForeground(colours.GetItemTextColour());
-        dc.DrawText(text, x, y);
-    } else {
-        if(!IsSelected()) {
-            dc.SetTextForeground(colours.GetItemTextColour());
+    wxDCTextColourChanger changer(dc);
+    // select the default text colour
+    wxColour text_colour = GetTextColour(col);
+    if(!text_colour.IsOk()) {
+        if(IsSelected()) {
+            text_colour = colours.GetSelItemTextColour();
         } else {
-            dc.SetTextForeground(win->HasFocus() ? colours.GetSelItemTextColour()
-                                                 : colours.GetSelItemTextColourNoFocus());
+            text_colour = colours.GetItemTextColour();
         }
-        dc.DrawText(text, x, y);
     }
-#else
-    if(!IsSelected()) {
-        dc.SetTextForeground(colours.GetItemTextColour());
-    } else {
-        dc.SetTextForeground(win->HasFocus() ? colours.GetSelItemTextColour() : colours.GetSelItemTextColourNoFocus());
-    }
+
+    dc.SetTextForeground(text_colour);
     dc.DrawText(text, x, y);
-#endif
 }
 
 size_t clRowEntry::GetChildrenCount(bool recurse) const
@@ -757,17 +872,26 @@ int clRowEntry::CalcItemWidth(wxDC& dc, int rowHeight, size_t col)
     clCellValue& cell = GetColumn(col);
 
     int item_width = X_SPACER;
+    // colour items occupying the entire cell
+    if(cell.IsColour()) {
+        dc.SetFont(cell.GetFont().IsOk() ? cell.GetFont() : m_tree->GetDefaultFont());
+        item_width += dc.GetTextExtent(COLOUR_TEXT).GetWidth();
+        item_width += X_SPACER;
+        return item_width;
+    }
+
     if(cell.IsBool()) {
         // add the checkbox size
         item_width += clGetSize(rowHeight, m_tree);
         item_width += X_SPACER;
-    } else if(cell.IsChoice()) {
+    } else if(cell.HasButton()) {
         item_width += clGetSize(rowHeight, m_tree);
         item_width += X_SPACER;
     }
 
-    dc.SetFont(m_tree->GetDefaultFont());
-    wxSize textSize = dc.GetTextExtent(cell.GetValueString());
+    dc.SetFont(cell.GetFont().IsOk() ? cell.GetFont() : m_tree->GetDefaultFont());
+    wxString text_to_render = GetTextForRendering(cell.GetValueString());
+    wxSize textSize = dc.GetTextExtent(text_to_render);
     if((col == 0) && !IsListItem()) {
         // always make room for the twist button
         item_width += clGetSize(rowHeight, m_tree);
@@ -943,7 +1067,20 @@ const wxColour& clRowEntry::GetTextColour(size_t col) const
         static wxColour invalid_colour;
         return invalid_colour;
     }
-    return cell.GetTextColour();
+    const wxColour& colour = cell.GetTextColour();
+    if(!colour.IsOk()) {
+        // if one of our parent has a valid colour (or its parent.. or ...) __and__ our colour is invalid -> lets use
+        // our parent's colour
+        auto parent = GetParent();
+        while(parent) {
+            if(parent->GetColumn(col).IsOk() && parent->GetColumn(col).GetTextColour().IsOk()) {
+                return parent->GetColumn(col).GetTextColour();
+            }
+            parent = parent->GetParent();
+        }
+    }
+    // return the current cell colour
+    return colour;
 }
 
 wxRect clRowEntry::GetCellRect(size_t col) const
@@ -974,14 +1111,14 @@ const wxRect& clRowEntry::GetCheckboxRect(size_t col) const
     return cell.GetCheckboxRect();
 }
 
-const wxRect& clRowEntry::GetChoiceRect(size_t col) const
+const wxRect& clRowEntry::GetCellButtonRect(size_t col) const
 {
     const clCellValue& cell = GetColumn(col);
     if(!cell.IsOk()) {
         static wxRect emptyRect;
         return emptyRect;
     }
-    return cell.GetDropDownRect();
+    return cell.GetButtonRect();
 }
 
 void clRowEntry::RenderCheckBox(wxWindow* win, wxDC& dc, const clColours& colours, const wxRect& rect, bool checked)
@@ -1007,21 +1144,59 @@ int clRowEntry::GetCheckBoxWidth(wxWindow* win)
     return width;
 }
 
-void clRowEntry::SetChoice(bool b, size_t col)
+void clRowEntry::SetHasButton(eCellButtonType button_type, const wxString& unicode_symbol, size_t col)
 {
-    wxUnusedVar(b);
     clCellValue& cell = GetColumn(col);
     if(!cell.IsOk()) {
         return;
     }
-    cell.SetType(clCellValue::kTypeChoice);
+    cell.SetType(clCellValue::kTypeButton);
+    cell.SetButtonType(button_type, unicode_symbol);
 }
 
-bool clRowEntry::IsChoice(size_t col) const
+bool clRowEntry::HasButton(size_t col) const
 {
     const clCellValue& cell = GetColumn(col);
     if(!cell.IsOk()) {
         return false;
     }
-    return cell.IsChoice();
+    return cell.HasButton();
+}
+
+void clRowEntry::SetIsButton(const wxString& label, size_t col)
+{
+    clCellValue& cell = GetColumn(col);
+    if(!cell.IsOk()) {
+        return;
+    }
+    cell.SetType(clCellValue::kTypeOnlyButton);
+    cell.SetValue(label);
+}
+
+bool clRowEntry::IsButton(size_t col) const
+{
+    const clCellValue& cell = GetColumn(col);
+    if(!cell.IsOk()) {
+        return false;
+    }
+    return cell.IsButton();
+}
+
+void clRowEntry::SetColour(const wxColour& colour, size_t col)
+{
+    auto& cell = GetColumn(col);
+    if(!cell.IsOk()) {
+        return;
+    }
+    cell.SetType(clCellValue::kTypeColour);
+    cell.SetValue(colour);
+}
+
+bool clRowEntry::IsColour(size_t col) const
+{
+    const clCellValue& cell = GetColumn(col);
+    if(!cell.IsOk()) {
+        return false;
+    }
+    return cell.IsColour();
 }

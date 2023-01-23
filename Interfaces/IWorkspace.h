@@ -26,6 +26,8 @@
 #ifndef IWORKSPACE_H
 #define IWORKSPACE_H
 
+#include "asyncprocess.h"
+
 #include <list>
 #include <wx/event.h>
 #include <wx/filename.h>
@@ -54,9 +56,14 @@ public:
     virtual wxString GetName() const = 0;
 
     /**
-     * @brief return the project file
+     * @brief return the workspace file full path
      */
-    virtual wxFileName GetFileName() const = 0;
+    virtual wxString GetFileName() const = 0;
+
+    /**
+     * @brief return the workspace directory
+     */
+    virtual wxString GetDir() const = 0;
 
     /**
      * @brief set the workspace type
@@ -68,6 +75,12 @@ public:
      * @brief return the workspace name
      */
     const wxString& GetWorkspaceType() const { return m_workspaceType; }
+
+    /**
+     * @brief return the currently selected debugger. i.e. if the user hit F7
+     * this debugger will be activated
+     */
+    virtual wxString GetDebuggerName() const = 0;
 
     /**
      * @brief is this workspace support the build concept?
@@ -125,6 +138,20 @@ public:
      * @brief return list of projects for this workspace
      */
     virtual wxArrayString GetWorkspaceProjects() const = 0;
+
+    /**
+     * @brief returm true if this workspace is a remote one
+     */
+    virtual bool IsRemote() const { return false; }
+    /**
+     * @brief return the ssh account used by this workspace
+     */
+    virtual wxString GetSshAccount() const { return ""; }
+
+    /**
+     * @brief return the environment for the workspace
+     */
+    virtual clEnvList_t GetEnvironment() const { return {}; }
 };
 
 #endif // IWORKSPACE_H

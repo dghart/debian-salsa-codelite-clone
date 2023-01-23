@@ -2,6 +2,8 @@
 
 #include "ColoursAndFontsManager.h"
 #include "clSystemSettings.h"
+#include "drawingutils.h"
+#include "editor_config.h"
 #include "event_notifier.h"
 #include "globals.h"
 
@@ -43,6 +45,28 @@ clThemedTextCtrl::clThemedTextCtrl(wxWindow* parent, wxWindowID id, const wxStri
     SetModEventMask(wxSTC_MOD_DELETETEXT | wxSTC_MOD_INSERTTEXT);
     SetLayoutCache(wxSTC_CACHE_PAGE);
 
+    // Options
+    auto options = EditorConfigST::Get()->GetOptions();
+
+    // Set CamelCase caret movement
+    if(options->GetCaretUseCamelCase()) {
+        // selection
+        CmdKeyAssign(wxSTC_KEY_LEFT, wxSTC_KEYMOD_CTRL | wxSTC_KEYMOD_SHIFT, wxSTC_CMD_WORDPARTLEFTEXTEND);
+        CmdKeyAssign(wxSTC_KEY_RIGHT, wxSTC_KEYMOD_CTRL | wxSTC_KEYMOD_SHIFT, wxSTC_CMD_WORDPARTRIGHTEXTEND);
+
+        // movement
+        CmdKeyAssign(wxSTC_KEY_LEFT, wxSTC_KEYMOD_CTRL, wxSTC_CMD_WORDPARTLEFT);
+        CmdKeyAssign(wxSTC_KEY_RIGHT, wxSTC_KEYMOD_CTRL, wxSTC_CMD_WORDPARTRIGHT);
+    } else {
+        // selection
+        CmdKeyAssign(wxSTC_KEY_LEFT, wxSTC_KEYMOD_CTRL | wxSTC_KEYMOD_SHIFT, wxSTC_CMD_WORDLEFTEXTEND);
+        CmdKeyAssign(wxSTC_KEY_RIGHT, wxSTC_KEYMOD_CTRL | wxSTC_KEYMOD_SHIFT, wxSTC_CMD_WORDRIGHTEXTEND);
+
+        // movement
+        CmdKeyAssign(wxSTC_KEY_LEFT, wxSTC_KEYMOD_CTRL, wxSTC_CMD_WORDLEFT);
+        CmdKeyAssign(wxSTC_KEY_RIGHT, wxSTC_KEYMOD_CTRL, wxSTC_CMD_WORDRIGHT);
+    }
+
     // Bind(wxEVT_STC_CHARADDED, &clThemedTextCtrl::OnAddChar, this);
     Bind(wxEVT_KEY_DOWN, &clThemedTextCtrl::OnKeyDown, this);
     Bind(wxEVT_STC_MODIFIED, &clThemedTextCtrl::OnChange, this);
@@ -50,6 +74,7 @@ clThemedTextCtrl::clThemedTextCtrl(wxWindow* parent, wxWindowID id, const wxStri
     Bind(wxEVT_STC_CLIPBOARD_PASTE, &clThemedTextCtrl::OnPaste, this);
 #endif
     EventNotifier::Get()->Bind(wxEVT_SYS_COLOURS_CHANGED, &clThemedTextCtrl::OnSysColours, this);
+    m_editEventsHandler.Reset(new clEditEventsHandler(this));
 }
 
 clThemedTextCtrl::~clThemedTextCtrl()
@@ -105,10 +130,17 @@ void clThemedTextCtrl::ApplySettings()
     auto lexer = ColoursAndFontsManager::Get().GetLexer("text");
     lexer->ApplySystemColours(this);
 
-    wxClientDC dc(this);
-    dc.SetFont(lexer->GetFontForSyle(0, this));
-    wxRect rect = dc.GetTextExtent("Tp");
-    rect.Inflate(2);
+    // Create wxGCDC from wxMemoryDC
+    wxBitmap bmp;
+    bmp.CreateWithDIPSize(wxSize(1, 1), GetDPIScaleFactor());
+    wxMemoryDC memDC(bmp);
+    wxGCDC gcdc;
+    DrawingUtils::GetGCDC(memDC, gcdc);
+
+    gcdc.SetFont(lexer->GetFontForStyle(0, this));
+    wxRect rect = gcdc.GetTextExtent("Tp");
+    rect.Inflate(1);
+
     SetSizeHints(wxNOT_FOUND, rect.GetHeight()); // use the height of the button
 }
 

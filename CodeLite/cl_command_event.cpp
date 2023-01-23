@@ -223,6 +223,7 @@ clDebugEvent& clDebugEvent::operator=(const clDebugEvent& other)
     m_isSSHDebugging = other.m_isSSHDebugging;
     m_sshAccount = other.m_sshAccount;
     m_alternateDebuggerPath = other.m_alternateDebuggerPath;
+    m_uiBreakpoint = other.m_uiBreakpoint;
     return *this;
 }
 
@@ -509,6 +510,31 @@ clSourceControlEvent& clSourceControlEvent::operator=(const clSourceControlEvent
     return *this;
 }
 
+// --------------------------------------------------------------
+// Recent workspace event
+// --------------------------------------------------------------
+clRecentWorkspaceEvent::clRecentWorkspaceEvent(wxEventType commandType, int winid)
+    : clCommandEvent(commandType, winid)
+{
+}
+
+clRecentWorkspaceEvent::clRecentWorkspaceEvent(const clRecentWorkspaceEvent& event) { *this = event; }
+
+clRecentWorkspaceEvent::~clRecentWorkspaceEvent() {}
+
+wxEvent* clRecentWorkspaceEvent::Clone() const { return new clRecentWorkspaceEvent(*this); }
+
+clRecentWorkspaceEvent& clRecentWorkspaceEvent::operator=(const clRecentWorkspaceEvent& src)
+{
+    if(this == &src) {
+        return *this;
+    }
+
+    clCommandEvent::operator=(src);
+    m_workspaces = src.m_workspaces;
+    return *this;
+}
+
 ///----------------------------------------------------------------------------------
 /// clLanguageServerEvent
 ///----------------------------------------------------------------------------------
@@ -530,7 +556,6 @@ clLanguageServerEvent& clLanguageServerEvent::operator=(const clLanguageServerEv
     m_lspName = src.m_lspName;
     m_lspCommand = src.m_lspCommand;
     m_flags = src.m_flags;
-    m_sshAccount = src.m_sshAccount;
     m_priority = src.m_priority;
     m_connectionString = src.m_connectionString;
     m_enviroment = src.m_enviroment;

@@ -32,13 +32,13 @@ If you use a debian-based distro there are the following wxWidgets repositories 
 Repository | Available | Versions | Component
 -----------|-----------|----------|-----------
 debian	| `https://repos.codelite.org/wx3.1.6/debian/` | bullseye | libs
-ubuntu | `https://repos.codelite.org/wx3.1.6/ubuntu/` | focal impish | universe
+ubuntu | `https://repos.codelite.org/wx3.1.6/ubuntu/` | focal impish (and jammy) | universe
 
 
 
 The repositories also contain wx3.1.0 to wx3.1.5 builds (including some i386 ones) for debian stretch and buster, and ubuntu trusty, wily to hirsute.
 
-The ubuntu ones should also work on other *buntus of the same version, and on derivatives e.g. Mint. 
+The ubuntu ones should also work on other *buntus of the same version, and on derivatives e.g. Mint. The impish ones also work on jammy.
 
 
 Now let apt know that the repository exits. If you use an apt front-end e.g. synaptic, tell it to Add a repository, using as data the appropriate entry in the table above.
@@ -60,7 +60,7 @@ Distro/release | Line to append
 ---------------|-------------------
 debian bullseye| `deb https://repos.codelite.org/wx3.1.6/debian/ bullseye libs`
 ubuntu focal| `deb https://repos.codelite.org/wx3.1.6/ubuntu/ focal universe`
-ubuntu impish | `deb https://repos.codelite.org/wx3.1.6/ubuntu/ impish universe`
+ubuntu impish and jammy | `deb https://repos.codelite.org/wx3.1.6/ubuntu/ impish universe`
 
 You then need to update the repositories. In synaptic, click the Reload button. If you're doing things by hand, do: 
 
@@ -104,11 +104,11 @@ but `wx-common` contains `wxrc` so, if you use this, be aware that there may be 
 
 ## Fedora and openSUSE
 ---
-There are currently rpms available for fedora 35 and openSUSE 15.3.
+There are currently rpms available for fedora 35/36 and openSUSE 15.3.
 
 Distro|Release|x86_64
 ------|-------|------
-fedora|`35`|[wx-base-unicode][2] [wxGTK31][3] [wxGTK31-devel][4] [wxGTK31-gl][5] [wxGTK31-media][6] [wxGTK31-debuginfo][7]
+fedora|`35 & 36`|[wx-base-unicode][2] [wxGTK31][3] [wxGTK31-devel][4] [wxGTK31-gl][5] [wxGTK31-media][6] [wxGTK31-debuginfo][7]
 openSUSE|`15.3`|[libwx_baseu_net][8] [libwx_baseu][9] [libwx_baseu_xml][10] [libwx_gtk3u_adv][11] [libwx_gtk3u_aui][12] [libwx_gtk3u_core][13] [libwx_gtk3u_gl][14]  [libwx_gtk3u_html][15] [libwx_gtk3u_media][16] [libwx_gtk3u_propgrid][17] [libwx_gtk3u_qa][18] [libwx_gtk3u_ribbon][19] [libwx_gtk3u_richtext][20] [libwx_gtk3u_stc][21]  [libwx_gtk3u_webview][22] [libwx_gtk3u_xrc][23] [wxWidgets-3_1-devel][24] [wxWidgets-3_1-plugin-sound_sdlu][25]]
 
 There are also source rpms for [Fedora][26] and [openSUSE][27]. The fedora srpm should also build on CentOS 8. 

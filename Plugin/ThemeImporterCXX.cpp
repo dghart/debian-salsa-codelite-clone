@@ -36,11 +36,10 @@ ThemeImporterCXX::ThemeImporterCXX()
                  "tparam typedef union until var verbatim verbinclude version warning weakgroup xmlonly xrefitem");
 
     // Secondary keywords and identifiers
-    m_functionsIndex = 1;
-    // Global classes and typedefs
-    m_classesIndex = 3;
-    // PP definitions
-    m_othersIndex = 4;
+    SetFunctionsWordSetIndex(1);
+    SetClassWordSetIndex(3);
+    SetOthersWordSetIndex(4);
+    SetLocalsWordSetIndex(LexerConf::WS_VARIABLES, true);
 
     // Special task markers
     // will be styled with SCE_C_TASKMARKER
@@ -72,10 +71,14 @@ LexerConf::Ptr_t ThemeImporterCXX::Import(const wxFileName& theme_file)
     AddProperty(lexer, wxSTC_C_IDENTIFIER, "Identifier", m_editor);
     AddProperty(lexer, wxSTC_C_STRINGEOL, "Open String", m_string);
     AddProperty(lexer, wxSTC_C_COMMENTLINEDOC, "Doxygen C++ style comment", m_javadoc);
-    AddProperty(lexer, wxSTC_C_COMMENTDOCKEYWORD, "Doxygen keyword", m_variable);
+    AddProperty(lexer, wxSTC_C_COMMENTDOCKEYWORD, "Doxygen keyword", m_javadocKeyword);
     AddProperty(lexer, wxSTC_C_COMMENTDOCKEYWORDERROR, "Doxygen keyword error", m_javadocKeyword);
     AddProperty(lexer, wxSTC_C_WORD2, "Functions", m_function);
     AddProperty(lexer, wxSTC_C_GLOBALCLASS, "Classes", m_klass);
+    AddPropertySubstyle(lexer, LexerConf::WS_VARIABLES, "Variables", m_variable);
+
+    // the base for all our substyles
+    lexer->SetSubstyleBase(wxSTC_C_IDENTIFIER);
 
     FinalizeImport(lexer);
     return lexer;

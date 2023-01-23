@@ -18,8 +18,6 @@ class clSearchText;
 class clTreeCtrlModel;
 class clTreeCtrl;
 
-using namespace std;
-
 enum clTreeCtrlNodeFlags {
     kNF_FontBold = (1 << 0),
     kNF_FontItalic = (1 << 1),
@@ -92,8 +90,6 @@ protected:
      * @brief return the nth visible item
      */
     clRowEntry* GetVisibleItem(int index);
-    clCellValue& GetColumn(size_t col = 0);
-    const clCellValue& GetColumn(size_t col = 0) const;
     void DrawSimpleSelection(wxWindow* win, wxDC& dc, const wxRect& rect, const clColours& colours);
     void RenderText(wxWindow* win, wxDC& dc, const clColours& colours, const wxString& text, int x, int y, size_t col);
     void RenderTextSimple(wxWindow* win, wxDC& dc, const clColours& colours, const wxString& text, int x, int y,
@@ -105,6 +101,10 @@ public:
     clRowEntry* GetLastChild() const;
     clRowEntry* GetFirstChild() const;
 
+    size_t GetColumnCount() const { return m_cells.size(); }
+
+    const clCellValue& GetColumn(size_t col = 0) const;
+    clCellValue& GetColumn(size_t col = 0);
     clRowEntry(clTreeCtrl* tree, const wxString& label, int bitmapIndex = wxNOT_FOUND,
                int bitmapSelectedIndex = wxNOT_FOUND);
     clRowEntry(clTreeCtrl* tree, bool checked, const wxString& label, int bitmapIndex = wxNOT_FOUND,
@@ -150,8 +150,9 @@ public:
      * @brief remove all children items
      */
     void DeleteAllChildren();
-    void Render(wxWindow* win, wxDC& dc, const clColours& colours, int row_index, clSearchText* searcher);
-    vector<size_t> GetColumnWidths(wxWindow* win, wxDC& dc);
+    void Render(wxWindow* win, wxDC& dc, const clColours& c, int row_index, clSearchText* searcher);
+    void RenderBackground(wxDC& dc, long tree_style, const clColours& c, int row_index);
+    std::vector<size_t> GetColumnWidths(wxWindow* win, wxDC& dc);
     void SetHovered(bool b) { SetFlag(kNF_Hovered, b); }
     bool IsHovered() const { return m_flags & kNF_Hovered; }
 
@@ -164,7 +165,7 @@ public:
     const wxRect& GetItemRect() const { return m_rowRect; }
     const wxRect& GetButtonRect() const { return m_buttonRect; }
     const wxRect& GetCheckboxRect(size_t col = 0) const;
-    const wxRect& GetChoiceRect(size_t col = 0) const;
+    const wxRect& GetCellButtonRect(size_t col) const;
 
     void AddChild(clRowEntry* child);
 
@@ -193,10 +194,23 @@ public:
     void SetBitmapSelectedIndex(int bitmapIndex, size_t col = 0);
     void SetLabel(const wxString& label, size_t col = 0);
     /**
-     * @brief make this specific cell as "choice" (dropdown will drawn to the right)
+     * @brief add button to the right of the cell
      */
-    void SetChoice(bool b, size_t col = 0);
-    bool IsChoice(size_t col) const;
+    void SetHasButton(eCellButtonType button_type, const wxString& unicode_symbol, size_t col = 0);
+    bool HasButton(size_t col) const;
+
+    /**
+     * @brief mark cell at column as a button cell
+     * @param label the button label
+     */
+    void SetIsButton(const wxString& label, size_t col = 0);
+    /**
+     * @brief is cell at given column is a button?
+     */
+    bool IsButton(size_t col) const;
+
+    void SetColour(const wxColour& colour, size_t col = 0);
+    bool IsColour(size_t col) const;
 
     // Set this cell as "checkable" cell with possible label
     void SetChecked(bool checked, int bitmapIndex, const wxString& label, size_t col = 0);

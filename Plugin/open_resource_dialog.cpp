@@ -68,7 +68,7 @@ OpenResourceDialog::OpenResourceDialog(wxWindow* parent, IManager* manager, cons
     m_dataview->SetBitmaps(clGetManager()->GetStdIcons()->GetStandardMimeBitmapListPtr());
     auto lexer = ColoursAndFontsManager::Get().GetLexer("text");
     if(lexer) {
-        m_dataview->SetDefaultFont(lexer->GetFontForSyle(0, m_dataview));
+        m_dataview->SetDefaultFont(lexer->GetFontForStyle(0, m_dataview));
     }
     EventNotifier::Get()->Bind(wxEVT_LSP_WORKSPACE_SYMBOLS, &OpenResourceDialog::OnWorkspaceSymbols, this);
 
@@ -149,6 +149,8 @@ OpenResourceDialog::OpenResourceDialog(wxWindow* parent, IManager* manager, cons
     m_checkBoxFiles->SetValue(showFiles);
     m_checkBoxShowSymbols->SetValue(showSymbols);
     ::clSetDialogBestSizeAndPosition(this);
+    CenterOnParent();
+    MSWSetWindowDarkTheme(this);
 }
 
 OpenResourceDialog::~OpenResourceDialog()
@@ -197,7 +199,7 @@ void OpenResourceDialog::DoPopulateList()
     Clear();
     wxString name = m_textCtrlResourceName->GetValue();
     name.Trim().Trim(false);
-    if(name.IsEmpty()) {
+    if(name.empty()) {
         return;
     }
 
@@ -235,11 +237,12 @@ void OpenResourceDialog::DoPopulateList()
 
 void OpenResourceDialog::OnWorkspaceSymbols(LSPEvent& event) { DoPopulateTags(event.GetSymbolsInformation()); }
 
-void OpenResourceDialog::DoPopulateTags(const vector<LSP::SymbolInformation>& symbols)
+void OpenResourceDialog::DoPopulateTags(const std::vector<LSP::SymbolInformation>& symbols)
 {
     // Next, add the tags
-    if(m_userFilters.IsEmpty() || symbols.empty())
+    if(m_userFilters.IsEmpty() || symbols.empty()) {
         return;
+    }
 
     for(const LSP::SymbolInformation& symbol : symbols) {
         if(!MatchesFilter(symbol.GetName())) {
@@ -268,23 +271,25 @@ void OpenResourceDialog::DoPopulateTags(const vector<LSP::SymbolInformation>& sy
 void OpenResourceDialog::DoPopulateWorkspaceFile()
 {
     // do we need to include files?
-    if(!m_filters.IsEmpty() && m_filters.Index(KIND_FILE) == wxNOT_FOUND)
+    if(!m_filters.IsEmpty() && m_filters.Index(KIND_FILE) == wxNOT_FOUND) {
         return;
+    }
 
-    if(!m_userFilters.IsEmpty()) {
+    if(!m_userFilters.empty()) {
 
         std::unordered_multimap<wxString, wxString>::iterator iter = m_files.begin();
         const int maxFileSize = 100;
         int counter = 0;
         for(; (iter != m_files.end()) && (counter < maxFileSize); iter++) {
             const wxString& fullpath = iter->second;
-            if(!MatchesFilter(fullpath))
+            if(!MatchesFilter(fullpath)) {
                 continue;
+            }
 
             wxFileName fn(iter->second);
             int imgId = clGetManager()->GetStdIcons()->GetMimeImageId(fn.GetFullName());
             DoAppendLine(fn.GetFullName(), iter->second, false,
-                         new OpenResourceDialogItemData(iter->second, -1, wxT(""), fn.GetFullName(), wxT("")), imgId);
+                         new OpenResourceDialogItemData(iter->second, -1, "", fn.GetFullName(), ""), imgId);
             ++counter;
         }
     }
@@ -309,8 +314,9 @@ void OpenResourceDialog::OpenSelection(const OpenResourceDialogItemData& selecti
     wxString file_path = selection.m_file;
     clCommandEvent activateEvent(wxEVT_TREE_ITEM_FILE_ACTIVATED);
     activateEvent.SetFileName(file_path);
-    if(EventNotifier::Get()->ProcessEvent(activateEvent))
+    if(EventNotifier::Get()->ProcessEvent(activateEvent)) {
         return;
+    }
 
     clDEBUG() << "Opening editor:" << selection.m_file << ":" << selection.m_line << ":" << selection.m_column << endl;
 
@@ -328,25 +334,35 @@ void OpenResourceDialog::OnKeyDown(wxKeyEvent& event)
         return;
     }
 
-    if(event.GetKeyCode() == WXK_DOWN || event.GetKeyCode() == WXK_UP || event.GetKeyCode() == WXK_NUMPAD_UP ||
-       event.GetKeyCode() == WXK_NUMPAD_DOWN) {
-        event.Skip(false);
+    wxChar ch = event.GetUnicodeKey();
+    wxChar key_code = event.GetKeyCode();
+    int modifier_key = event.GetModifiers();
+    bool control_down = (modifier_key == wxMOD_CONTROL);
+    bool line_down =
+        (key_code == WXK_DOWN) || (key_code == WXK_NUMPAD_DOWN) || (control_down && (ch == 'J' || ch == 'N'));
+    bool page_down = (key_code == WXK_PAGEDOWN) || (control_down && (ch == 'D'));
+    bool line_up = (key_code == WXK_UP) || (key_code == WXK_NUMPAD_UP) || (control_down && (ch == 'K' || ch == 'P'));
+    bool page_up = (key_code == WXK_PAGEUP) || (control_down && (ch == 'U'));
 
-        if(GetDataview()->GetSelectedItemsCount() == 0) {
-            // Just select the first entry
-            DoSelectItem(GetDataview()->RowToItem(0));
+    event.Skip(false);
+    if(GetDataview()->GetSelectedItemsCount() == 0) {
+        // Just select the first entry
+        DoSelectItem(GetDataview()->RowToItem(0));
+        event.Skip();
+    } else {
+        if(line_down) {
+            GetDataview()->LineDown();
+        } else if(line_up) {
+            GetDataview()->LineUp();
+        } else if(page_down) {
+            GetDataview()->PageDown();
+        } else if(page_up) {
+            GetDataview()->PageUp();
         } else {
-            // fire char hook event to the DV control
-            // so it will handle the keyboard movement itself
-            wxKeyEvent charHook = event;
-            charHook.SetEventObject(m_dataview);
-            charHook.SetEventType(wxEVT_CHAR_HOOK);
-            GetDataview()->GetEventHandler()->ProcessEvent(charHook);
+            event.Skip();
         }
-
-        // Set the focus back to the text control
-        m_textCtrlResourceName->CallAfter(&wxTextCtrl::SetFocus);
     }
+    m_textCtrlResourceName->CallAfter(&clThemedTextCtrl::SetFocus);
 }
 
 void OpenResourceDialog::OnOK(wxCommandEvent& event) { event.Skip(); }
@@ -450,16 +466,16 @@ void OpenResourceDialog::GetLineAndColumnFromFilter(const wxString& filter, wxSt
     wxString tmpstr = filter;
     tmpstr.Replace("\\", "/");
 
-    wxString remainder = filter.AfterLast('/');
-    if(remainder.find(':') == wxString::npos) {
+    const size_t sep_last = tmpstr.Find('/', true);
+    const size_t col_first = tmpstr.find(':', (sep_last == wxNOT_FOUND ? 0 : sep_last));
+    if(col_first == wxNOT_FOUND) {
         return;
     }
 
-    auto parts = ::wxStringTokenize(remainder, ":", wxTOKEN_STRTOK);
-    // the first part is the name
-    modFilter = parts.Item(0);
-    parts.RemoveAt(0);
+    modFilter = tmpstr.substr(0, col_first);
+    wxString remainder = tmpstr.substr(col_first);
 
+    auto parts = ::wxStringTokenize(remainder, ":", wxTOKEN_STRTOK);
     if(!parts.empty()) {
         // line number
         parts.Item(0).ToCLong(&lineNumber);

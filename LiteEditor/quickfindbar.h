@@ -27,6 +27,7 @@
 
 #include "clEditorEditEventsHandler.h"
 #include "clTerminalHistory.h"
+#include "clToolBar.h"
 #include "quickfindbarbase.h"
 
 #include <vector>
@@ -34,7 +35,6 @@
 #include <wx/panel.h>
 
 class wxStaticText;
-class clToolBar;
 class wxStyledTextCtrl;
 
 struct TargetRange {
@@ -90,8 +90,6 @@ protected:
     bool m_onNextPrev;
     eRegexType m_regexType;
     bool m_disableTextUpdateEvent;
-    clEditEventsHandler::Ptr_t m_findEventsHandler;
-    clEditEventsHandler::Ptr_t m_replaceEventsHandler;
     size_t m_searchFlags = 0;
     bool m_highlightMatches;
     bool m_inSelection;

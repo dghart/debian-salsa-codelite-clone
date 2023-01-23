@@ -1,4 +1,5 @@
 #include "php_workspace_view.h"
+
 #include "FilesCollector.h"
 #include "NewPHPClass.h"
 #include "PHPDebugStartDlg.h"
@@ -18,6 +19,7 @@
 #include "php_workspace.h"
 #include "ssh_workspace_settings.h"
 #include "tree_item_data.h"
+
 #include <SFTPBrowserDlg.h>
 #include <SSHAccountManagerDlg.h>
 #include <bitmap_loader.h>
@@ -435,7 +437,7 @@ void PHPWorkspaceView::LoadWorkspaceView()
 
     ItemData* data = new ItemData(ItemData::Kind_Workspace);
     data->SetFile(PHPWorkspace::Get()->GetFilename().GetFullPath());
-    data->SetFolderPath(PHPWorkspace::Get()->GetFileName().GetPath());
+    data->SetFolderPath(PHPWorkspace::Get()->GetDir());
 
     wxTreeItemId root =
         m_treeCtrlView->AddRoot(workspaceName, bl->GetMimeImageId(PHPWorkspace::Get()->GetFilename().GetFullName()),
@@ -908,7 +910,6 @@ void PHPWorkspaceView::OnProjectSettings(wxCommandEvent& event)
 void PHPWorkspaceView::OnRunActiveProject(clExecuteEvent& e)
 {
     if(PHPWorkspace::Get()->IsOpen()) {
-        CL_DEBUG("Running active project...");
         CHECK_COND_RET(PHPWorkspace::Get()->GetActiveProject());
         // Test which file we want to debug
         PHPDebugStartDlg dlg(EventNotifier::Get()->TopFrame(), PHPWorkspace::Get()->GetActiveProject(), m_mgr);
@@ -1383,7 +1384,9 @@ void PHPWorkspaceView::OnFindInFiles(wxCommandEvent& e)
 {
     m_fifFromContextMenu = true;
     // Open the find in files dialg for the folder path
-    m_mgr->OpenFindInFileForPaths({});
+    wxArrayString paths;
+    DoGetSelectedFolders(paths);
+    m_mgr->OpenFindInFileForPaths(paths);
 }
 
 void PHPWorkspaceView::OnOpenWithDefaultApp(wxCommandEvent& e)
@@ -1502,66 +1505,9 @@ void PHPWorkspaceView::OnRenameFolder(wxCommandEvent& e)
     }
 }
 
-void PHPWorkspaceView::OnFindInFilesDismissed(clFindInFilesEvent& e)
-{
-    e.Skip();
-    if(PHPWorkspace::Get()->IsOpen()) {
-        // store the find in files mask
-        clConfig::Get().Write("FindInFiles/PHP/LookIn", e.GetPaths());
-        clConfig::Get().Write("FindInFiles/PHP/Mask", e.GetFileMask());
-    }
-}
+void PHPWorkspaceView::OnFindInFilesDismissed(clFindInFilesEvent& e) { e.Skip(); }
 
-void PHPWorkspaceView::OnFindInFilesShowing(clFindInFilesEvent& e)
-{
-    e.Skip();
-    if(!PHPWorkspace::Get()->IsOpen())
-        return;
-
-    // Mask is always loaded from the configuration
-    const wxString defaultMask =
-        "*.php;*.inc;*.phtml;*.js;*.html;*.css;*.scss;*.json;*.xml;*.ini;*.md;*.txt;*.text;.htaccess;*.sql";
-    const wxString defaultLookIn = "<Entire Workspace>\n-*vendor*";
-
-    wxString mask = clConfig::Get().Read("FindInFiles/PHP/Mask", wxString(""));
-    wxString lookIn = clConfig::Get().Read("FindInFiles/PHP/LookIn", wxString(""));
-    if(lookIn.empty()) {
-        // first time
-        lookIn = defaultLookIn;
-    }
-
-    if(mask.empty()) {
-        // first time
-        mask = defaultMask;
-    }
-
-    wxArrayString folders;
-    if(m_fifFromContextMenu) {
-        m_fifFromContextMenu = false;
-        // the trigger was from the context menu
-        // use the selected folders from the workspace tree view to override the 'look-in'
-        wxArrayTreeItemIds items;
-        DoGetSelectedItems(items);
-        if(!items.IsEmpty()) {
-            wxStringSet_t unique_paths;
-            for(size_t i = 0; i < items.GetCount(); ++i) {
-                const wxTreeItemId& item = items.Item(i);
-                ItemData* itemData = DoGetItemData(item);
-                if((itemData->IsFolder() || itemData->IsWorkspace() || itemData->IsProject()) &&
-                   unique_paths.count(itemData->GetFolderPath()) == 0) {
-                    unique_paths.insert(itemData->GetFolderPath());
-                    folders.Add(itemData->GetFolderPath());
-                }
-            }
-        }
-
-        // replace the 'look-in'
-        lookIn = wxJoin(folders, '\n');
-    }
-
-    e.SetFileMask(mask);
-    e.SetPaths(lookIn);
-}
+void PHPWorkspaceView::OnFindInFilesShowing(clFindInFilesEvent& e) { e.Skip(); }
 
 void PHPWorkspaceView::OnWorkspaceSyncStart(clCommandEvent& event)
 {

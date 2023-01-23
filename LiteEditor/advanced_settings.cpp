@@ -103,7 +103,7 @@ bool BuildSettingsDialog::CreateNewCompiler(const wxString& name, const wxString
 
 bool BuildSettingsDialog::DeleteCompiler(const wxString& name)
 {
-    if(wxMessageBox(_("Remove Compiler?"), _("Confirm"), wxYES_NO | wxICON_QUESTION) == wxYES) {
+    if(wxMessageBox(_("Remove Compiler?"), _("Confirm"), wxYES_NO | wxICON_WARNING) == wxYES) {
         BuildSettingsConfigST::Get()->DeleteCompiler(name);
         return true;
     }
@@ -154,6 +154,7 @@ void BuildSettingsDialog::OnCompilersDetected(const ICompilerLocator::CompilerVe
 
         auto conf = BuildSettingsConfigST::Get();
         conf->BeginBatch();
+        conf->DeleteAllCompilers(false);
         for(auto compiler : selected_compilers) {
             if(conf->IsCompilerExist(compiler->GetName())) {
                 conf->DeleteCompiler(compiler->GetName());
@@ -229,6 +230,7 @@ void BuildSettingsDialog::OnAddExistingCompiler()
 
 void BuildSettingsDialog::OnScanAndSuggestCompilers()
 {
+    // this might be a length operation
     if(m_compilersDetector.Locate()) {
         CallAfter(&BuildSettingsDialog::OnCompilersDetected, m_compilersDetector.GetCompilersFound());
     }

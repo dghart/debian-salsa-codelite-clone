@@ -20,21 +20,20 @@
 
 namespace
 {
+#ifdef __WXMAC__
+constexpr int BOTTOM_PEN_LIGHNTESS = 80;
+constexpr int SIDE_PEN_LIGHNTESS_WHEN_DARK = 115;
+constexpr int SIDE_PEN_LIGHNTESS_WHEN_LIGHT = 70;
+#else
+constexpr int BOTTOM_PEN_LIGHNTESS = 80;
+constexpr int SIDE_PEN_LIGHNTESS_WHEN_DARK = 115;
+constexpr int SIDE_PEN_LIGHNTESS_WHEN_LIGHT = 80;
+#endif
+
 void GetTabColours(const clTabColours& colours, size_t style, wxColour* activeTabBgColour, wxColour* bgColour)
 {
     *bgColour = colours.tabAreaColour;
     *activeTabBgColour = colours.activeTabBgColour;
-
-    bool is_dark = DrawingUtils::IsDark(colours.activeTabBgColour);
-    // If we are painting the active tab, check to see if the page is of type wxStyledTextCtrl
-    if(style & kNotebook_DynamicColours) {
-        auto editor = clGetManager()->GetActiveEditor();
-        if(editor) {
-            *activeTabBgColour = editor->GetCtrl()->StyleGetBackground(0);
-            is_dark = DrawingUtils::IsDark(*activeTabBgColour);
-        }
-        *bgColour = activeTabBgColour->ChangeLightness(is_dark ? 120 : 80);
-    }
 }
 } // namespace
 
@@ -63,10 +62,17 @@ void clTabRendererMinimal::InitLightColours(clTabColours& colours, const wxColou
     wxUnusedVar(activeTabBGColour);
 }
 
-void clTabRendererMinimal::Draw(wxWindow* parent, wxDC& dc, wxDC& fontDC, const clTabInfo& tabInfo,
-                                const clTabColours& colors, size_t style, eButtonState buttonState)
+void clTabRendererMinimal::Draw(wxWindow* parent, wxDC& dc, wxDC& fontDC, const clTabInfo& tabInfo, size_t tabIndex,
+                                const clTabColours& colors, size_t style, eButtonState tabState,
+                                eButtonState xButtonState)
 {
-    DoDraw(parent, dc, fontDC, tabInfo, colors, style, buttonState);
+    DoDraw(parent, dc, fontDC, tabInfo, tabIndex, colors, style, tabState, xButtonState);
+}
+
+void clTabRendererMinimal::FinaliseBackground(wxWindow* parent, wxDC& dc, const wxRect& clientRect,
+                                              const wxRect& activeTabRect, const clTabColours& colours, size_t style)
+{
+    clTabRenderer::FinaliseBackground(parent, dc, clientRect, activeTabRect, colours, style);
 }
 
 void clTabRendererMinimal::DrawBottomRect(wxWindow* parent, clTabInfo::Ptr_t tabInfo, const wxRect& clientRect,
@@ -85,22 +91,42 @@ wxColour clTabRendererMinimal::DrawBackground(wxWindow* parent, wxDC& dc, const 
 {
     wxColour bg_colour;
     wxColour active_tab_colour;
-    GetTabColours(colours, style, &active_tab_colour, &bg_colour);
-    wxUnusedVar(active_tab_colour);
-
+    wxRect rr = rect;
+#ifdef __WXMAC__
+    // on mac, we use 2 drawings:
+    // the first time, we use the default background colour to colour the entire tab
+    // area colour, while on the second time we use the renderer colours
+    // but we reduce the tab area width by 1 pixel
+    bg_colour = clSystemSettings::GetDefaultPanelColour();
     dc.SetBrush(bg_colour);
     dc.SetPen(bg_colour);
     dc.DrawRectangle(rect);
+
+    rr.SetWidth(rr.GetWidth() - 1);
+#endif
+
+    GetTabColours(colours, style, &active_tab_colour, &bg_colour);
+    dc.SetBrush(bg_colour);
+    dc.SetPen(bg_colour);
+    dc.DrawRectangle(rr);
     return bg_colour;
 }
 
-wxRect clTabRendererMinimal::DoDraw(wxWindow* parent, wxDC& dc, wxDC& fontDC, const clTabInfo& tabInfo,
-                                    const clTabColours& colors, size_t style, eButtonState buttonState)
+wxRect clTabRendererMinimal::DoDraw(wxWindow* parent, wxDC& dc, wxDC& fontDC, const clTabInfo& tabInfo, size_t tabIndex,
+                                    const clTabColours& colors, size_t style, eButtonState tabState,
+                                    eButtonState xButtonState)
 {
     wxRect tabRect = tabInfo.GetRect();
-    tabRect.Deflate(1, 0);
+    if(tabIndex == 0) {
+        // the first tab: move it 1 pixel to the left
+        // so the left border is not drawn
+        tabRect.x -= 1;
+        tabRect.width += 1;
+    }
 
     clTabColours colours = colors;
+
+    wxDCTextColourChanger text_colour_changer(dc);
 
     wxColour penColour(tabInfo.IsActive() ? colours.activeTabPenColour : colours.inactiveTabPenColour);
     wxColour bgColour, activeTabBgColour;
@@ -114,27 +140,18 @@ wxRect clTabRendererMinimal::DoDraw(wxWindow* parent, wxDC& dc, wxDC& fontDC, co
     // hiding unwanted curves parts of the rect
     // we use the visible tab for centering text
     wxRect visibleTab = tabRect;
-    if(style & kNotebook_BottomTabs) {
-        // bottom tabs
-        tabRect.y -= TAB_RADIUS;
-        visibleTab.height -= TAB_RADIUS;
 
-    } else if(style & kNotebook_LeftTabs) {
-        tabRect.x += TAB_RADIUS;
-        tabRect.width += TAB_RADIUS;
-
-    } else if(style & kNotebook_RightTabs) {
-        tabRect.x -= (TAB_RADIUS + 1);
-
-    } else {
-        // top tabs
-        tabRect.y += TAB_RADIUS;
-        visibleTab.y += TAB_RADIUS;
-        visibleTab.height -= TAB_RADIUS;
+    wxColour brush_colour = tabInfo.IsActive() ? activeTabBgColour : bgColour;
+    switch(tabState) {
+    case eButtonState::kHover:
+        brush_colour = brush_colour.ChangeLightness(is_dark ? 105 : 95);
+        break;
+    default:
+        break;
     }
 
     dc.SetPen(tabInfo.IsActive() ? activeTabBgColour : bgColour);
-    dc.SetBrush(tabInfo.IsActive() ? activeTabBgColour : bgColour);
+    dc.SetBrush(brush_colour);
     dc.DrawRoundedRectangle(tabRect, TAB_RADIUS);
 
     // Draw bitmap
@@ -150,28 +167,51 @@ wxRect clTabRendererMinimal::DoDraw(wxWindow* parent, wxDC& dc, wxDC& fontDC, co
 
     wxRect rr = tabInfo.m_rect;
     wxString label = tabInfo.GetBestLabel(style);
-    bool bVerticalTabs = IS_VERTICAL_TABS(style);
-    if(bVerticalTabs) {
-        // Check that the text can fit into the tab label
-        int textEndCoord = tabInfo.m_textX + tabInfo.m_textWidth;
-        int tabEndCoord = tabInfo.GetRect().GetRightTop().x;
-        if((textEndCoord + clTabRenderer::GetMarkerWidth()) > tabEndCoord) {
-            int newSize = tabEndCoord - tabInfo.m_textX;
-            wxString fixedLabel;
-            DrawingUtils::TruncateText(label, newSize, fontDC, fixedLabel);
-            label.swap(fixedLabel);
+    // Check that the text can fit into the tab label
+    int textEndCoord = tabInfo.m_textX + tabInfo.m_textWidth;
+    int tabEndCoord = tabInfo.GetRect().GetRightTop().x;
+    if((textEndCoord + clTabRenderer::GetMarkerWidth()) > tabEndCoord) {
+        int newSize = tabEndCoord - tabInfo.m_textX;
+        wxString fixedLabel;
+        DrawingUtils::TruncateText(label, newSize, fontDC, fixedLabel);
+        label.swap(fixedLabel);
+    }
+
+    if(tabInfo.IsActive()) {
+        wxPen bottom_pen = activeTabBgColour.ChangeLightness(BOTTOM_PEN_LIGHNTESS);
+        wxPen side_pen =
+            activeTabBgColour.ChangeLightness(is_dark ? SIDE_PEN_LIGHNTESS_WHEN_DARK : SIDE_PEN_LIGHNTESS_WHEN_LIGHT);
+        {
+            wxDCPenChanger pen_changer(dc, side_pen);
+            dc.DrawLine(tabRect.GetTopLeft(), tabRect.GetBottomLeft());
+            dc.DrawLine(tabRect.GetRightTop(), tabRect.GetRightBottom());
+        }
+        {
+            wxDCPenChanger pen_changer(dc, bottom_pen);
+            dc.DrawLine(tabRect.GetBottomLeft(), tabRect.GetBottomRight());
         }
     }
 
     wxFont font = GetTabFont(tabInfo.IsActive() && IsUseBoldFont());
     wxColour text_colour = is_dark ? bgColour.ChangeLightness(170) : bgColour.ChangeLightness(30);
-    fontDC.SetTextForeground(text_colour);
-    fontDC.SetFont(font);
 
-    wxRect textRect = dc.GetTextExtent(label);
-    textRect = textRect.CenterIn(visibleTab);
-    fontDC.DrawText(label, tabInfo.m_textX + rr.GetX(), textRect.GetY());
-    if(style & kNotebook_CloseButtonOnActiveTab) {
+    // use distinct colour to mark modified tabs
+    bool has_close_button = (style & kNotebook_CloseButtonOnActiveTab);
+    if(!has_close_button && tabInfo.IsModified()) {
+        // no close button, and a modified tab: use different colour for drawing
+        // the tab label
+        text_colour = colours.markerColour;
+    }
+
+    fontDC.SetTextForeground(text_colour);
+    wxDCFontChanger font_changer(fontDC, font);
+
+    wxRect textRect = fontDC.GetTextExtent(label);
+    textRect = textRect.CenterIn(visibleTab, wxVERTICAL);
+    textRect.SetX(tabInfo.m_textX + rr.GetX());
+    fontDC.DrawText(label, textRect.GetTopLeft());
+
+    if(has_close_button) {
         // use the adjusted tab rect and not the original one passed to us
         clTabInfo tab_info = tabInfo;
         tab_info.SetRect(tabRect);
@@ -179,7 +219,7 @@ wxRect clTabRendererMinimal::DoDraw(wxWindow* parent, wxDC& dc, wxDC& fontDC, co
         c.activeTabBgColour = activeTabBgColour;
         c.inactiveTabBgColour = bgColour;
         c.activeTabTextColour = text_colour;
-        DrawButton(parent, dc, tab_info, c, buttonState);
+        DrawButton(parent, dc, tab_info, c, xButtonState);
     }
     return tabRect;
 }

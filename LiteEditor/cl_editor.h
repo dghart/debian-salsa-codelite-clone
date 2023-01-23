@@ -278,6 +278,9 @@ protected:
     bool m_zoomProgrammatically = false;
     std::vector<eLineStatus> m_modifiedLines;
     bool m_trackChanges = false;
+    std::unordered_map<int, wxString> m_breakpoints_tooltips;
+    size_t m_default_text_width = wxNOT_FOUND;
+    bool m_scrollbar_recalc_is_required = false;
 
 public:
     static bool m_ccShowPrivateMembers;
@@ -400,10 +403,10 @@ public:
     void CompleteWord(LSP::CompletionItem::eTriggerKind triggerKind, bool onlyRefresh = false);
 
     /**
-     * \brief chage the case of the current selection. If selection is empty,
+     * @brief chage the case of the current selection. If selection is empty,
      * change the selection of the character to the right of the cart. In case of changing
      * the char to the right, move the caret to the right as well.
-     * \param toLower change to lower case.
+     * @param toLower change to lower case.
      */
     void ChangeCase(bool toLower);
 
@@ -481,13 +484,13 @@ public:
     void FindNext(const FindReplaceData& data);
 
     /**
-     * \brief display functions' calltip from the current position of the caret
+     * @brief display functions' calltip from the current position of the caret
      */
     void ShowFunctionTipFromCurrentPos();
 
     /**
      * Change the document's syntax highlight
-     * \param lexerName the syntax highlight's lexer name (as appear in the liteeditor.xml file)
+     * @param lexerName the syntax highlight's lexer name (as appear in the liteeditor.xml file)
      */
     void SetSyntaxHighlight(const wxString& lexerName) override;
 
@@ -505,16 +508,16 @@ public:
      * If word-wrap isn't on, and forceDelay is false, this calls DoEnsureCaretIsVisible() immediately. Otherwise it
      * stores a position for OnScnPainted() to ensure-is-visible in the next scintilla paint event
      * This doesn't happen until scintilla painting is complete, so it isn't ruined by e.g. word-wrap
-     * \param position the position to ensure is visible
-     * \param preserveSelection preserve any selection
-     * \param forceDelay wait for the next paint event even if word-wrap is off
+     * @param position the position to ensure is visible
+     * @param preserveSelection preserve any selection
+     * @param forceDelay wait for the next paint event even if word-wrap is off
      */
     void SetEnsureCaretIsVisible(int pos, bool preserveSelection = true, bool forceDelay = false);
 
     /**
      * Does the necessary things to ensure that the destination line of a GoTo is visible
-     * \param position the position to ensure is visible
-     * \param preserveSelection cache and reapply any selection, which would otherwise be cleared by scintilla
+     * @param position the position to ensure is visible
+     * @param preserveSelection cache and reapply any selection, which would otherwise be cleared by scintilla
      */
     void DoEnsureCaretIsVisible(int pos, bool preserveSelection);
 
@@ -558,7 +561,7 @@ public:
 
     /**
      * Delete markers from the current document
-     * \param which_type if >0, delete the matching bookmark type; 0 delete the currently-active type; -1 delete all
+     * @param which_type if >0, delete the matching bookmark type; 0 delete the currently-active type; -1 delete all
      * types
      */
     void DelAllMarkers(int which_type);
@@ -691,6 +694,27 @@ public:
     void DelMarker();
 
     /**
+     * @brief return true if there is a breakpoint marker on the given line
+     */
+    bool HasBreakpointMarker(int line_number = wxNOT_FOUND) override;
+
+    /**
+     * @brief delete all breakpoint markers from the given line
+     * @param line_number if set to wxNOT_FOUND(-1), delete all breakpoints from the editor
+     */
+    void DeleteBreakpointMarkers(int line_number = wxNOT_FOUND) override;
+
+    /**
+     * @brief return all lines that have breakpoint marker
+     */
+    size_t GetBreakpointMarkers(std::vector<int>* lines) override;
+
+    /**
+     * @brief delete all breakpoint markers from the given line
+     */
+    void SetBreakpointMarker(int line_number = wxNOT_FOUND, const wxString& tooltip = wxEmptyString) override;
+
+    /**
      * Store all bookmarks in a wxArrayString
      */
     void StoreMarkersToArray(wxArrayString& bookmarks);
@@ -702,9 +726,9 @@ public:
 
     /**
      * Attempt to match brace backward
-     * \param chCloseBrace the closing brace character (can be one of: '}' ')' ']')
-     * \param pos position to start the match
-     * \param matchedPos output, the position of the matched brace
+     * @param chCloseBrace the closing brace character (can be one of: '}' ')' ']')
+     * @param pos position to start the match
+     * @param matchedPos output, the position of the matched brace
      * \return true on match false otherwise
      */
     bool MatchBraceBack(const wxChar& chCloseBrace, const long& pos, long& matchedPos);
@@ -716,8 +740,8 @@ public:
 
     /**
      * Insert text to the editor and keeping the page indentation
-     * \param text text to enter
-     * \param pos position to insert the text
+     * @param text text to enter
+     * @param pos position to insert the text
      */
     void InsertTextWithIndentation(const wxString& text, int pos);
 
@@ -828,7 +852,7 @@ public:
     wxUint64 GetModificationCount() const override { return m_modificationCount; }
 
     /**
-     * \brief run through the file content and update colours for the
+     * @brief run through the file content and update colours for the
      * functions / locals
      */
     void UpdateColours();
@@ -950,9 +974,9 @@ public:
 
     /**
      * Prepend the indentation level found at line at 'pos' to each line in the input string
-     * \param text text to enter
-     * \param pos position to insert the text
-     * \param flags formatting flags
+     * @param text text to enter
+     * @param pos position to insert the text
+     * @param flags formatting flags
      */
     wxString FormatTextKeepIndent(const wxString& text, int pos, size_t flags = 0) override;
 
@@ -1126,8 +1150,10 @@ private:
     // Line numbers drawings
     void DoUpdateLineNumbers(bool relative_numbers);
     void UpdateLineNumbers();
+    void UpdateDefaultTextWidth();
 
     // Event handlers
+    void OnIdle(wxIdleEvent& event);
     void OpenURL(wxCommandEvent& event);
     void OnHighlightWordChecked(wxCommandEvent& e);
     void OnRemoveMatchInidicator(wxCommandEvent& e);
@@ -1165,6 +1191,7 @@ private:
     void OnFileFormatStarting(wxCommandEvent& e);
     void OnTimer(wxTimerEvent& event);
     void OnEditorConfigChanged(wxCommandEvent& event);
+    void OnColoursAndFontsUpdated(clCommandEvent& event);
 };
 
 #endif // LITEEDITOR_EDITOR_H

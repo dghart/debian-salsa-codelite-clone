@@ -16,10 +16,12 @@
 #include <wx/scrolwin.h>
 
 #define wxTR_ENABLE_SEARCH 0x4000
+#define wxTR_COLUMN_WIDTH_NEVER_SHRINKS 0x8000
+
 // Sorting is applied for top level items (i.e. items whom their direct parent is the root item)
 #define wxTR_SORT_TOP_LEVEL 0x0100
 
-static const int wxTREE_HITTEST_ONDROPDOWNARROW = 0x2000;
+static const int wxTREE_HITTEST_ONACTIONBUTTON = 0x2000;
 
 class clScrollBar;
 enum class eRendererType {
@@ -51,6 +53,7 @@ private:
     clRowEntry* GetFirstItemOnScreen() override;
     void SetFirstItemOnScreen(clRowEntry* item) override;
     wxTreeItemId DoScrollLines(int numLines, bool up, wxTreeItemId from, bool selectIt);
+    void UpdateButtonState(clRowEntry::Vec_t& lines);
 
     /**
      * @brief bitmap file was added, re-calculate the line heights
@@ -64,6 +67,10 @@ private:
 
     void DoInitialize();
     clRowEntry* DoFind(clRowEntry* from, const wxString& what, size_t col, size_t searchFlags, bool next);
+    /**
+     * @brief display a colour picker dialog for the given item
+     */
+    void ShowColourPicker(const wxTreeItemId& item, int column);
 
 protected:
     void UpdateScrollBar() override;
@@ -468,5 +475,5 @@ protected:
 };
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_TREE_ITEM_VALUE_CHANGED, wxTreeEvent);
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_TREE_CHOICE, wxTreeEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_TREE_ACTIONBUTTON_CLICKED, wxTreeEvent);
 #endif // CLTREECTRL_H

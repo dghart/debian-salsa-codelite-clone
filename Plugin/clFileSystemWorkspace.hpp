@@ -5,7 +5,6 @@
 #include "asyncprocess.h"
 #include "clBacktickCache.hpp"
 #include "clConsoleBase.h"
-#include "clDebuggerBreakpointStore.hpp"
 #include "clDebuggerTerminal.h"
 #include "clFileCache.hpp"
 #include "clFileSystemEvent.h"
@@ -49,12 +48,6 @@ protected:
     void DoPrintBuildMessage(const wxString& message);
     clEnvList_t GetEnvList();
     CompilerPtr GetCompiler();
-
-    /**
-     * @brief return the executable to run + args + working directory
-     * this method also expands all macros/env variables
-     */
-    void GetExecutable(wxString& exe, wxString& args, wxString& wd);
 
     //===--------------------------
     // Event handlers
@@ -102,7 +95,8 @@ public:
     /// IWorkspace interface
     ///===--------------------------
     wxString GetActiveProjectName() const override;
-    wxFileName GetFileName() const override;
+    wxString GetFileName() const override;
+    wxString GetDir() const override;
     wxString GetFilesMask() const override;
     void GetProjectFiles(const wxString& projectName, wxArrayString& files) const override;
     wxString GetProjectFromFile(const wxFileName& filename) const override;
@@ -112,6 +106,14 @@ public:
     bool IsProjectSupported() const override;
     wxFileName GetProjectFileName(const wxString& projectName) const override;
     void SetProjectActive(const wxString& project) override;
+    wxString GetDebuggerName() const override;
+    clEnvList_t GetEnvironment() const override;
+
+    /**
+     * @brief return the executable to run + args + working directory
+     * this method also expands all macros/env variables
+     */
+    void GetExecutable(wxString& exe, wxString& args, wxString& wd);
 
     virtual wxString GetExcludeFolders() const;
     clFileSystemWorkspace(bool dummy);

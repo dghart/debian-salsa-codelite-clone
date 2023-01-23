@@ -24,10 +24,14 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "cl_config.h"
+
+#include "FontUtils.hpp"
 #include "cl_defs.h"
 #include "cl_standard_paths.h"
+#include "file_logger.h"
 #include "fileutils.h"
 #include "wx/filename.h"
+
 #include <algorithm>
 #include <wx/filefn.h>
 #include <wx/log.h>
@@ -44,6 +48,16 @@
         JSONItem arr = JSONItem::createArray(arrName); \
         parent.append(arr);                            \
     }
+
+namespace
+{
+void truncate_array(wxArrayString& arr, size_t maxSize)
+{
+    while(arr.GetCount() > maxSize && arr.GetCount() > 0) {
+        arr.RemoveAt(arr.GetCount() - 1);
+    }
+}
+} // namespace
 
 clConfig::clConfig(const wxString& filename)
 {
@@ -237,8 +251,10 @@ wxStringMap_t clConfig::MergeStringMaps(const wxStringMap_t& map1, const wxStrin
 
 void clConfig::Save()
 {
-    if(m_root)
+    if(m_root) {
+        LOG_IF_TRACE { clDEBUG1() << "Config file:" << m_filename << "saved!" << endl; }
         m_root->save(m_filename);
+    }
 }
 
 void clConfig::Save(const wxFileName& fn)
@@ -359,7 +375,11 @@ void clConfig::SetQuickFindSearchItems(const wxArrayString& items)
     if(quickFindBar.hasNamedObject("SearchHistory")) {
         quickFindBar.removeProperty("SearchHistory");
     }
-    quickFindBar.addProperty("SearchHistory", items);
+
+    wxArrayString items_to_save = items;
+    truncate_array(items_to_save, 20);
+
+    quickFindBar.addProperty("SearchHistory", items_to_save);
     Save();
 }
 
@@ -370,7 +390,11 @@ void clConfig::SetQuickFindReplaceItems(const wxArrayString& items)
     if(quickFindBar.hasNamedObject("ReplaceHistory")) {
         quickFindBar.removeProperty("ReplaceHistory");
     }
-    quickFindBar.addProperty("ReplaceHistory", items);
+
+    wxArrayString items_to_save = items;
+    truncate_array(items_to_save, 20);
+
+    quickFindBar.addProperty("ReplaceHistory", items_to_save);
     Save();
 }
 
@@ -555,21 +579,17 @@ wxFont clConfig::Read(const wxString& name, const wxFont& defaultValue)
     // Unserialize the font
     wxFont font;
     JSONItem f = general.namedObject(name);
+    if(!f.hasNamedObject("fontDesc"))
+        return defaultValue;
 
-    font.SetPointSize(f.namedObject("pointSize").toInt());
-    font.SetFaceName(f.namedObject("face").toString());
-    font.SetWeight(f.namedObject("bold").toBool() ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL);
-    font.SetStyle(f.namedObject("italic").toBool() ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL);
+    font.SetNativeFontInfo(FontUtils::GetFontInfo(f.namedObject("fontDesc").toString()));
     return font;
 }
 
 void clConfig::Write(const wxString& name, const wxFont& value)
 {
     JSONItem font = JSONItem::createObject(name);
-    font.addProperty("pointSize", value.GetPointSize());
-    font.addProperty("face", value.GetFaceName());
-    font.addProperty("bold", (value.GetWeight() == wxFONTWEIGHT_BOLD));
-    font.addProperty("italic", (value.GetStyle() == wxFONTSTYLE_ITALIC));
+    font.addProperty("fontDesc", FontUtils::GetFontInfo(value));
 
     JSONItem general = GetGeneralSetting();
     if(general.hasNamedObject(name)) {

@@ -47,6 +47,8 @@ class FilesModifiedDlg;
 class IEditor;
 class MessagePane;
 class clEditorBar;
+class WelcomePage;
+
 class MainBook : public wxPanel
 {
     typedef std::vector<std::function<void(IEditor*)>> CallbackVec_t;
@@ -61,7 +63,7 @@ private:
     bool m_reloadingDoRaise; // Prevents multiple Raises() during RestoreSession()
     FilesModifiedDlg* m_filesModifiedDlg;
     std::unordered_map<wxString, TagEntryPtr> m_currentNavBarTags;
-    wxWindow* m_welcomePage = nullptr;
+    WelcomePage* m_welcomePage = nullptr;
     QuickFindBar* m_findBar;
     std::unordered_map<wxString, CallbackVec_t> m_callbacksTable;
     bool m_initDone = false;
@@ -91,6 +93,8 @@ private:
     void OnPageChanged(wxBookCtrlEvent& e);
     void OnClosePage(wxBookCtrlEvent& e);
     void OnPageChanging(wxBookCtrlEvent& e);
+    void OnEditorModified(clCommandEvent& event);
+    void OnEditorSaved(clCommandEvent& event);
     void OnProjectFileAdded(clCommandEvent& e);
     void OnProjectFileRemoved(clCommandEvent& e);
     void OnWorkspaceLoaded(clWorkspaceEvent& e);
@@ -108,7 +112,7 @@ private:
     void OnEditorSettingsChanged(wxCommandEvent& e);
     void OnSettingsChanged(wxCommandEvent& e);
     void OnIdle(wxIdleEvent& event);
-    wxWindow* GetOrCreateWelcomePage();
+    WelcomePage* GetOrCreateWelcomePage();
 
     /**
      * @brief return proper tab label for a given filename
@@ -132,6 +136,8 @@ private:
     void execute_callbacks_for_file(const wxString& fullpath);
     bool has_callbacks(const wxString& fullpath) const;
 
+    int FindEditorIndexByFullPath(const wxString& fullpath);
+
 public:
     MainBook(wxWindow* parent);
     virtual ~MainBook();
@@ -140,10 +146,9 @@ public:
     QuickFindBar* GetFindBar() const { return m_findBar; }
 
     /**
-     * @brief register a welcome page. This page is displayed whenever there are no tabs open
-     * in CodeLite. If there is already a welcome page registered, this call destroys the previous one
+     * @brief create the welcome page
      */
-    void RegisterWelcomePage(wxWindow* welcomePage);
+    void InitWelcomePage();
 
     static bool AskUserToSave(clEditor* editor);
     /**
@@ -289,6 +294,8 @@ public:
 
     void SetUseBuffereLimit(bool useBuffereLimit) { this->m_useBuffereLimit = useBuffereLimit; }
     bool GetUseBuffereLimit() const { return m_useBuffereLimit; }
+
+    Notebook* GetNotebook() { return m_book; }
 };
 
 #endif // MAINBOOK_H

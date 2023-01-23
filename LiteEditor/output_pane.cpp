@@ -25,6 +25,7 @@
 #include "output_pane.h"
 
 #include "BuildTab.hpp"
+#include "clPropertiesPage.hpp"
 #include "clStrings.h"
 #include "clTabTogglerHelper.h"
 #include "detachedpanesinfo.h"
@@ -43,11 +44,12 @@
 #include <wx/dcbuffer.h>
 #include <wx/xrc/xmlres.h>
 
-OutputPane::OutputPane(wxWindow* parent, const wxString& caption)
-    : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(200, 250))
+OutputPane::OutputPane(wxWindow* parent, const wxString& caption, long style)
+    : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(200, 250), style)
     , m_caption(caption)
     , m_buildInProgress(false)
 {
+    Hide();
     CreateGUIControls();
     EventNotifier::Get()->Connect(wxEVT_EDITOR_CLICKED, wxCommandEventHandler(OutputPane::OnEditorFocus), NULL, this);
     EventNotifier::Get()->Connect(wxEVT_BUILD_STARTED, clBuildEventHandler(OutputPane::OnBuildStarted), NULL, this);
@@ -102,16 +104,6 @@ void OutputPane::CreateGUIControls()
     IManager* mgr = PluginManager::Get();
 
     auto images = m_book->GetBitmaps();
-    // Build tab
-    //    m_buildWin = new NewBuildTab(m_book);
-    //#if PHP_BUILD
-    //    m_buildWin->Hide();
-    //#else
-    //    m_book->AddPage(m_buildWin, BUILD_WIN, true, images->Add(wxT("build")));
-    //    m_tabs.insert(std::make_pair(BUILD_WIN, Tab(BUILD_WIN, m_buildWin, wxNOT_FOUND)));
-    //    mgr->AddOutputTab(BUILD_WIN);
-    //#endif
-
     m_build_tab = new BuildTab(m_book);
     m_book->AddPage(m_build_tab, BUILD_WIN, true, images->Add(wxT("build")));
     m_tabs.insert(std::make_pair(BUILD_WIN, Tab(BUILD_WIN, m_build_tab, wxNOT_FOUND)));
@@ -133,18 +125,64 @@ void OutputPane::CreateGUIControls()
 
     // Show Usage ("References")
     m_showUsageTab = new FindUsageTab(m_book);
-#if PHP_BUILD
-    m_showUsageTab->Hide();
-#else
     m_book->AddPage(m_showUsageTab, SHOW_USAGE, false, images->Add(wxT("find")));
     m_tabs.insert({ SHOW_USAGE, Tab(SHOW_USAGE, m_showUsageTab, images->Add(wxT("find"))) });
     mgr->AddOutputTab(SHOW_USAGE);
-#endif
+
     // Output tab
     m_outputWind = new OutputTab(m_book, wxID_ANY, OUTPUT_WIN);
     m_book->AddPage(m_outputWind, OUTPUT_WIN, false, images->Add(wxT("console")));
     m_tabs.insert(std::make_pair(OUTPUT_WIN, Tab(OUTPUT_WIN, m_outputWind, images->Add(wxT("console")))));
     mgr->AddOutputTab(OUTPUT_WIN);
+#if 0
+    auto change_callbck = [](const wxString& label, const wxAny& value) {
+        wxString str_value;
+        bool bool_value;
+        wxColour colour_value;
+        if(value.GetAs(&str_value)) {
+            wxMessageBox(wxString() << label << " changed\n"
+                                    << "New value (wxString):" << str_value);
+        } else if(value.GetAs(&bool_value)) {
+            wxMessageBox(wxString() << label << " changed\n"
+                                    << "New value (bool): " << bool_value);
+        } else if(value.GetAs(&colour_value)) {
+            wxMessageBox(wxString() << label << " changed\n"
+                                    << "New value (wxColour): " << colour_value.GetAsString(wxC2S_HTML_SYNTAX));
+        } else {
+            wxMessageBox(label + " action");
+        }
+    };
+
+    auto props = new clPropertiesPage(m_book);
+    props->AddHeader("General Settings");
+    props->AddProperty("Options1", wxString("Valus string"), change_callbck);
+    props->AddProperty("Options1", { "Hello", "World", "From", "clPropertiesPage" }, 0, change_callbck);
+
+    props->AddHeader("Colours");
+    props->AddProperty("Choose a colour R", wxColour("RED"), change_callbck);
+    props->AddProperty("Choose a colour G", wxColour("GREEN"), change_callbck);
+    props->AddProperty("Choose a colour B", wxColour("BLUE"), change_callbck);
+
+    props->AddHeader("Misc");
+    props->AddProperty("Options2", { "Alpha", "Beta", "Gamma", "Prod" }, 1, change_callbck);
+    props->AddProperty("Options2", { "Alpha", "Beta", "Gamma", "Prod" }, 2, change_callbck);
+
+    props->AddHeader("Checkboxes");
+    props->AddProperty("Is it good?", true, change_callbck);
+    props->AddProperty("Should we do it?", false, change_callbck);
+
+    props->AddHeader("paths");
+    props->AddPropertyFilePicker("Choose first file", wxEmptyString, change_callbck);
+    props->AddPropertyFilePicker("Choose second file", wxEmptyString, change_callbck);
+    props->AddPropertyDirPicker("Choose directory", wxEmptyString, change_callbck);
+
+
+    props->AddHeader("Buttons");
+    props->AddPropertyButton("First button", change_callbck);
+    props->AddPropertyButton("Second button", change_callbck);
+    m_book->AddPage(props, "Properties", false, images->Add(wxT("console")));
+
+#endif
     SetMinSize(wxSize(200, 100));
     mainSizer->Layout();
 }
@@ -193,15 +231,14 @@ void OutputPane::SaveTabOrder()
     clConfig::Get().SetOutputTabOrder(panes, m_book->GetSelection());
 }
 
-typedef struct {
+typedef struct _tagTabInfo {
     wxString text;
     wxWindow* win = nullptr;
     int bmp = wxNOT_FOUND;
 } tagTabInfo;
 
-void OutputPane::ApplySavedTabOrder() const
+void OutputPane::ApplySavedTabOrder(bool update_ui) const
 {
-
     wxArrayString tabs;
     int index = -1;
     if(!clConfig::Get().GetOutputTabOrder(tabs, index))
@@ -234,9 +271,6 @@ void OutputPane::ApplySavedTabOrder() const
         m_book->InsertPage(n, vTempstore.at(n).win, vTempstore.at(n).text, false, vTempstore.at(n).bmp);
     }
 
-    // wxPrintf("After load");for (size_t n=0; n < m_book->GetPageCount(); ++n)  CL_DEBUG1(wxString::Format("Tab %i:
-    // %zs",(int)n,m_book->GetPageText(n)));
-
     // Restore any saved last selection
     // NB: this doesn't actually work atm: the selection is set correctly, but presumably something else changes is
     // later
@@ -245,6 +279,10 @@ void OutputPane::ApplySavedTabOrder() const
         m_book->SetSelection(index);
     } else if(m_book->GetPageCount()) {
         m_book->SetSelection(0);
+    }
+
+    if(update_ui) {
+        clGetManager()->GetDockingManager()->Update();
     }
 }
 

@@ -29,6 +29,7 @@
 #include "JSON.h"
 #include "codelite_events.h"
 #include "conffilelocator.h"
+#include "file_logger.h"
 #include "macros.h"
 #include "wx_xml_compatibility.h"
 #include "xmlutils.h"
@@ -58,12 +59,12 @@ bool BuildSettingsConfig::Load(const wxString& version, const wxString& xmlFileP
     m_version = version;
     if(xmlFilePath.IsEmpty()) {
         wxString initialSettings = ConfFileLocator::Instance()->Locate(wxT("config/build_settings.xml"));
-        loaded = m_doc->Load(initialSettings);
+        loaded = LoadXmlFile(m_doc, initialSettings);
         CHECK_PTR_RET_FALSE(m_doc->GetRoot());
 
-        wxString xmlVersion = m_doc->GetRoot()->GetPropVal(wxT("Version"), wxEmptyString);
+        wxString xmlVersion = m_doc->GetRoot()->GetAttribute(wxT("Version"), wxEmptyString);
         if(xmlVersion != version) {
-            loaded = m_doc->Load(ConfFileLocator::Instance()->GetDefaultCopy(wxT("config/build_settings.xml")));
+            loaded = LoadXmlFile(m_doc, ConfFileLocator::Instance()->GetDefaultCopy(wxT("config/build_settings.xml")));
         }
         m_fileName = ConfFileLocator::Instance()->GetLocalCopy(wxT("config/build_settings.xml"));
 
@@ -72,7 +73,7 @@ bool BuildSettingsConfig::Load(const wxString& version, const wxString& xmlFileP
         }
     } else {
         wxFileName xmlPath(xmlFilePath);
-        loaded = m_doc->Load(xmlPath.GetFullPath());
+        loaded = LoadXmlFile(m_doc, xmlPath.GetFullPath());
         if(loaded) {
             DoUpdateCompilers();
             m_fileName = xmlPath;
@@ -231,8 +232,8 @@ wxString BuildSettingsConfig::GetSelectedBuildSystem()
     wxXmlNode* node = m_doc->GetRoot()->GetChildren();
     while(node) {
         if(node->GetName() == wxT("BuildSystem")) {
-            if(node->GetPropVal(wxT("Active"), wxT("")) == wxT("yes")) {
-                active = node->GetPropVal(wxT("Name"), wxT(""));
+            if(node->GetAttribute(wxT("Active"), wxT("")) == wxT("yes")) {
+                active = node->GetAttribute(wxT("Name"), wxT(""));
                 break;
             }
         }
@@ -326,21 +327,6 @@ bool BuildSettingsConfig::SaveXmlFile()
         return true;
     }
 
-    // Store this information for later retrieval
-    wxArrayString compilers = GetAllCompilersNames();
-    JSON root(cJSON_Array);
-    JSONItem e = root.toElement();
-    for(size_t i = 0; i < compilers.size(); ++i) {
-        CompilerPtr cmp = GetCompiler(compilers[i]);
-        if(!cmp) {
-            continue;
-        }
-        JSONItem o = JSONItem::createObject();
-        o.addProperty("name", cmp->GetName()).addProperty("paths", cmp->GetDefaultIncludePaths());
-        e.arrayAppend(o);
-    }
-    wxFileName compilersFile(clStandardPaths::Get().GetUserDataDir(), "compilers_paths.json");
-    root.save(compilersFile);
     return ::SaveXmlToFile(m_doc, m_fileName.GetFullPath());
 }
 

@@ -12,7 +12,6 @@
 
 #include <sstream>
 
-using namespace std;
 static const char separator_str[] = "\n************\n";
 static size_t separator_str_len = sizeof(separator_str) - 1;
 
@@ -58,7 +57,8 @@ bool LSPNetworkSTDIO::IsConnected() const { return m_server != nullptr; }
 void LSPNetworkSTDIO::OnProcessTerminated(clProcessEvent& event)
 {
     wxDELETE(m_server);
-    clDEBUG() << "LSPNetworkSTDIO: program terminated:" << m_startupInfo.GetLspServerCommand();
+    clDEBUG() << "LSPNetworkSTDIO: program terminated:" << m_startupInfo.GetLspServerCommand() << endl;
+    clDEBUG() << "LSPNetworkSTDIO:" << event.GetString() << endl;
     clCommandEvent evt(wxEVT_LSP_NET_ERROR);
     AddPendingEvent(evt);
 }
@@ -91,33 +91,23 @@ void LSPNetworkSTDIO::DoStartLocalProcess()
     BindEvents();
 
     DirSaver ds;
-    if(!m_startupInfo.GetWorkingDirectory().IsEmpty()) {
+    if(!m_startupInfo.GetWorkingDirectory().IsEmpty() && wxFileName::DirExists(m_startupInfo.GetWorkingDirectory())) {
         ::wxSetWorkingDirectory(m_startupInfo.GetWorkingDirectory());
     }
+
     wxArrayString args = m_startupInfo.GetLspServerCommand();
-    if(m_startupInfo.GetFlags() & LSPStartupInfo::kRemoteLSP) {
-#if USE_SFTP
-        // wrap the command in ssh
-        vector<wxString> command = { "ssh", "-o", "ServerAliveInterval=10", "-o", "StrictHostKeyChecking=no" };
-        // add user@host
-        SFTPSettings s;
-        SSHAccountInfo accountInfo;
-        s.Load();
-        if(!s.GetAccount(m_startupInfo.GetAccountName(), accountInfo)) {
-            throw clException(_("LSP: could not locate SSH account ") + m_startupInfo.GetAccountName());
-        }
-        command.push_back(accountInfo.GetUsername() + "@" + accountInfo.GetHost());
-        command.push_back("-p");
-        command.push_back(wxString() << accountInfo.GetPort());
-        command.push_back(BuildCommand(args));
-        args.clear();
-        args.reserve(command.size());
-        for(const wxString& arg : command) {
-            args.Add(arg);
-        }
-#endif
+    try {
+        m_server->Start(args);
+
+    } catch(clException& e) {
+        clERROR() << "failed to execute LSP proceess with args:" << args << endl;
+        clERROR() << e.What() << endl;
+        clCommandEvent eventError(wxEVT_LSP_NET_ERROR);
+        eventError.SetString(e.What());
+        AddPendingEvent(eventError);
+        return;
     }
-    m_server->Start(args);
+
     clCommandEvent evtReady(wxEVT_LSP_NET_CONNECTED);
     AddPendingEvent(evtReady);
 

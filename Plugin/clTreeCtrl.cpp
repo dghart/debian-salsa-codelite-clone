@@ -5,6 +5,7 @@
 #include "clTreeCtrlModel.h"
 #include "clTreeNodeVisitor.h"
 #include "drawingutils.h"
+#include "file_logger.h"
 #include "globals.h"
 #include "macros.h"
 
@@ -12,6 +13,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <wx/app.h>
+#include <wx/colordlg.h>
 #include <wx/dcbuffer.h>
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
@@ -43,7 +45,7 @@
     }
 
 wxDEFINE_EVENT(wxEVT_TREE_ITEM_VALUE_CHANGED, wxTreeEvent);
-wxDEFINE_EVENT(wxEVT_TREE_CHOICE, wxTreeEvent);
+wxDEFINE_EVENT(wxEVT_TREE_ACTIONBUTTON_CLICKED, wxTreeEvent);
 
 namespace
 {
@@ -134,13 +136,17 @@ bool clTreeCtrl::Create(wxWindow* parent, wxWindowID id, const wxPoint& pos, con
 
 void clTreeCtrl::UpdateLineHeight()
 {
-    wxClientDC dc(this);
-    dc.SetFont(GetDefaultFont());
+    wxBitmap bmp;
+    bmp.CreateWithDIPSize(wxSize(1, 1), GetDPIScaleFactor());
+    wxMemoryDC memDC(bmp);
+    wxGCDC gcdc;
+    DrawingUtils::GetGCDC(memDC, gcdc);
 
-    wxSize textSize = dc.GetTextExtent("Tp");
+    gcdc.SetFont(GetDefaultFont());
+    wxSize textSize = gcdc.GetTextExtent("Tp");
 
     SetLineHeight(m_spacerY + textSize.GetHeight() + m_spacerY);
-    SetIndent(GetLineHeight());
+    SetIndent(GetLineHeight() / 2);
 }
 
 void clTreeCtrl::DoInitialize()
@@ -186,11 +192,7 @@ void clTreeCtrl::OnPaint(wxPaintEvent& event)
 
 #ifdef __WXMSW__
     wxDC* dc_ptr = nullptr;
-    if(m_renderer == eRendererType::RENDERER_DIRECT2D) {
-        dc_ptr = new wxPaintDC(this);
-    } else {
-        dc_ptr = new wxAutoBufferedPaintDC(this);
-    }
+    dc_ptr = new wxBufferedPaintDC(this);
 
     DCLocker locker(dc_ptr);
     PrepareDC(*dc_ptr);
@@ -205,6 +207,34 @@ void clTreeCtrl::OnPaint(wxPaintEvent& event)
     PrepareDC(pdc);
     wxDC& dc = pdc;
 #endif
+
+    // ------------------------------------------------
+    // calculate the line height using the drawing DC
+    // ------------------------------------------------
+    dc.SetFont(GetDefaultFont());
+    wxSize textSize = dc.GetTextExtent("Tp");
+    SetLineHeight(m_spacerY + textSize.GetHeight() + m_spacerY);
+
+    // If we have bitmaps, take them into consideration as well
+    if(GetBitmaps()) {
+        int heighestBitmap = 0;
+        for(size_t i = 0; i < GetBitmaps()->size(); ++i) {
+            const wxBitmap& bmp = GetBitmaps()->at(i);
+            if(bmp.IsOk()) {
+                heighestBitmap = wxMax(heighestBitmap, bmp.GetScaledHeight());
+            }
+        }
+        heighestBitmap += (2 * clRowEntry::Y_SPACER);
+        SetLineHeight(wxMax(heighestBitmap, GetLineHeight()));
+
+        // update the indentation size as well
+        clControlWithItems::SetIndent(GetLineHeight() / 2);
+        m_model.SetIndentSize(GetLineHeight() / 2);
+    }
+
+    // set the indent to match the line height
+    clControlWithItems::SetIndent(GetLineHeight() / 2);
+    m_model.SetIndentSize(GetLineHeight() / 2);
 
     // Call the parent's Render method
     Render(dc);
@@ -279,12 +309,20 @@ void clTreeCtrl::OnPaint(wxPaintEvent& event)
     // Update the first item on screen
     SetFirstItemOnScreen(firstItem);
 
+    // Before we draw, reset the buttons states
+    UpdateButtonState(items);
+
     // Draw the items
     wxRect clientRect = GetItemsRect();
     // Set the width of the clipping region to match the header's width
     clientRect.SetWidth(clientRect.GetWidth() + m_firstColumn + 1);
     dc.SetClippingRegion(clientRect);
-    RenderItems(dc, items);
+
+    // when the style wxTR_COLUMN_WIDTH_NEVER_SHRINKS is set,
+    // we set the column width to match the visible content
+    m_recalcColumnWidthOnPaint = !(m_treeStyle & wxTR_COLUMN_WIDTH_NEVER_SHRINKS);
+
+    RenderItems(dc, m_treeStyle, items);
     dc.DestroyClippingRegion();
 
     // Keep the visible items
@@ -394,6 +432,7 @@ void clTreeCtrl::OnMouseLeftDown(wxMouseEvent& event)
                 // Change the state
                 Check(where, !IsChecked(where, column), column);
             }
+
             bool has_multiple_selection = (m_model.GetSelectionsCount() > 1);
             if(HasStyle(wxTR_MULTIPLE)) {
                 if(event.ControlDown()) {
@@ -429,12 +468,8 @@ void clTreeCtrl::OnMouseLeftDown(wxMouseEvent& event)
                 }
             }
 
-            if((flags & wxTREE_HITTEST_ONDROPDOWNARROW) && !has_multiple_selection) {
-                wxTreeEvent evt(wxEVT_TREE_CHOICE);
-                evt.SetInt(column);
-                evt.SetEventObject(this);
-                evt.SetItem(where);
-                GetEventHandler()->ProcessEvent(evt);
+            if((flags & wxTREE_HITTEST_ONACTIONBUTTON) && !has_multiple_selection) {
+                pNode->GetColumn(column).SetButtonState(eButtonState::kPressed);
             }
         }
         Refresh();
@@ -454,6 +489,14 @@ void clTreeCtrl::OnMouseLeftUp(wxMouseEvent& event)
         if(has_multiple_selection && pNode->IsSelected() && !event.HasAnyModifiers()) {
             // Select this item while clearing the others
             m_model.SelectItem(where, true, false, true);
+            Refresh();
+        }
+        if((flags & wxTREE_HITTEST_ONACTIONBUTTON) && !has_multiple_selection) {
+            wxTreeEvent evt(wxEVT_TREE_ACTIONBUTTON_CLICKED);
+            evt.SetInt(column);
+            evt.SetEventObject(this);
+            evt.SetItem(where);
+            GetEventHandler()->AddPendingEvent(evt);
             Refresh();
         }
     }
@@ -480,6 +523,7 @@ wxTreeItemId clTreeCtrl::HitTest(const wxPoint& point, int& flags, int& column) 
                 return wxTreeItemId(const_cast<clRowEntry*>(item));
             }
         }
+
         if(item->GetItemRect().Contains(point)) {
             flags = wxTREE_HITTEST_ONITEM;
             if(GetHeader() && !GetHeader()->empty()) {
@@ -491,17 +535,17 @@ wxTreeItemId clTreeCtrl::HitTest(const wxPoint& point, int& flags, int& column) 
                     if(cellRect.Contains(point)) {
                         // Check if click was made on the checkbox ("state icon")
                         wxRect checkboxRect = item->GetCheckboxRect(col);
-                        wxRect dropDownRect = item->GetChoiceRect(col);
+                        wxRect action_button = item->GetCellButtonRect(col);
                         if(!checkboxRect.IsEmpty()) {
                             // Adjust the coordiantes incase we got h-scroll
                             checkboxRect.SetX(checkboxRect.GetX() - GetFirstColumn());
                             if(checkboxRect.Contains(point)) {
                                 flags |= wxTREE_HITTEST_ONITEMSTATEICON;
                             }
-                        } else if(!dropDownRect.IsEmpty()) {
-                            dropDownRect.SetX(dropDownRect.GetX() - GetFirstColumn());
-                            if(dropDownRect.Contains(point)) {
-                                flags |= wxTREE_HITTEST_ONDROPDOWNARROW;
+                        } else if(!action_button.IsEmpty()) {
+                            action_button.SetX(action_button.GetX() - GetFirstColumn());
+                            if(action_button.Contains(point)) {
+                                flags |= wxTREE_HITTEST_ONACTIONBUTTON;
                             }
                         }
                         column = col;
@@ -641,8 +685,10 @@ void clTreeCtrl::DeleteChildren(const wxTreeItemId& item)
         return;
     clRowEntry* node = m_model.ToPtr(item);
     node->DeleteAllChildren();
-    UpdateScrollBar();
-    Refresh();
+    if(!m_bulkInsert) { // in tx
+        UpdateScrollBar();
+        Refresh();
+    }
 }
 
 wxTreeItemId clTreeCtrl::GetFirstChild(const wxTreeItemId& item, wxTreeItemIdValue& cookie) const
@@ -678,8 +724,15 @@ wxString clTreeCtrl::GetItemText(const wxTreeItemId& item, size_t col) const
 {
     if(!item.GetID())
         return "";
+
     clRowEntry* node = m_model.ToPtr(item);
-    return node->GetLabel(col);
+    clCellValue& cell = node->GetColumn(col);
+    if(cell.IsColour()) {
+        // if the cell is of type colour, return the HTML colour encoding
+        return cell.GetValueColour().GetAsString(wxC2S_HTML_SYNTAX);
+    } else {
+        return node->GetLabel(col);
+    }
 }
 
 wxTreeItemData* clTreeCtrl::GetItemData(const wxTreeItemId& item) const
@@ -763,9 +816,9 @@ void clTreeCtrl::DoBitmapAdded()
             heighestBitmap = wxMax(heighestBitmap, bmp.GetScaledHeight());
         }
     }
-    heighestBitmap += 2 * m_spacerY;
+    heighestBitmap += 2 * FromDIP(clRowEntry::Y_SPACER);
     SetLineHeight(wxMax(heighestBitmap, GetLineHeight()));
-    SetIndent(GetLineHeight());
+    SetIndent(GetLineHeight() / 2);
 }
 
 void clTreeCtrl::SetBitmaps(BitmapVec_t* bitmaps)
@@ -999,8 +1052,10 @@ void clTreeCtrl::Delete(const wxTreeItemId& item)
     // delete the item + its children
     // fires event
     m_model.DeleteItem(item);
-    UpdateScrollBar();
-    Refresh();
+    if(!m_bulkInsert) { // in tx
+        UpdateScrollBar();
+        Refresh();
+    }
 }
 
 void clTreeCtrl::SetItemData(const wxTreeItemId& item, wxTreeItemData* data)
@@ -1049,8 +1104,10 @@ void clTreeCtrl::SetItemText(const wxTreeItemId& item, const wxString& text, siz
     clRowEntry* node = m_model.ToPtr(item);
     CHECK_PTR_RET(node);
     node->SetLabel(text, col);
-    DoUpdateHeader(item);
-    Refresh();
+    if(!m_bulkInsert) { // in tx
+        DoUpdateHeader(item);
+        Refresh();
+    }
 }
 
 void clTreeCtrl::SetItemBold(const wxTreeItemId& item, bool bold, size_t col)
@@ -1515,6 +1572,7 @@ void clTreeCtrl::Commit()
     for(const auto& item : items) {
         DoUpdateHeader(item);
     }
+
     UpdateScrollBar();
     Refresh();
 }
@@ -1544,4 +1602,52 @@ void clTreeCtrl::SetItemHighlightInfo(const wxTreeItemId& item, size_t start_pos
 
     match_result.Add(col, triplet);
     m_model.ToPtr(item)->SetHighlightInfo(match_result);
+}
+
+void clTreeCtrl::ShowColourPicker(const wxTreeItemId& item, int column)
+{
+    CHECK_ITEM_RET(item);
+    const auto ptr = m_model.ToPtr(item);
+
+    CHECK_PTR_RET(ptr);
+    auto& cell = ptr->GetColumn(column);
+
+    CHECK_COND_RET(cell.IsOk());
+
+    const auto& colour = cell.GetValueColour();
+    auto sel = ::wxGetColourFromUser(this, colour.IsOk() ? colour : *wxBLACK);
+    CHECK_COND_RET(sel.IsOk());
+
+    cell.SetValue(sel);
+    Refresh();
+}
+
+void clTreeCtrl::UpdateButtonState(clRowEntry::Vec_t& lines)
+{
+    int flags = 0;
+    wxPoint pt = ScreenToClient(::wxGetMousePosition());
+    bool is_left_down = ::wxGetMouseState().LeftIsDown();
+    int column = wxNOT_FOUND;
+    wxTreeItemId item = HitTest(pt, flags, column);
+    clRowEntry* hovered_line = m_model.ToPtr(item);
+
+    bool is_on_button = flags & wxTREE_HITTEST_ONACTIONBUTTON;
+    for(auto line : lines) {
+        if(!line) {
+            continue;
+        }
+        for(size_t i = 0; i < line->GetColumnCount(); ++i) {
+            // if we are:
+            // - mouse left button IS DOWN and..
+            // - the mouse is on a button and..
+            // - we are on the correct line and..
+            // - we are on the same cell then...
+            if(is_left_down && is_on_button && (hovered_line == line) && (column == (int)i)) {
+                line->GetColumn(i).SetButtonState(eButtonState::kPressed);
+
+            } else {
+                line->GetColumn(i).SetButtonState(eButtonState::kNormal);
+            }
+        }
+    }
 }

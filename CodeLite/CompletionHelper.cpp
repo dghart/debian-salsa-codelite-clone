@@ -7,10 +7,9 @@
 #include <vector>
 #include <wx/regex.h>
 
-using namespace std;
 namespace
 {
-#define PREPEND_STRING(tokn) expression.insert(expression.begin(), text)
+#define PREPEND_STRING(tokn) expression.insert(expression.begin(), tokn)
 #define MAX_TIP_LINE_SIZE 200
 
 bool is_word_char(wxChar ch)
@@ -28,14 +27,14 @@ wxString wrap_lines(const wxString& str)
     int curLineBytes(0);
     wxString::const_iterator iter = str.begin();
     for(; iter != str.end(); iter++) {
-        if(*iter == wxT('\t')) {
-            wrappedString << wxT(" ");
+        if(*iter == '\t') {
+            wrappedString << " ";
 
-        } else if(*iter == wxT('\n')) {
-            wrappedString << wxT("\n");
+        } else if(*iter == '\n') {
+            wrappedString << "\n";
             curLineBytes = 0;
 
-        } else if(*iter == wxT('\r')) {
+        } else if(*iter == '\r') {
             // Skip it
 
         } else {
@@ -46,8 +45,8 @@ wxString wrap_lines(const wxString& str)
         if(curLineBytes == MAX_TIP_LINE_SIZE) {
 
             // Wrap the lines
-            if(wrappedString.IsEmpty() == false && wrappedString.Last() != wxT('\n')) {
-                wrappedString << wxT("\n");
+            if(wrappedString.IsEmpty() == false && wrappedString.Last() != '\n') {
+                wrappedString << "\n";
             }
             curLineBytes = 0;
         }
@@ -69,7 +68,7 @@ wxString CompletionHelper::get_expression(const wxString& file_content, bool for
     tokenizer.Reset(file_content);
 
     CxxLexerToken token;
-    vector<pair<wxString, int>> tokens;
+    std::vector<std::pair<wxString, int>> tokens;
     tokens.reserve(10000);
 
     while(tokenizer.NextToken(token)) {
@@ -99,7 +98,7 @@ wxString CompletionHelper::get_expression(const wxString& file_content, bool for
         }
     }
 
-    vector<wxString> expression;
+    std::vector<wxString> expression;
     std::vector<int> types;
     int depth = 0;
     cont = true;
@@ -114,7 +113,7 @@ wxString CompletionHelper::get_expression(const wxString& file_content, bool for
             if(depth == 0) {
                 cont = false;
             } else {
-                PREPEND_STRING(t);
+                PREPEND_STRING(text);
                 depth--;
             }
             break;
@@ -124,7 +123,7 @@ wxString CompletionHelper::get_expression(const wxString& file_content, bool for
             if(depth == 0 && LAST_TOKEN_IS(T_IDENTIFIER)) {
                 cont = false;
             } else {
-                PREPEND_STRING(t);
+                PREPEND_STRING(text);
                 depth++;
             }
             break;
@@ -132,7 +131,7 @@ wxString CompletionHelper::get_expression(const wxString& file_content, bool for
             if(depth == 0) {
                 cont = false;
             } else {
-                PREPEND_STRING(t);
+                PREPEND_STRING(text);
                 depth++;
             }
             break;
@@ -170,7 +169,7 @@ wxString CompletionHelper::get_expression(const wxString& file_content, bool for
             if(depth == 0) {
                 cont = false;
             } else {
-                PREPEND_STRING(t);
+                PREPEND_STRING(text);
             }
             break;
         case T_IDENTIFIER:
@@ -179,7 +178,7 @@ wxString CompletionHelper::get_expression(const wxString& file_content, bool for
                 cont = false;
                 break;
             } else {
-                PREPEND_STRING(t);
+                PREPEND_STRING(text);
             }
             break;
         case T_ALIGNAS:
@@ -303,7 +302,7 @@ wxString CompletionHelper::get_expression(const wxString& file_content, bool for
             if(depth <= 0) {
                 cont = false;
             } else {
-                PREPEND_STRING(t);
+                PREPEND_STRING(text);
             }
             break;
         case T_CONST_CAST:
@@ -311,7 +310,7 @@ wxString CompletionHelper::get_expression(const wxString& file_content, bool for
         case T_REINTERPRET_CAST:
         case T_STATIC_CAST:
         default:
-            PREPEND_STRING(t);
+            PREPEND_STRING(text);
             break;
         }
         types.push_back(type);
@@ -480,8 +479,8 @@ bool CompletionHelper::is_cxx_keyword(const wxString& word)
     return words.count(word) != 0;
 }
 
-vector<wxString> CompletionHelper::split_function_signature(const wxString& signature, wxString* return_value,
-                                                            size_t flags) const
+std::vector<wxString> CompletionHelper::split_function_signature(const wxString& signature, wxString* return_value,
+                                                                 size_t flags) const
 {
     // ---------------------------------------------------------------------------------------------
     // ----------------macros start-------------------------------------------------------------------
@@ -518,11 +517,11 @@ vector<wxString> CompletionHelper::split_function_signature(const wxString& sign
 
     wxString cur_func_param;
     wxString* current_param = &cur_func_param;
-    vector<wxString> args;
-    vector<wxString> func_args;
+    std::vector<wxString> args;
+    std::vector<wxString> func_args;
     int depth = 0;
 
-    vector<int> types;
+    std::vector<int> types;
     // search for the first opening brace
     while(tokenizer.NextToken(token)) {
         if(token.GetType() == '(') {
@@ -954,7 +953,6 @@ bool CompletionHelper::is_include_statement(const wxString& f_content, wxString*
     }
 
     wxString line = f_content.Mid(i);
-    clDEBUG() << "Checking line:" << line << "for #include statement..." << endl;
     return is_line_include_statement(line, file_name, suffix);
 }
 
@@ -966,7 +964,7 @@ wxString CompletionHelper::normalize_function(const TagEntry* tag, size_t flags)
     wxString name = tag->GetName();
     wxString signature = tag->GetSignature();
     fullname << name << "(";
-    vector<wxString> args = split_function_signature(signature, &return_value, flags);
+    std::vector<wxString> args = split_function_signature(signature, &return_value, flags);
     wxString funcsig;
     for(const wxString& arg : args) {
         funcsig << arg << ", ";

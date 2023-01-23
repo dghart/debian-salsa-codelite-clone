@@ -3,12 +3,11 @@
 
 #include "clToolBar.h"
 #include "clToolBarButtonBase.h"
+#include "codelite_exports.h"
 
-#include <codelite_exports.h>
 #include <unordered_map>
 
-using namespace std;
-class WXDLLIMPEXP_SDK clEnhancedToolBar : public clToolBar
+class WXDLLIMPEXP_SDK clEnhancedToolBar : public clToolBarGeneric
 {
 public:
     struct Button {
@@ -37,7 +36,7 @@ protected:
     };
 
 protected:
-    unordered_map<wxWindowID, ButtonState> m_buttons;
+    std::unordered_map<wxWindowID, ButtonState> m_buttons;
     void OnButtonClicked(wxCommandEvent& event);
 
 public:
@@ -57,5 +56,4 @@ public:
      */
     void SetButtonAction(wxWindowID buttonId, wxWindowID actionID);
 };
-
 #endif // CLENHANCEDTOOLBAR_HPP

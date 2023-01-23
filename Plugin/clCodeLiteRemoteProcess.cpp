@@ -178,8 +178,8 @@ void clCodeLiteRemoteProcess::StartIfNotRunning()
         return;
     }
 
-    vector<wxString> command = { ssh_exe.GetFullPath(), "-o", "ServerAliveInterval=10", "-o",
-                                 "StrictHostKeyChecking=no" };
+    std::vector<wxString> command = { ssh_exe.GetFullPath(), "-o", "ServerAliveInterval=10", "-o",
+                                      "StrictHostKeyChecking=no" };
     command.push_back(m_account.GetUsername() + "@" + m_account.GetHost());
     command.push_back("-p");
     command.push_back(wxString() << m_account.GetPort());
@@ -202,12 +202,14 @@ void clCodeLiteRemoteProcess::StartInteractive(const SSHAccountInfo& account, co
 #if USE_SFTP
     // upload codelite-remote script and start it once its uploaded
     wxString localCodeLiteRemoteScript = clStandardPaths::Get().GetBinFolder() + "/codelite-remote";
+    clDEBUG() << "Uploading codelite-remote file:" << endl;
+    clDEBUG() << localCodeLiteRemoteScript << "->" << scriptPath << endl;
     if(!clSFTPManager::Get().AwaitSaveFile(localCodeLiteRemoteScript, scriptPath, account.GetAccountName())) {
         clERROR() << "Failed to upload file:" << scriptPath << "." << clSFTPManager::Get().GetLastError() << endl;
         return;
     }
 #else
-    clERROR() << "CodeLite is build with NO SFTP support" << endl;
+    clERROR() << "CodeLite is built with NO SFTP support" << endl;
 #endif
 
     m_going_down = false;
@@ -346,6 +348,7 @@ void clCodeLiteRemoteProcess::ListFiles(const wxString& root_dir, const wxString
     item.addProperty("command", "ls");
     item.addProperty("root_dir", root_dir);
     item.addProperty("file_extensions", ::wxStringTokenize(exts, ",; |", wxTOKEN_STRTOK));
+    LOG_IF_TRACE { clDEBUG1() << "ListFiles: sending command:" << item.format(false) << endl; }
     m_process->Write(item.format(false) + "\n");
 
     // push a callback
@@ -374,7 +377,7 @@ void clCodeLiteRemoteProcess::Search(const wxString& root_dir, const wxString& e
 
     wxString command = item.format(false);
     m_process->Write(command + "\n");
-    clDEBUG1() << command << endl;
+    LOG_IF_TRACE { clDEBUG1() << command << endl; }
 
     // push a callback
     m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnFindOutput, nullptr });
@@ -407,7 +410,7 @@ void clCodeLiteRemoteProcess::Locate(const wxString& path, const wxString& name,
 
     wxString command = item.format(false);
     m_process->Write(command + "\n");
-    clDEBUG1() << command << endl;
+    LOG_IF_TRACE { clDEBUG1() << command << endl; }
 
     // push a callback
     m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnLocateOutput, nullptr });
@@ -427,7 +430,7 @@ void clCodeLiteRemoteProcess::FindPath(const wxString& path)
 
     wxString command = item.format(false);
     m_process->Write(command + "\n");
-    clDEBUG1() << command << endl;
+    LOG_IF_TRACE { clDEBUG1() << command << endl; }
 
     // push a callback
     m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnFindPathOutput, nullptr });
@@ -462,7 +465,7 @@ bool clCodeLiteRemoteProcess::DoExec(const wxString& cmd, const wxString& workin
 
     wxString command = item.format(false);
     m_process->Write(command + "\n");
-    clDEBUG1() << command << endl;
+    LOG_IF_TRACE { clDEBUG1() << command << endl; }
 
     // push a callback
     m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnExecOutput, handler });
@@ -528,8 +531,7 @@ void clCodeLiteRemoteProcess::OnListLSPsOutput(const wxString& output, bool is_c
     clCommandEvent event(wxEVT_CODELITE_REMOTE_LIST_LSPS);
 
     // parse the output
-    wxArrayString lsps = ::wxStringTokenize(output, "\r\n", wxTOKEN_STRTOK);
-    event.GetStrings().swap(lsps);
+    event.SetString(output);
     AddPendingEvent(event);
 
     if(is_completed) {
@@ -542,7 +544,9 @@ void clCodeLiteRemoteProcess::OnListFilesOutput(const wxString& output, bool is_
 {
     clCommandEvent event(wxEVT_CODELITE_REMOTE_LIST_FILES);
 
-    // parse the output
+    LOG_IF_TRACE { clDEBUG1() << output << endl; }
+
+    // parse the output (line based)
     wxArrayString files = ::wxStringTokenize(output, "\r\n", wxTOKEN_STRTOK);
     event.GetStrings().swap(files);
     AddPendingEvent(event);
@@ -558,7 +562,7 @@ void clCodeLiteRemoteProcess::OnFindPathOutput(const wxString& output, bool is_c
     clCommandEvent event(wxEVT_CODELITE_REMOTE_FINDPATH);
 
     // parse the output
-    clDEBUG1() << "FindPath output: [" << output << "]" << endl;
+    LOG_IF_TRACE { clDEBUG1() << "FindPath output: [" << output << "]" << endl; }
     wxString fullpath = output;
     fullpath.Trim().Trim(false);
     event.SetString(fullpath);
@@ -575,7 +579,7 @@ void clCodeLiteRemoteProcess::OnLocateOutput(const wxString& output, bool is_com
     clCommandEvent event(wxEVT_CODELITE_REMOTE_LOCATE);
 
     // parse the output
-    clDEBUG1() << "Locate output: [" << output << "]" << endl;
+    LOG_IF_TRACE { clDEBUG1() << "Locate output: [" << output << "]" << endl; }
     wxString fullpath = output;
     fullpath.Trim().Trim(false);
     event.SetFileName(fullpath);
@@ -695,7 +699,7 @@ bool clCodeLiteRemoteProcess::SyncExec(const wxString& cmd, const wxString& work
 
         // strip the terminator and make it our output
         *output = m_outputRead.Mid(0, where);
-        clDEBUG1() << "SyncExec(" << cmd << "):" << *output << endl;
+        LOG_IF_TRACE { clDEBUG1() << "SyncExec(" << cmd << "):" << *output << endl; }
 
         m_outputRead.clear();
         // resume the async nature of the process

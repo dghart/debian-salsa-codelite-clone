@@ -23,9 +23,8 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 #include "workspace_pane.h"
+
 #include "Notebook.h"
-#include "clTabRendererDefault.hpp"
-#include "clTabRendererMinimal.hpp"
 #include "clTabTogglerHelper.h"
 #include "clWorkspaceView.h"
 #include "cl_aui_dock_art.h"
@@ -51,6 +50,7 @@
 #include "tabgroupspane.h"
 #include "windowstack.h"
 #include "workspacetab.h"
+
 #include <algorithm>
 #include <wx/app.h>
 #include <wx/menu.h>
@@ -65,16 +65,16 @@
 #undef GSocket
 #endif
 
-WorkspacePane::WorkspacePane(wxWindow* parent, const wxString& caption, wxAuiManager* mgr)
+WorkspacePane::WorkspacePane(wxWindow* parent, const wxString& caption, wxAuiManager* mgr, long style)
     : m_caption(caption)
     , m_mgr(mgr)
 {
-    int style = wxTAB_TRAVERSAL;
     if(!wxPanel::Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, style)) {
         return;
     }
     SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
 
+    Hide();
     CreateGUIControls();
     EventNotifier::Get()->Bind(wxEVT_INIT_DONE, &WorkspacePane::OnInitDone, this);
     EventNotifier::Get()->Bind(wxEVT_EDITOR_CONFIG_CHANGED, &WorkspacePane::OnSettingsChanged, this);
@@ -182,7 +182,7 @@ void WorkspacePane::CreateGUIControls()
     m_workspaceTab->GetView()->AddPage(m_explorer, _("File Explorer"), false);
 
     // Add the Open Windows Panel (Tabs)
-    //#ifndef __WXOSX__
+    // #ifndef __WXOSX__
     name = _("Tabs");
     if(IS_DETACHED(name)) {
         DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, wxNOT_FOUND, wxSize(200, 200));
@@ -194,7 +194,7 @@ void WorkspacePane::CreateGUIControls()
     }
     m_tabs.insert(std::make_pair(name, Tab(name, m_openWindowsPane)));
     mgr->AddWorkspaceTab(name);
-    //#endif
+    // #endif
 
     // Add the Tabgroups tab
     name = _("Tabgroups");
@@ -238,16 +238,14 @@ void WorkspacePane::UpdateProgress(int val)
     m_parsingProgress->Update();
 }
 
-typedef struct {
+typedef struct _tagTabInfo {
     wxString text;
     wxWindow* win = nullptr;
     int bmp = wxNOT_FOUND;
 } tagTabInfo;
 
-#include "file_logger.h"
-void WorkspacePane::ApplySavedTabOrder() const
+void WorkspacePane::ApplySavedTabOrder(bool update_ui) const
 {
-
     wxArrayString tabs;
     int index = -1;
     if(!clConfig::Get().GetWorkspaceTabOrder(tabs, index))
@@ -257,6 +255,8 @@ void WorkspacePane::ApplySavedTabOrder() const
     // NB Since we're only dealing with panes currently in the notebook, this shouldn't
     // be broken by floating panes or non-loaded plugins
     std::vector<tagTabInfo> vTempstore;
+    vTempstore.reserve(tabs.size());
+
     for(size_t t = 0; t < tabs.GetCount(); ++t) {
         wxString title = tabs.Item(t);
         if(title.empty()) {
@@ -283,9 +283,6 @@ void WorkspacePane::ApplySavedTabOrder() const
         m_book->InsertPage(n, vTempstore.at(n).win, vTempstore.at(n).text, false, vTempstore.at(n).bmp);
     }
 
-    // wxPrintf("After load");for (size_t n=0; n < m_book->GetPageCount(); ++n)  CL_DEBUG1(wxString::Format("Tab %i:
-    // %zs",(int)n,m_book->GetPageText(n)));
-
     // Restore any saved last selection
     // NB: this doesn't actually work atm: the selection is set correctly, but presumably something else changes is
     // later
@@ -295,7 +292,9 @@ void WorkspacePane::ApplySavedTabOrder() const
     } else if(m_book->GetPageCount()) {
         m_book->SetSelection(0);
     }
-    m_mgr->Update();
+    if(update_ui) {
+        m_mgr->Update();
+    }
 }
 
 void WorkspacePane::SaveWorkspaceViewTabOrder() const

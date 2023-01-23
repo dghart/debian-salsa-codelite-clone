@@ -27,9 +27,10 @@
 
 #include "clPersistenceManager.h"
 #include "frame.h"
-#include <set>
 
-class wxSplashScreen;
+#include <set>
+#include <wx/cmdline.h>
+
 class wxSingleInstanceChecker;
 
 class CodeLiteApp : public wxApp
@@ -38,7 +39,6 @@ public:
     enum PluginPolicy { PP_None = 0, PP_All, PP_FromList };
 
 protected:
-    wxSplashScreen* m_splash;
     clMainFrame* m_pMainFrame;
     wxSingleInstanceChecker* m_singleInstance;
     wxArrayString m_parserPaths;
@@ -55,6 +55,7 @@ protected:
     bool m_restartCodeLite = false;
     wxString m_restartCommand;
     wxString m_restartWD;
+    wxCmdLineParser m_parser;
 
 private: // Methods
     bool CopySettings(const wxString& destDir, wxString& installPath);
@@ -100,6 +101,8 @@ public:
     }
     bool IsRestartCodeLite() const { return m_restartCodeLite; }
     const wxString& GetRestartCommand() const { return m_restartCommand; }
+
+    void ProcessCommandLineParams();
 
 protected:
     virtual bool OnInit();

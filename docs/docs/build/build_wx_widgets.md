@@ -20,7 +20,10 @@ git submodule update --init
 ```bash
 mkdir build-release
 cd build-release
-cmake .. -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DwxBUILD_DEBUG_LEVEL=0
+cmake .. -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release                 \
+         -DwxBUILD_DEBUG_LEVEL=0                                        \
+         -DwxBUILD_MONOLITHIC=1 -DwxBUILD_SAMPLES=SOME -DwxUSE_STL=1    \
+         -DCMAKE_INSTALL_PREFIX=$HOME/root
 mingw32-make -j$(nproc)
 ```
 
@@ -39,7 +42,7 @@ mingw32-make -j$(nproc)
 To build wxWidgets on you computer you will need these packages:
 
 - The gtk development package: for GTK+2 it's often called `libgtk2.0-dev` or similar; for GTK3, `libgtk-3-dev`
-- `pkg-config` (which usually comes with the gtk dev package) 
+- `pkg-config` (which usually comes with the gtk dev package)
 - The `build-essential` package (or the relevant bit of it: `g++`, `make` etc)
 - `git`
 - `cmake`
@@ -56,40 +59,27 @@ sudo apt-get install libgtk-3-dev \
                      libssh-dev \
                      libedit-dev \
                      libhunspell-dev \
-                     clang-format-8 \
+                     clang-format-12 \
                      xterm
 ```
 
 !!! Tip
     If your distro provides a newer version of `clang-format`, install it. The higher, the better
 
-### GTK3 (**recommended**)
-
 ```bash
-mkdir $HOME/devl
+mkdir -p $HOME/devl
 cd $HOME/devl
-git clone https://github.com/wxWidgets/wxWidgets.git
-cd $HOME/devl/wxWidgets
-git submodule init
-git submodule update
-mkdir build-release-gtk3
-cd build-release-gtk3
-../configure --disable-debug_flag --with-gtk=3
-make -j$(nproc) && sudo make install
-```
 
-### GTK2 (*Obsolete*)
+# download wxWidgets 3.2.0 & extract it
+wget https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.0/wxWidgets-3.2.0.tar.bz2
+bzip2 -d wxWidgets-3.2.0.tar.bz2
+tar xvf wxWidgets-3.2.0.tar.bz2
 
-```bash
-mkdir $HOME/devl
-cd $HOME/devl
-git clone https://github.com/wxWidgets/wxWidgets.git
-cd $HOME/devl/wxWidgets
-git submodule init
-git submodule update
-mkdir build-release
+# build and install it
+cd wxWidgets-3.2.0
+mkdir -p build-release
 cd build-release
-../configure --disable-debug_flag
+../configure --disable-debug_flag --with-gtk=3
 make -j$(nproc) && sudo make install
 ```
 

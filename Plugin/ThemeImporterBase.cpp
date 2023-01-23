@@ -98,8 +98,18 @@ void ThemeImporterBase::AddProperty(LexerConf::Ptr_t lexer, const wxString& id, 
     long ID;
     id.ToCLong(&ID);
 
-    StyleProperty sp(ID, colour, bgColour, 11, name, "", bold, italic, false, isEOLFilled, 50);
-    lexer->GetLexerProperties().insert(std::make_pair(sp.GetId(), sp));
+    StyleProperty sp(ID, name, colour, bgColour, wxNOT_FOUND, bold, italic, false, isEOLFilled);
+    lexer->GetLexerProperties().push_back(sp);
+}
+
+void ThemeImporterBase::AddPropertySubstyle(LexerConf::Ptr_t lexer, int id, const wxString& name, const Property& prop)
+{
+    wxASSERT(!prop.fg_colour.IsEmpty());
+    wxASSERT(!prop.bg_colour.IsEmpty());
+
+    StyleProperty sp(id, name, prop.fg_colour, prop.bg_colour, wxNOT_FOUND, prop.isBold, prop.isItalic, false, false);
+    sp.SetSubstyle();
+    lexer->GetLexerProperties().push_back(sp);
 }
 
 void ThemeImporterBase::AddBaseProperties(LexerConf::Ptr_t lexer, const wxString& lang, const wxString& id)
@@ -118,10 +128,10 @@ void ThemeImporterBase::AddBaseProperties(LexerConf::Ptr_t lexer, const wxString
     lexer->SetKeyWords(GetKeywords3(), 3);
     lexer->SetKeyWords(GetKeywords4(), 4);
     lexer->SetFileSpec(GetFileExtensions());
-    lexer->SetWordSetFunctionsIndex(m_functionsIndex);
-    lexer->SetWordSetClassIndex(m_classesIndex);
-    lexer->SetWordSetLocalsIndex(m_localsIndex);
-    lexer->SetWordSetOthersIndex(m_othersIndex);
+    lexer->SetWordSet(LexerConf::WS_FUNCTIONS, GetFunctionWordSetIndex());
+    lexer->SetWordSet(LexerConf::WS_CLASS, GetClassWordSetIndex());
+    lexer->SetWordSet(LexerConf::WS_VARIABLES, GetLocalsSetIndex());
+    lexer->SetWordSet(LexerConf::WS_OTHERS, GetOthersWordSetIndex());
 }
 
 void ThemeImporterBase::AddCommonProperties(LexerConf::Ptr_t lexer)
@@ -202,9 +212,9 @@ LexerConf::Ptr_t ThemeImporterBase::ImportEclipseXML(const wxFileName& theme_fil
     GetEclipseXmlProperty(wxEmptyString, "operator", m_oper);
     GetEclipseXmlProperty(wxEmptyString, "keyword", m_keyword);
     GetEclipseXmlProperty(wxEmptyString, "class", m_klass);
-    GetEclipseXmlProperty(wxEmptyString, "localVariableDeclaration", m_variable);
+    GetEclipseXmlProperty(wxEmptyString, "localVariable", m_variable);
     GetEclipseXmlProperty(wxEmptyString, "javadocKeyword", m_javadocKeyword);
-    GetEclipseXmlProperty(wxEmptyString, "staticMethod", m_function);
+    GetEclipseXmlProperty(wxEmptyString, "method", m_function);
     GetEclipseXmlProperty(wxEmptyString, "field", m_field);
     GetEclipseXmlProperty(wxEmptyString, "enum", m_enum);
 
@@ -302,12 +312,23 @@ LexerConf::Ptr_t ThemeImporterBase::ImportVSCodeJSON(const wxFileName& theme_fil
     AddBaseProperties(lexer, m_langName, wxString::Format("%d", langId));
 
     // read the base properties
+    m_editor = {};
     GetEditorVSCodeColour(colours, "editor.background", "editor.foreground", m_editor);
+    // in case no fg colour provided, guess it
+    if(m_editor.fg_colour.empty()) {
+        if(DrawingUtils::IsDark(m_editor.bg_colour)) {
+            // if its dark colour, use light text
+            wxColour fg_colour = wxColour("WHITE").ChangeLightness(90);
+            m_editor.fg_colour = fg_colour.GetAsString(wxC2S_HTML_SYNTAX);
+        } else {
+            m_editor.fg_colour = "#000000";
+        }
+    }
+
     m_isDarkTheme = DrawingUtils::IsDark(m_editor.bg_colour);
 
     // set the selection colour
     SetSelectionColour(m_isDarkTheme, m_selection);
-
     GetEditorVSCodeColour(colours, "editor.background", "editorLineNumber.foreground", m_lineNumber);
 
     // read the caret colours
@@ -318,7 +339,7 @@ LexerConf::Ptr_t ThemeImporterBase::ImportVSCodeJSON(const wxFileName& theme_fil
 
     // token colours
     GetVSCodeColour(tokenColoursMap, { "comment", "comments" }, m_singleLineComment);
-    GetVSCodeColour(tokenColoursMap, { "comment", "comments" }, m_multiLineComment);
+    GetVSCodeColour(tokenColoursMap, { "comments", "comment" }, m_multiLineComment);
     GetVSCodeColour(tokenColoursMap, { "constant.numeric" }, m_number);
     GetVSCodeColour(tokenColoursMap, { "string" }, m_string);
     GetVSCodeColour(tokenColoursMap, { "punctuation" }, m_oper);

@@ -33,7 +33,6 @@
 #include "file_logger.h"
 #include "macros.h"
 #include "procutils.h"
-#include "wx/string.h"
 #include "wxStringHash.h"
 
 #include <algorithm>
@@ -43,6 +42,7 @@
 #include <wx/file.h>
 #include <wx/log.h>
 #include <wx/regex.h>
+#include <wx/string.h>
 #include <wx/uri.h>
 #if wxUSE_GUI
 #include <wx/msgdlg.h>
@@ -56,11 +56,11 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <wx/filename.h>
 
-using namespace std;
 // internal helper method
 namespace
 {
@@ -73,6 +73,10 @@ bool write_file_content(const wxFileName& fn, const wxString& content, const wxM
         return false;
     }
 }
+
+#ifndef __WXMSW__
+const char ELF_STR[] = { 0x7f, 'E', 'L', 'F' };
+#endif
 } // namespace
 
 void FileUtils::OpenFileExplorer(const wxString& path)
@@ -119,6 +123,20 @@ bool FileUtils::WriteFileContent(const wxFileName& fn, const wxString& content, 
     return ::wxRenameFile(tmpFile.GetFullPath(), fn.GetFullPath(), true);
 }
 
+bool FileUtils::AppendFileContent(const wxFileName& fn, const wxString& content, const wxMBConv& conv)
+{
+    wxFile fp(fn.GetFullPath(), wxFile::write_append);
+    if(!fp.IsOpened()) {
+        // failed to open the file
+        return false;
+    }
+    if(!fp.Write(content, conv)) {
+        clWARNING() << "Failed to append content to file:" << fn << endl;
+    }
+    fp.Close();
+    return true;
+}
+
 bool FileUtils::ReadFileContent(const wxFileName& fn, wxString& data, const wxMBConv& conv)
 {
     std::string rawdata;
@@ -160,7 +178,7 @@ bool FileUtils::ReadFileContentRaw(const wxFileName& fn, std::string& data)
     data.reserve(fsize + 1);
 
     // use unique_ptr to auto release the buffer
-    unique_ptr<char, function<void(char*)>> buffer(new char[fsize + 1], [](char* d) { delete[] d; });
+    std::unique_ptr<char, std::function<void(char*)>> buffer(new char[fsize + 1], [](char* d) { delete[] d; });
 
     long bytes_read = fread(buffer.get(), 1, fsize, fp);
     if(bytes_read != fsize) {
@@ -372,12 +390,12 @@ wxString FileUtils::DecodeURI(const wxString& uri)
 
 wxString FileUtils::EncodeURI(const wxString& uri)
 {
-    static unordered_map<int, wxString> sEncodeMap = { { (int)'!', "%21" }, { (int)'#', "%23" },  { (int)'$', "%24" },
-                                                       { (int)'&', "%26" }, { (int)'\'', "%27" }, { (int)'(', "%28" },
-                                                       { (int)')', "%29" }, { (int)'*', "%2A" },  { (int)'+', "%2B" },
-                                                       { (int)',', "%2C" }, { (int)';', "%3B" },  { (int)'=', "%3D" },
-                                                       { (int)'?', "%3F" }, { (int)'@', "%40" },  { (int)'[', "%5B" },
-                                                       { (int)']', "%5D" }, { (int)' ', "%20" } };
+    static std::unordered_map<int, wxString> sEncodeMap = {
+        { (int)'!', "%21" }, { (int)'#', "%23" }, { (int)'$', "%24" }, { (int)'&', "%26" }, { (int)'\'', "%27" },
+        { (int)'(', "%28" }, { (int)')', "%29" }, { (int)'*', "%2A" }, { (int)'+', "%2B" }, { (int)',', "%2C" },
+        { (int)';', "%3B" }, { (int)'=', "%3D" }, { (int)'?', "%3F" }, { (int)'@', "%40" }, { (int)'[', "%5B" },
+        { (int)']', "%5D" }, { (int)' ', "%20" }
+    };
 
     wxString encoded;
     for(size_t i = 0; i < uri.length(); ++i) {
@@ -409,8 +427,9 @@ bool FileUtils::IsHidden(const wxString& filename)
 {
 #ifdef __WXMSW__
     DWORD dwAttrs = GetFileAttributes(filename.c_str());
-    if(dwAttrs == INVALID_FILE_ATTRIBUTES)
+    if(dwAttrs == INVALID_FILE_ATTRIBUTES) {
         return false;
+    }
     return (dwAttrs & FILE_ATTRIBUTE_HIDDEN) || (wxFileName(filename).GetFullName().StartsWith("."));
 #else
     // is it enough to test for file name?
@@ -576,7 +595,7 @@ size_t FileUtils::SplitWords(const wxString& str, wxStringSet_t& outputSet, bool
 
 bool FileUtils::RemoveFile(const wxString& filename, const wxString& context)
 {
-    clDEBUG1() << "Deleting file:" << filename << "(" << context << ")";
+    LOG_IF_TRACE { clDEBUG1() << "Deleting file:" << filename << "(" << context << ")"; }
     wxLogNull NOLOG;
     return ::wxRemoveFile(filename);
 }
@@ -612,7 +631,7 @@ wxString FileUtils::RealPath(const wxString& filepath)
 {
 #if defined(__WXGTK__) || defined(__WXOSX__)
     if(!filepath.empty()) {
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__WXOSX__)
         wxStructStat stbuff;
         if((::wxLstat(filepath, &stbuff) != 0) || !S_ISLNK(stbuff.st_mode)) {
             return filepath;
@@ -960,10 +979,12 @@ bool cksum(const std::string& file, size_t* checksum)
     while((bytes_read = fread(buf, 1, BUFLEN, fp)) > 0) {
         unsigned char* cp = buf;
         length += bytes_read;
-        while(bytes_read--)
+        while(bytes_read--) {
             crc = (crc << 8) ^ crctab[((crc >> 24) ^ *cp++) & 0xFF];
-        if(feof(fp))
+        }
+        if(feof(fp)) {
             break;
+        }
     }
 
     if(ferror(fp)) {
@@ -974,8 +995,9 @@ bool cksum(const std::string& file, size_t* checksum)
         return false;
     }
 
-    for(; length; length >>= 8)
+    for(; length; length >>= 8) {
         crc = (crc << 8) ^ crctab[((crc >> 24) ^ length) & 0xFF];
+    }
 
     crc = ~crc & 0xFFFFFFFF;
     *checksum = crc;
@@ -986,4 +1008,29 @@ bool cksum(const std::string& file, size_t* checksum)
 bool FileUtils::GetChecksum(const wxString& filepath, size_t* checksum)
 {
     return cksum(ToStdString(filepath), checksum);
+}
+
+bool FileUtils::IsBinaryExecutable(const wxString& filename)
+{
+#ifdef __WXMSW__
+    // check extension first
+    wxString extension = filename.AfterLast('.');
+    if(extension == "exe" || extension == "dll") {
+        return true;
+    }
+
+    // check the file itself
+    DWORD type;
+    return GetBinaryType(filename.c_str(), &type) == TRUE;
+#else
+    // do ELF check by comparing the first 4 bytes of the file to the ELF magic string
+    char buffer[4];
+    FILE* fp = ::fopen(filename.mb_str(wxConvUTF8).data(), "rb");
+    if(!fp) {
+        return false;
+    }
+    int count = ::fread(buffer, sizeof(char), sizeof(buffer), fp);
+    ::fclose(fp);
+    return (count == 4 && ::memcmp(buffer, ELF_STR, 4) == 0);
+#endif
 }

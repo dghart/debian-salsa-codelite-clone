@@ -7,6 +7,7 @@
 #include "PathConverterDefault.hpp"
 #include "StringUtils.h"
 #include "clEditorBar.h"
+#include "clFileSystemWorkspace.hpp"
 #include "clSFTPEvent.h"
 #include "clSelectSymbolDialog.h"
 #include "clWorkspaceManager.h"
@@ -23,10 +24,10 @@
 #include "macromanager.h"
 #include "macros.h"
 #include "wxCodeCompletionBoxManager.h"
+#include "wxStringHash.h"
 
 #include <algorithm>
 #include <thread>
-#include <unordered_set>
 #include <wx/arrstr.h>
 #include <wx/stc/stc.h>
 
@@ -36,6 +37,63 @@ struct SymbolClientData : public wxClientData {
     SymbolClientData(const LSP::Location& loc) { location = loc; }
     LSP::Location location;
 };
+
+// JSON config helpers
+JSONItem json_get_server_config(JSON* root, const wxString& server_name)
+{
+    auto json = root->toElement();
+    if(!json.hasNamedObject("servers")) {
+        return JSONItem{ nullptr };
+    }
+    auto servers = json["servers"];
+    int count = servers.arraySize();
+    for(int i = 0; i < count; ++i) {
+        auto server = servers[i];
+        if(server["name"].toString() != server_name) {
+            continue;
+        }
+        return server;
+    }
+    return JSONItem{ nullptr };
+}
+
+wxString json_get_server_config_command(JSON* root, const wxString& server_name)
+{
+    auto json = json_get_server_config(root, server_name);
+    if(!json.isOk()) {
+        return wxEmptyString;
+    }
+    return json["command"].toString();
+}
+
+wxString json_get_server_config_working_directory(JSON* root, const wxString& server_name)
+{
+    auto json = json_get_server_config(root, server_name);
+    if(!json.isOk()) {
+        return wxEmptyString;
+    }
+    return json["working_directory"].toString();
+}
+
+clEnvList_t json_get_server_config_env(JSON* root, const wxString& server_name)
+{
+    auto json = json_get_server_config(root, server_name);
+    if(!json.isOk()) {
+        return {};
+    }
+
+    auto env = json["env"];
+    int env_size = env.arraySize();
+    clEnvList_t env_list;
+    for(int n = 0; n < env_size; ++n) {
+        auto env_entry = env[n];
+        wxString env_name = env_entry["name"].toString();
+        wxString env_value = env_entry["value"].toString();
+        env_list.push_back({ env_name, env_value });
+    }
+    return env_list;
+}
+
 } // namespace
 
 LanguageServerCluster::LanguageServerCluster(LanguageServerPlugin* plugin)
@@ -50,7 +108,7 @@ LanguageServerCluster::LanguageServerCluster(LanguageServerPlugin* plugin)
                                &LanguageServerCluster::OnCompileCommandsGenerated, this);
     EventNotifier::Get()->Bind(wxEVT_BUILD_ENDED, &LanguageServerCluster::OnBuildEnded, this);
     EventNotifier::Get()->Bind(wxEVT_CMD_OPEN_RESOURCE, &LanguageServerCluster::OnOpenResource, this);
-
+    EventNotifier::Get()->Bind(wxEVT_WORKSPACE_FILES_SCANNED, &LanguageServerCluster::OnWorkspaceScanCompleted, this);
     Bind(wxEVT_LSP_DEFINITION, &LanguageServerCluster::OnSymbolFound, this);
     Bind(wxEVT_LSP_COMPLETION_READY, &LanguageServerCluster::OnCompletionReady, this);
     Bind(wxEVT_LSP_REPARSE_NEEDED, &LanguageServerCluster::OnReparseNeeded, this);
@@ -67,6 +125,7 @@ LanguageServerCluster::LanguageServerCluster(LanguageServerPlugin* plugin)
     Bind(wxEVT_LSP_DOCUMENT_SYMBOLS_FOR_HIGHLIGHT, &LanguageServerCluster::OnDocumentSymbolsForHighlight, this);
     Bind(wxEVT_LSP_SEMANTICS, &LanguageServerCluster::OnSemanticTokens, this);
     Bind(wxEVT_LSP_LOGMESSAGE, &LanguageServerCluster::OnLogMessage, this);
+    m_remoteHelper.reset(new CodeLiteRemoteHelper);
 }
 
 LanguageServerCluster::~LanguageServerCluster()
@@ -75,7 +134,7 @@ LanguageServerCluster::~LanguageServerCluster()
     EventNotifier::Get()->Unbind(wxEVT_WORKSPACE_LOADED, &LanguageServerCluster::OnWorkspaceOpen, this);
     EventNotifier::Get()->Unbind(wxEVT_FILE_CLOSED, &LanguageServerCluster::OnEditorClosed, this);
     EventNotifier::Get()->Unbind(wxEVT_ACTIVE_EDITOR_CHANGED, &LanguageServerCluster::OnActiveEditorChanged, this);
-
+    EventNotifier::Get()->Unbind(wxEVT_WORKSPACE_FILES_SCANNED, &LanguageServerCluster::OnWorkspaceScanCompleted, this);
     EventNotifier::Get()->Unbind(wxEVT_COMPILE_COMMANDS_JSON_GENERATED,
                                  &LanguageServerCluster::OnCompileCommandsGenerated, this);
     EventNotifier::Get()->Unbind(wxEVT_BUILD_ENDED, &LanguageServerCluster::OnBuildEnded, this);
@@ -153,7 +212,7 @@ void LanguageServerCluster::OnSymbolFound(LSPEvent& event)
             entry.clientData = new SymbolClientData(loc);
         }
 
-        clSelectSymbolDialog dlg(nullptr, entries);
+        clSelectSymbolDialog dlg(EventNotifier::Get()->TopFrame(), entries);
         if(dlg.ShowModal() != wxID_OK) {
             return;
         }
@@ -379,7 +438,7 @@ void LanguageServerCluster::OnRestartNeeded(LSPEvent& event)
 
     crash_info.times++;              // increase the restart counter
     crash_info.last_crash = curtime; // remember when the crash occured
-    if(crash_info.times > 10) {
+    if(crash_info.times > 3) {
         clWARNING() << "Too many restart failures for LSP:" << event.GetServerName() << ". Will not restart it again"
                     << clEndl;
         return;
@@ -425,11 +484,17 @@ void LanguageServerCluster::RestartServer(const wxString& name)
 void LanguageServerCluster::StartServer(const LanguageServerEntry& entry)
 {
     if(!entry.IsEnabled()) {
-        clDEBUG1() << "LSP" << entry.GetName() << "is not enabled" << clEndl;
+        LOG_IF_TRACE { clDEBUG1() << "LSP" << entry.GetName() << "is not enabled" << clEndl; }
         return;
     }
 
-    clDEBUG1() << "Connecting to LSP server:" << entry.GetName();
+    // we can only start "remote" servers that use the "stdio" connection
+    if(entry.GetConnectionString() != "stdio" && m_remoteHelper->IsRemoteWorkspaceOpened()) {
+        clDEBUG() << "can't start remote LSP server:" << entry.GetName() << ". Not an stdio connection" << endl;
+        return;
+    }
+
+    LOG_IF_TRACE { clDEBUG1() << "Connecting to LSP server:" << entry.GetName(); }
 
     if(!entry.IsValid()) {
         clWARNING() << "LSP Server" << entry.GetName()
@@ -456,7 +521,7 @@ void LanguageServerCluster::StartServer(const LanguageServerEntry& entry)
                 return;
             }
 
-            wxFileName fn(clWorkspaceManager::Get().GetWorkspace()->GetFileName().GetPath(), wxEmptyString);
+            wxFileName fn(clWorkspaceManager::Get().GetWorkspace()->GetDir(), wxEmptyString);
             fn.AppendDir(".ctagsd");
             fn.Mkdir(wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
 
@@ -507,34 +572,57 @@ void LanguageServerCluster::StartServer(const LanguageServerEntry& entry)
         lsp->SetStartedCallback(std::move(cb));
     }
 
-    wxString command = entry.GetCommand();
-
+    wxString command;
+    wxString working_directory;
     wxString project;
-    if(clCxxWorkspaceST::Get()->IsOpen()) {
-        project = clCxxWorkspaceST::Get()->GetActiveProjectName();
-    }
-    command = MacroManager::Instance()->Expand(command, clGetManager(), project);
-    wxArrayString lspCommand;
-    lspCommand = StringUtils::BuildArgv(command);
+    if(m_remoteHelper->IsRemoteWorkspaceOpened()) {
+        // remote workspace
+        // read the commands from the codelite-remote.json file (the m_remoteHelper does that for us)
+        JSON* root = m_remoteHelper->GetPluginConfig("Language Server Plugin");
+        if(!root || !json_get_server_config(root, entry.GetName()).isOk()) {
+            clDEBUG() << "No remote entry found for server:" << entry.GetName() << endl;
+            return;
+        }
 
-    wxString rootDir;
-    if(clWorkspaceManager::Get().GetWorkspace() && entry.IsAutoRestart() && !entry.IsRemoteLSP()) {
-        // we have an opened workspace. if the workspace has a root directory, let's use it
-        // otherwise, default to the LSP value
-        wxString path = clWorkspaceManager::Get().GetWorkspace()->GetFileName().GetPath();
-        rootDir = path.empty() ? entry.GetWorkingDirectory() : path;
+        wxString remote_command = json_get_server_config_command(root, entry.GetName());
+        working_directory = json_get_server_config_working_directory(root, entry.GetName());
+        auto env_list = json_get_server_config_env(root, entry.GetName());
+        if(remote_command.empty() ||
+           !m_remoteHelper->BuildRemoteCommand(remote_command, env_list, working_directory, &command)) {
+            clWARNING() << "LSP: failed to build remote command for server:" << entry.GetName() << endl;
+            return;
+        }
     } else {
-        // Remote LSP will set the *remote* working directory in the configuration
-        rootDir = entry.GetWorkingDirectory();
+        // local workspace
+        command = entry.GetCommand();
+        if(clCxxWorkspaceST::Get()->IsOpen()) {
+            project = clCxxWorkspaceST::Get()->GetActiveProjectName();
+        }
+        command = MacroManager::Instance()->Expand(command, clGetManager(), project);
+        working_directory = entry.GetWorkingDirectory();
     }
 
+    // Expand the working directory (which is later used as the rootUri)
+    working_directory = MacroManager::Instance()->Expand(working_directory, clGetManager(), project);
+
+    wxArrayString lspCommand;
+    lspCommand = StringUtils::BuildCommandArrayFromString(command);
+    
+    if(!lspCommand.empty() && !wxFileName::FileExists(lspCommand[0])) {
+        clERROR() << "Disabling lsp:" << entry.GetName() << endl;
+        clERROR() << lspCommand[0] << ". No such file" << endl;
+        LanguageServerConfig::Get().GetServer(entry.GetName()).SetEnabled(false);
+        LanguageServerConfig::Get().Save();
+        return;
+    }
     clDEBUG() << "Starting lsp:";
     clDEBUG() << "Connection string:" << entry.GetConnectionString();
+
     if(entry.IsAutoRestart()) {
         clDEBUG() << "lspCommand:" << lspCommand;
-        clDEBUG() << "entry.GetWorkingDirectory():" << entry.GetWorkingDirectory();
+        clDEBUG() << "entry.GetWorkingDirectory():" << working_directory;
     }
-    clDEBUG() << "rootDir:" << rootDir;
+    clDEBUG() << "working_directory:" << working_directory;
     clDEBUG() << "entry.GetLanguages():" << entry.GetLanguages();
 
     size_t flags = 0;
@@ -542,23 +630,42 @@ void LanguageServerCluster::StartServer(const LanguageServerEntry& entry)
         flags |= LSPStartupInfo::kAutoStart;
     }
 
-    if(entry.IsRemoteLSP()) {
-        flags |= LSPStartupInfo::kRemoteLSP;
-    }
-
     LSPStartupInfo startup_info;
     startup_info.SetConnectioString(entry.GetConnectionString());
     startup_info.SetLspServerCommand(lspCommand);
     startup_info.SetFlags(flags);
-    startup_info.SetWorkingDirectory(entry.GetWorkingDirectory());
-    startup_info.SetAccountName(entry.GetSshAccount());
-    lsp->Start(startup_info, entry.GetEnv(), entry.GetInitOptions(), rootDir, entry.GetLanguages());
-    m_servers.insert({ entry.GetName(), lsp });
+    startup_info.SetWorkingDirectory(working_directory);
+
+    // apply the environment
+    clEnvList_t env_list;
+    if(clWorkspaceManager::Get().IsWorkspaceOpened()) {
+        env_list = clWorkspaceManager::Get().GetWorkspace()->GetEnvironment();
+    }
+
+    if(!env_list.empty()) {
+        clDEBUG() << "Creating LSP with env:" << endl;
+        for(const auto& p : env_list) {
+            clDEBUG() << p.first << "=" << p.second << endl;
+        }
+    }
+
+    if(lsp->Start(startup_info, env_list, wxEmptyString, working_directory, entry.GetLanguages())) {
+        m_servers.insert({ entry.GetName(), lsp });
+    } else {
+        clERROR() << "Failed to start language server:" << entry.GetName() << endl;
+        clERROR() << "Language Server:" << entry.GetName() << "has been disabled until the problem is fixed" << endl;
+        LanguageServerConfig::Get().GetServer(entry.GetName()).SetEnabled(false);
+        LanguageServerConfig::Get().Save();
+    }
 }
 
 void LanguageServerCluster::OnWorkspaceClosed(clWorkspaceEvent& event)
 {
     event.Skip();
+
+    // let the helper process this event *before* us
+    m_remoteHelper->ProcessEvent(event);
+
     clDEBUG() << "LSP: workspace CLOSED event" << endl;
     LanguageServerProtocol::workspace_file_type = FileExtManager::TypeOther;
     this->StopAll();
@@ -568,6 +675,10 @@ void LanguageServerCluster::OnWorkspaceClosed(clWorkspaceEvent& event)
 void LanguageServerCluster::OnWorkspaceOpen(clWorkspaceEvent& event)
 {
     event.Skip();
+
+    // let the helper process this event *before* us
+    m_remoteHelper->ProcessEvent(event);
+
     clDEBUG() << "LSP: workspace OPEN event" << endl;
     this->Reload();
     m_symbols_to_file_cache.clear();
@@ -685,6 +796,7 @@ void LanguageServerCluster::OnShowQuickOutlineDlg(LSPEvent& event)
     }
     if(!m_quick_outline_dlg->IsShown()) {
         m_quick_outline_dlg->Show();
+        m_quick_outline_dlg->CenterOnParent();
     }
     m_quick_outline_dlg->SetSymbols({});
 }
@@ -870,13 +982,41 @@ void LanguageServerCluster::DiscoverWorkspaceType()
     }
 
     wxArrayString files;
+    CHECK_PTR_RET(clWorkspaceManager::Get().GetWorkspace());
+
     clWorkspaceManager::Get().GetWorkspace()->GetWorkspaceFiles(files);
     if(files.empty()) {
         clWARNING() << "Workspace contains no files" << endl;
         return;
     }
 
-    LanguageServerProtocol::workspace_file_type = FileExtManager::TypeOther;
+    // try to determine the workspace type by checking
+    // for common files
+    wxStringSet_t S;
+    S.reserve(files.size());
+
+    for(const auto& str : files) {
+        wxFileName fn(str);
+        S.insert(fn.GetFullName());
+    }
+
+    if(S.count("Cargo.toml")) {
+        LanguageServerProtocol::workspace_file_type = FileExtManager::TypeRust;
+        clDEBUG() << "*** LSP: workspace type is set to Rust (found Cargo.toml)" << endl;
+
+    } else if(S.count("Rakefile")) {
+        LanguageServerProtocol::workspace_file_type = FileExtManager::TypeRuby;
+        clDEBUG() << "*** LSP: workspace type is set to Ruby (found Rakefile)" << endl;
+
+    } else if(S.count("CMakeLists.txt")) {
+        LanguageServerProtocol::workspace_file_type = FileExtManager::TypeSourceCpp;
+        clDEBUG() << "*** LSP: workspace type is set to C++ (found CMakeLists.txt)" << endl;
+    }
+
+    if(LanguageServerProtocol::workspace_file_type != FileExtManager::TypeOther) {
+        return;
+    }
+
     std::thread thr(
         [=](const wxArrayString& files, wxEvtHandler* owner) {
             // create a table for all the known file types
@@ -892,7 +1032,7 @@ void LanguageServerCluster::DiscoverWorkspaceType()
                 FileExtManager::TypeSourceCpp, FileExtManager::TypeCSS,         FileExtManager::TypeHeader,
                 FileExtManager::TypeHtml,      FileExtManager::TypeJS,          FileExtManager::TypeJava,
                 FileExtManager::TypeLua,       FileExtManager::TypeRuby,        FileExtManager::TypeRust,
-                FileExtManager::TypePython,
+                FileExtManager::TypePython,    FileExtManager::TypeDart,
             };
             for(const wxString& file : files) {
                 auto file_type = FileExtManager::GetType(file);
@@ -964,4 +1104,14 @@ void LanguageServerCluster::UpdateNavigationBar()
         scopes.push_back(scope_entry);
     }
     clGetManager()->GetNavigationBar()->SetScopes(fullpath, scopes);
+}
+
+void LanguageServerCluster::OnWorkspaceScanCompleted(clWorkspaceEvent& event)
+{
+    event.Skip();
+    clDEBUG() << "==> LanguageServerCluster: workspace file scanned completed." << endl;
+
+    LanguageServerProtocol::workspace_file_type = FileExtManager::TypeOther;
+    DiscoverWorkspaceType();
+    Reload();
 }

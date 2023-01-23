@@ -47,10 +47,12 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_EDITOR_CONFIG_CHANGED, wxCommandE
 // use clWorkspaceEvent::GetString(), clWorkspaceEvent::GetFileName() to get the path
 // use clWorkspaceEvent::GetWorkspaceType() to get the type of the workspace loaded/closed
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_LOADED, clWorkspaceEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_PLUGIN_OPEN, clWorkspaceEvent);
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_RELOAD_STARTED, clWorkspaceEvent);
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_RELOAD_ENDED, clWorkspaceEvent);
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_CLOSING, clWorkspaceEvent);
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_CLOSED, clWorkspaceEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_FILES_SCANNED, clWorkspaceEvent);
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_CONFIG_CHANGED, wxCommandEvent);
 
@@ -555,6 +557,9 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FINDINFILES_DLG_DISMISSED, clFind
 // user clicked on a match entry in the "find results tab"
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FINDINFILES_OPEN_MATCH, clFindInFilesEvent);
 
+// User clicked to cancel the currently running search
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FINDINFILES_STOP_SEARCH, clFindInFilesEvent);
+
 // Instruct codelite to build a project only ( no deps )
 // the project name is passed in the wxCommandEvent::GetString
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CMD_BUILD_PROJECT_ONLY, wxCommandEvent);
@@ -648,6 +653,15 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DBG_UI_RESTART, clDebugEvent); //
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DBG_IS_RUNNING, clDebugEvent); // Use evet.SetAnswer() method to reply
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DBG_UI_TOGGLE_BREAKPOINT,
                          clDebugEvent); // Toggle breakpoint. Use event.GetFileName() / event.GetInt() for the file:line
+
+/// User added breakpoint from the UI
+/// Call event.GetUiBreakpoint()
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DBG_UI_BREAKPOINT_ADDED, clDebugEvent);
+
+/// User deleted breakpoint from the UI
+/// Call event.GetUiBreakpoint()
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DBG_UI_BREAKPOINT_DELETED, clDebugEvent);
+
 // Can CodeLite interact with the debugger? use event.SetAnswer(true);
 // Note: by avoid calling Skip() CodeLite will assume that the plugin is controlling the debug session
 // and it will use the event.IsAnswer() as the answer to the question to : CanDbgInteract()
@@ -828,6 +842,8 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FILES_MODIFIED_REPLACE_IN_FILES, 
 // action (this is useful if the session is managed by an external plugin)
 // A good example for this is the PHP plugin which manages its own session
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SAVE_SESSION_NEEDED, clCommandEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SESSION_LOADING, clCommandEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SESSION_LOADED, clCommandEvent);
 
 // Event: clCommandEvent
 // User modified its environment variables
@@ -963,4 +979,10 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DOWNLOAD_FILE, clCommandEvent);
 // This event is usually sent when a the file name is not a local file
 // Input: event.GetFileName()
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_OPEN_FILE, clCommandEvent);
+
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_RECENT_WORKSPACE, clRecentWorkspaceEvent);
+
+// A file was modified externally
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FILE_MODIFIED_EXTERNALLY, clFileSystemEvent);
+
 #endif // CODELITE_EVENTS_H

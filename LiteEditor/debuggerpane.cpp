@@ -22,14 +22,15 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "debuggerpane.h"
+
+#include "BreakpointsView.hpp"
 #include "DebuggerCallstackView.h"
 #include "DebuggerDisassemblyTab.h"
-#include "breakpointdlg.h"
 #include "codelite_events.h"
 #include "debugger.h"
 #include "debuggerasciiviewer.h"
 #include "debuggermanager.h"
-#include "debuggerpane.h"
 #include "detachedpanesinfo.h"
 #include "dockablepane.h"
 #include "editor_config.h"
@@ -43,6 +44,7 @@
 #include "threadlistpanel.h"
 #include "wx/dcbuffer.h"
 #include "wx/xrc/xmlres.h"
+
 #include <wx/aui/framemanager.h>
 
 const wxString DebuggerPane::LOCALS = wxTRANSLATE("Locals");
@@ -57,12 +59,13 @@ const wxString DebuggerPane::DISASSEMBLY = wxTRANSLATE("Disassemble");
 
 #define IS_DETACHED(name) (detachedPanes.Index(name) != wxNOT_FOUND) ? true : false
 
-DebuggerPane::DebuggerPane(wxWindow* parent, const wxString& caption, wxAuiManager* mgr)
-    : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(400, 300))
+DebuggerPane::DebuggerPane(wxWindow* parent, const wxString& caption, wxAuiManager* mgr, long style)
+    : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(400, 300), style)
     , m_caption(caption)
     , m_initDone(false)
     , m_mgr(mgr)
 {
+    Hide();
     EventNotifier::Get()->Bind(wxEVT_EDITOR_CONFIG_CHANGED, &DebuggerPane::OnSettingsChanged, this);
     CreateGUIControls();
 }
@@ -168,11 +171,11 @@ void DebuggerPane::CreateGUIControls()
     name = wxGetTranslation(BREAKPOINTS);
     if(IS_DETACHED(name)) {
         DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, wxNOT_FOUND, wxSize(200, 200));
-        m_breakpoints = new BreakpointDlg(cp);
+        m_breakpoints = new BreakpointsView(cp);
         cp->SetChildNoReparent(m_breakpoints);
 
     } else {
-        m_breakpoints = new BreakpointDlg(m_book);
+        m_breakpoints = new BreakpointsView(m_book);
         m_book->AddPage(m_breakpoints, name, false, wxNOT_FOUND);
     }
 

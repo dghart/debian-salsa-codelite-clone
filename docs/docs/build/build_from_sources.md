@@ -3,19 +3,54 @@
 ## Windows
 ----
 
-- Install compiler and other required tools (`git` etc) [as described here][10]
-- Build wxWidgets from sources. See build instructions [here][5]
-- Clone CodeLite sources:
+!!! Important
+    We only support `MSYS2` terminal
+
+- [Prepare your working environment][10]
+- [Build wxWidgets from sources][5]
+- Open `MSYS` terminal, and type:
+
+```bash
+pacman -S mingw-w64-clang-x86_64-zlib       \
+          mingw-w64-clang-x86_64-libssh     \
+          mingw-w64-clang-x86_64-hunspell   \
+          mingw-w64-clang-x86_64-openssl    \
+          mingw-w64-clang-x86_64-sqlite3
+```
+
+- Download and build `wx-config.exe` from sources:
+
+```bash
+git clone https://github.com/eranif/wx-config-msys2.git
+cd wx-config-msys2
+mkdir build-release
+cd $_
+cmake .. -DCMAKE_BUILD_TYPE=Release -G"MinGW Makefiles"
+mingw32-make -j$(nproc)
+```
+
+- Build CodeLite (in `Release` mode):
+
 ```bash
 git clone https://github.com/eranif/codelite.git
+cd codelite
+git submodule update --init
+mkdir build-release
+cd $_
+cmake .. -DCMAKE_BUILD_TYPE=Release -G"MinGW Makefiles" -DWXWIN=$HOME/root
+mingw32-make -j$(nproc) install
 ```
-- Download and install CodeLite for Windows (`64 bit`) from our [Download Page][8]
-- Open the workspace `CodeLiteIDE.workspace` (located in the CodeLite's folder)
-- Make sure that the project `CodeLiteIDE` is selected (the active project uses **bold** font)
-- Select the `Win_x64_Release` build configuration and click ++f7++
-- When the compilation is over, close the workspace
-- Close CodeLite
-- To update your installation with the new CodeLite, close CodeLite and from a `cmd.exe` window (opened as Administrator), navigate to `codelite-sources/Runtime/` and run the file `update64.bat`
+
+!!! Note
+    To build CodeLite in debug mode, replace `CMake` argument from:
+    `-DCMAKE_BUILD_TYPE=Release` into `-DCMAKE_BUILD_TYPE=Debug`
+
+- To run the new CodeLite:
+
+```bash
+cd build-release/install
+./codelite
+```
 
 ## Linux
 ----
@@ -24,14 +59,18 @@ git clone https://github.com/eranif/codelite.git
 - Install `libssh-dev` and `libsqlite3-dev` packages (or similar, depending on your distro). On **Ubuntu / Debian**, you can use this command:
 
 ```bash
-    sudo apt install build-essential git cmake \
-                     libssh-dev libsqlite3-dev 
+    sudo apt install build-essential            \
+                     git cmake                  \
+                     libssh-dev libsqlite3-dev  \
+                     libpcre2-dev
 ```
 
 - Git clone the sources:
 
 ```bash
     git clone https://github.com/eranif/codelite.git
+    cd codelite
+    git submodule update --init
 ```
 
 - Build CodeLite:
@@ -43,6 +82,13 @@ git clone https://github.com/eranif/codelite.git
  cmake -DCMAKE_BUILD_TYPE=Release .. -DCOPY_WX_LIBS=1
  make -j$(nproc)
  sudo make install
+```
+
+- To uninstall CodeLite:
+
+```bash
+cd build-release # cd to the build directory
+sudo xargs rm -vf < install_manifest.txt
 ```
 
 ----------
@@ -57,53 +103,59 @@ Prerequisites:
  - Git
  - Xcode
  - Xcode command-line tools
- - Homebrew.
+ - Homebrew
 
 Preparation:
 
  - (Optional) Make a separate folder for building if you want to get rid of all except the `.app` file after building
  - Install Xcode from Mac App Store
- - Install Xcode command-line tools: `xcode-select --install`
+ - Install Xcode command-line tools: `xcode-select --install` (or you can type `clang` from the command line and if it is missing you will be prompted to install it)
  - Install Homebrew:
 
 ```
  ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ```
 
-- Update Homebrew: `brew update`
- - (Optional) Upgrade Homebrew packages: `brew upgrade`
- - Install Git: `brew install git`
- - Install CMake: `brew install cmake`
- - Install wxWidgets: `brew install wxmac --dev --use-llvm`
-
-!!! Tip
-    You can choose to build [wxWidgets from sources][9]
-
-
-Clone the repo (I will assume that your development folder is: `/Users/$USER/src`)
+ - Install the required libraries:
 
 ```bash
-cd /Users/$USER/src
-git clone https://github.com/eranif/codelite.git
+brew update
+brew install git \
+             cmake \
+             libssh \
+             hunspell
 ```
- the above will create the folder `/Users/$USER/src/codelite`
 
- To build CodeLite:
+ - Usually, `brew` will install everything under `/opt/homebrew`, so run this from the terminal:
 
 ```bash
-cd /Users/$USER/src/codelite
-mkdir build-release
-cd build-release
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . -j $(sysctl -n hw.physicalcpu)
-cmake --build . --target install
+echo 'export PATH=/opt/homebrew/bin:$PATH' >> $HOME/.$(basename $SHELL)rc
+source $HOME/.$(basename $SHELL)rc
 ```
 
-You should now have an app bundle `/Users/$USER/src/codelite/build-release/codelite.app`
+ - Next step is to [Build wxWidgets from sources][9]
+ - Finally, Build CodeLite:
+
+```bash
+    mkdir -p $HOME/src
+    cd $HOME/src
+    git clone https://github.com/eranif/codelite.git
+    cd codelite
+    git submodule update --init
+
+    # build CodeLite release configuration
+    mkdir build-release
+    cd build-release
+    cmake .. -DCMAKE_BUILD_TYPE=Release
+    cmake --build . -j $(sysctl -n hw.physicalcpu)
+    cmake --build . --target install
+```
+
+You should now have an app bundle `$HOME/src/codelite/build-release/codelite.app`
 
 To launch CodeLite:
 
-`open /Users/$USER/src/codelite/build-release/codelite.app`
+- `open $HOME/src/codelite/build-release/codelite.app`
 
 ----------
 
@@ -115,4 +167,4 @@ To launch CodeLite:
  [6]: /build/build_wx_widgets/#linux
  [8]: https://codelite.org/support.php
  [9]: /build/build_wx_widgets/#macos
- [10]: /build/mingw_builds/#prepare-a-working-environment
+ [10]: /getting_started/windows/

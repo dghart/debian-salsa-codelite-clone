@@ -23,6 +23,7 @@ LSPOutlineViewDlg::LSPOutlineViewDlg(wxWindow* parent)
     : LSPOutlineViewDlgBase(parent)
 {
     clSetDialogBestSizeAndPosition(this);
+    CenterOnParent();
     DoInitialise();
 }
 
@@ -48,13 +49,17 @@ void LSPOutlineViewDlg::DoInitialise()
     m_dvTreeCtrll->Begin();
     m_dvTreeCtrll->SetScrollToBottom(false);
 
+    clColours colours;
+    colours.FromLexer(lexer);
+    m_dvTreeCtrll->SetColours(colours);
+
     // build the tree
     wxColour class_colour = lexer->GetProperty(wxSTC_P_WORD2).GetFgColour();
     wxColour variable_colour = lexer->GetProperty(wxSTC_P_IDENTIFIER).GetFgColour();
     wxColour module_colour = lexer->GetProperty(wxSTC_P_STRING).GetFgColour();
     wxColour function_colour = lexer->GetProperty(wxSTC_P_DEFNAME).GetFgColour();
     wxColour operator_colour = lexer->GetProperty(wxSTC_P_OPERATOR).GetFgColour();
-    vector<pair<wxString, int>> containers;
+    std::vector<std::pair<wxString, int>> containers;
 
     clAnsiEscapeCodeColourBuilder builder;
     for(const SymbolInformation& si : m_symbols) {
@@ -170,9 +175,24 @@ void LSPOutlineViewDlg::OnKeyDown(wxKeyEvent& event)
     case WXK_UP:
         DoFindPrev();
         break;
-    default:
-        event.Skip();
+    default: {
+        int modifier_key = event.GetModifiers();
+        wxChar ch = event.GetUnicodeKey();
+        if(modifier_key == wxMOD_CONTROL && ch == 'U') {
+            m_dvTreeCtrll->PageUp();
+            DoFindNext();
+        } else if(modifier_key == wxMOD_CONTROL && ch == 'D') {
+            m_dvTreeCtrll->PageDown();
+            DoFindPrev();
+        } else if(modifier_key == wxMOD_CONTROL && (ch == 'J' || ch == 'N')) {
+            DoFindNext();
+        } else if(modifier_key == wxMOD_CONTROL && (ch == 'K' || ch == 'P')) {
+            DoFindPrev();
+        } else {
+            event.Skip();
+        }
         break;
+    }
     }
 }
 
@@ -229,7 +249,7 @@ void LSPOutlineViewDlg::OnListKeyDown(wxKeyEvent& event)
     }
 }
 
-void LSPOutlineViewDlg::SetSymbols(const vector<SymbolInformation>& symbols)
+void LSPOutlineViewDlg::SetSymbols(const std::vector<SymbolInformation>& symbols)
 {
     m_symbols = symbols;
     DoInitialise();
@@ -253,7 +273,7 @@ void LSPOutlineViewDlg::DoSelectionActivate()
     int sci_line = loc.GetRange().GetStart().GetLine();
     if(loc.GetRange().GetStart().GetLine() != loc.GetRange().GetEnd().GetLine()) {
         // different lines, don't select the entire function
-        // just place the caret at the begining of the function
+        // just place the caret at the beginning of the function
         int position = active_editor->PosFromLine(sci_line);  // start of line
         position += loc.GetRange().GetStart().GetCharacter(); // add the column
         active_editor->SetCaretAt(position);

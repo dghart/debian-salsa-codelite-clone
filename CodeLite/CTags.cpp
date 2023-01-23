@@ -19,10 +19,11 @@ void WrapInShell(wxString& cmd)
 {
     wxString command;
 #ifdef __WXMSW__
-    wxChar* shell = wxGetenv(wxT("COMSPEC"));
-    if(!shell)
-        shell = (wxChar*)wxT("CMD.EXE");
-    command << shell << wxT(" /C ");
+    wxString shell = wxGetenv("COMSPEC");
+    if(shell.IsEmpty()) {
+        shell = "CMD.EXE";
+    }
+    command << shell << " /C ";
     if(cmd.StartsWith("\"") && !cmd.EndsWith("\"")) {
         command << "\"" << cmd << "\"";
     } else {
@@ -30,10 +31,10 @@ void WrapInShell(wxString& cmd)
     }
     cmd = command;
 #else
-    command << wxT("/bin/sh -c '");
+    command << "/bin/sh -c '";
     // escape any single quoutes
     cmd.Replace("'", "\\'");
-    command << cmd << wxT("'");
+    command << cmd << "'";
     cmd = command;
 #endif
 }
@@ -56,7 +57,7 @@ wxString fix_macro_entry(const wxString& macro)
 {
     wxString fixed = macro;
     fixed.Replace("%", "__arg_");
-    fixed.Replace("\"", "\\\"");
+    //fixed.Replace("\"", "\\\"");
     return fixed;
 }
 } // namespace
@@ -69,7 +70,7 @@ bool CTags::DoGenerate(const wxString& filesContent, const wxString& codelite_in
 
     // prepare the options file
     // one option per line
-    vector<wxString> options_arr;
+    std::vector<wxString> options_arr;
     options_arr.reserve(500);
     wxString fields_cxx = "--fields-c++=+{template}+{properties}";
     if(is_macrodef_supported) {
@@ -108,6 +109,8 @@ bool CTags::DoGenerate(const wxString& filesContent, const wxString& codelite_in
     // write the options into a file
     wxFileName ctags_options_file(clStandardPaths::Get().GetUserDataDir(),
                                   wxString() << "options-" << wxThread::GetCurrentId() << ".ctags");
+    //FileUtils::Deleter d{ ctags_options_file };
+
     wxString ctags_options_file_content;
     for(const wxString& option : options_arr) {
         ctags_options_file_content << option << "\n";
@@ -144,8 +147,8 @@ bool CTags::DoGenerate(const wxString& filesContent, const wxString& codelite_in
     return true;
 }
 
-size_t CTags::ParseFiles(const vector<wxString>& files, const wxString& codelite_indexer,
-                         const wxStringMap_t& macro_table, vector<TagEntryPtr>& tags)
+size_t CTags::ParseFiles(const std::vector<wxString>& files, const wxString& codelite_indexer,
+                         const wxStringMap_t& macro_table, std::vector<TagEntryPtr>& tags)
 {
     wxString filesList;
     for(const auto& file : files) {
@@ -206,13 +209,13 @@ size_t CTags::ParseFiles(const vector<wxString>& files, const wxString& codelite
 }
 
 size_t CTags::ParseFile(const wxString& file, const wxString& codelite_indexer, const wxStringMap_t& macro_table,
-                        vector<TagEntryPtr>& tags)
+                        std::vector<TagEntryPtr>& tags)
 {
     return ParseFiles({ file }, codelite_indexer, macro_table, tags);
 }
 
 size_t CTags::ParseBuffer(const wxFileName& filename, const wxString& buffer, const wxString& codelite_indexer,
-                          const wxStringMap_t& macro_table, vector<TagEntryPtr>& tags)
+                          const wxStringMap_t& macro_table, std::vector<TagEntryPtr>& tags)
 {
     // create a temporary file with the content we want to parse
     clTempFile temp_file("cpp");
@@ -227,7 +230,7 @@ size_t CTags::ParseBuffer(const wxFileName& filename, const wxString& buffer, co
 }
 
 size_t CTags::ParseLocals(const wxFileName& filename, const wxString& buffer, const wxString& codelite_indexer,
-                          const wxStringMap_t& macro_table, vector<TagEntryPtr>& tags)
+                          const wxStringMap_t& macro_table, std::vector<TagEntryPtr>& tags)
 {
     wxString content;
     {
@@ -269,13 +272,14 @@ size_t CTags::ParseLocals(const wxFileName& filename, const wxString& buffer, co
 
 void CTags::Initialise(const wxString& codelite_indexer)
 {
-    if(is_initialised)
+    if(is_initialised) {
         return;
+    }
 
     is_initialised = true;
     // check whether we have `macrodef` supported
     wxString output;
-    vector<wxString> command = { codelite_indexer, "--list-fields=c++" };
+    std::vector<wxString> command = { codelite_indexer, "--list-fields=c++" };
     auto process = ::CreateAsyncProcess(nullptr, command, IProcessCreateSync, wxEmptyString, nullptr, wxEmptyString);
     if(process) {
         process->WaitForTerminate(output);

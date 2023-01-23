@@ -43,14 +43,15 @@ public:
 
 protected:
     void OnFolderContextMenu(clContextMenuEvent& event);
-    void OnWorkspaceFileCreated(clFileSystemEvent& event);
     void OnNewWorkspace(clCommandEvent& e);
+    void OnRecentWorkspaces(clRecentWorkspaceEvent& event);
+    void OnPluginOpenWorkspace(clWorkspaceEvent& event);
 
 public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBar* toolbar);
+    virtual void CreateToolBar(clToolBarGeneric* toolbar);
     virtual void CreatePluginMenu(wxMenu* pluginsMenu);
     virtual void HookPopupMenu(wxMenu* menu, MenuType type);
     virtual void UnPlug();

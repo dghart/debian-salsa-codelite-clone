@@ -20,7 +20,8 @@ class clDockerWorkspace : public IWorkspace
 
 public:
     wxString GetActiveProjectName() const override;
-    wxFileName GetFileName() const override;
+    wxString GetFileName() const override;
+    wxString GetDir() const override;
     wxString GetFilesMask() const override;
     wxFileName GetProjectFileName(const wxString& projectName) const override;
     void GetProjectFiles(const wxString& projectName, wxArrayString& files) const override;
@@ -30,6 +31,8 @@ public:
     bool IsBuildSupported() const override;
     bool IsProjectSupported() const override;
     void SetProjectActive(const wxString& project) override;
+    wxString GetDebuggerName() const override { return wxEmptyString; }
+
     const clDockerWorkspaceSettings& GetSettings() const { return m_settings; }
     clDockerWorkspaceSettings& GetSettings() { return m_settings; }
 

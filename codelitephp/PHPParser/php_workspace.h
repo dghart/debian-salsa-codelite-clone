@@ -34,6 +34,7 @@
 #include "php_project.h"
 #include "php_project_settings_data.h"
 #include "phpexecutor.h"
+
 #include <macros.h>
 #include <map>
 #include <set>
@@ -81,6 +82,7 @@ public:
     bool IsBuildSupported() const override;
     bool IsProjectSupported() const override;
     void SetProjectActive(const wxString& project) override;
+    wxString GetDebuggerName() const override;
 
 public:
     static PHPWorkspace* Get();
@@ -170,10 +172,16 @@ public:
      * @brief return the currently opened workspace filename
      */
     const wxFileName& GetFilename() const { return m_workspaceFile; }
+
     /**
      * @brief as defined in IWorkspace
      */
-    wxFileName GetFileName() const override { return GetFilename(); }
+    wxString GetFileName() const override { return GetFilename().GetFullPath(); }
+
+    /**
+     * @brief return the workspace directory
+     */
+    wxString GetDir() const override { return GetFilename().GetPath(); }
 
     /**
      * @brief return the workspace name

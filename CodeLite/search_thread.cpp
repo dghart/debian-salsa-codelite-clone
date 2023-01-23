@@ -23,19 +23,22 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 #include "search_thread.h"
+
 #include "clFilesCollector.h"
+#include "clWildMatch.hpp"
 #include "dirtraverser.h"
+#include "file_logger.h"
 #include "fileutils.h"
 #include "macros.h"
-#include "wx/event.h"
+
 #include <algorithm>
 #include <iostream>
 #include <set>
 #include <wx/dir.h>
-#if wxUSE_GUI
+#include <wx/event.h>
 #include <wx/fontmap.h>
-#endif
 #include <wx/log.h>
+#include <wx/stopwatch.h>
 #include <wx/tokenzr.h>
 #include <wx/txtstrm.h>
 #include <wx/wfstream.h>
@@ -54,17 +57,23 @@ wxDEFINE_EVENT(wxEVT_SEARCH_THREAD_SEARCHSTARTED, wxCommandEvent);
         wxPostEvent(owner, event);            \
     } else if(m_notifiedWindow) {             \
         wxPostEvent(m_notifiedWindow, event); \
-    }                                         \
-    wxThread::Sleep(1);
+    }
 
 //----------------------------------------------------------------
 // SearchData
 //----------------------------------------------------------------
+namespace
+{
+bool is_word_char(wxChar ch) { return ch == '_' || wxIsalnum(ch); }
+
+// Minumum of 10ms between events that this thread is sending to the main thread
+constexpr long MIN_SEND_INTERVAL_MS = 1;
+size_t send_count = 0;
+
+} // namespace
 
 const wxString& SearchData::GetExtensions() const { return m_validExt; }
-
 SearchData& SearchData::operator=(const SearchData& rhs) { return Copy(rhs); }
-
 SearchData& SearchData::Copy(const SearchData& other)
 {
     if(this == &other) {
@@ -82,6 +91,7 @@ SearchData& SearchData::Copy(const SearchData& other)
     m_excludePatterns.insert(m_excludePatterns.end(), other.m_excludePatterns.begin(), other.m_excludePatterns.end());
     m_files.clear();
     m_files.reserve(other.m_files.size());
+    m_file_scanner_flags = other.m_file_scanner_flags;
     for(size_t i = 0; i < other.m_files.size(); ++i) {
         m_files.Add(other.m_files.Item(i).c_str());
     }
@@ -94,27 +104,12 @@ SearchData& SearchData::Copy(const SearchData& other)
 
 SearchThread::SearchThread()
     : WorkerThread()
-    , m_wordChars(wxT("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"))
     , m_reExpr(wxT(""))
 {
-    IndexWordChars();
+    m_stopWatch.Start();
 }
 
 SearchThread::~SearchThread() {}
-
-void SearchThread::IndexWordChars()
-{
-    m_wordCharsMap.clear();
-    for(size_t i = 0; i < m_wordChars.Length(); i++) {
-        m_wordCharsMap[m_wordChars.GetChar(i)] = true;
-    }
-}
-
-void SearchThread::SetWordChars(const wxString& chars)
-{
-    m_wordChars = chars;
-    IndexWordChars();
-}
 
 wxRegEx& SearchThread::GetRegex(const wxString& expr, bool matchCase)
 {
@@ -140,6 +135,7 @@ void SearchThread::PerformSearch(const SearchData& data) { Add(new SearchData(da
 
 void SearchThread::ProcessRequest(ThreadRequest* req)
 {
+    FileLogger::RegisterThread(wxThread::GetCurrentId(), "Search Thread");
     wxStopWatch sw;
     m_summary = SearchSummary();
     DoSearchFiles(req);
@@ -155,6 +151,8 @@ void SearchThread::ProcessRequest(ThreadRequest* req)
 
 void SearchThread::GetFiles(const SearchData* data, wxArrayString& files)
 {
+    wxStopWatch sw;
+    clDEBUG() << "Building list of files ..." << endl;
     wxStringSet_t scannedFiles;
 
     const wxArrayString& rootDirs = data->GetRootDirs();
@@ -162,22 +160,51 @@ void SearchThread::GetFiles(const SearchData* data, wxArrayString& files)
 
     // Populate "scannedFiles" with list of files to scan
     scannedFiles.insert(files.begin(), files.end());
+    files.reserve(5000);
+    clDEBUG() << "Scanning directories..." << endl;
+    sw.Start();
 
+    clFileExtensionMatcher ext_matcher{ data->GetExtensions() };
+    clPathExcluder path_excluder{ data->GetExcludePatterns() };
+
+    wxStringSet_t visited_dirs;
     for(size_t i = 0; i < rootDirs.size(); ++i) {
+        clDEBUG() << "    scanning root directory:" << rootDirs.Item(i) << endl;
+        // collect only unique files that are matching the pattern
+        auto on_files = [&](const wxArrayString& paths) {
+            files.reserve(files.size() + paths.size());
+            for(const wxString& fullpath : paths) {
+                if(scannedFiles.insert(fullpath).second && ext_matcher.matches(fullpath)) {
+                    files.Add(fullpath);
+                }
+            }
+        };
+
+        // do not traverse into excluded directories or directories that
+        // we already visited
+        auto on_folder = [&](const wxString& fullpath) -> bool {
+            return
+                // first time visiting this directory
+                visited_dirs.insert(fullpath).second &&
+                // is not excluded
+                !path_excluder.is_exclude_path(fullpath);
+        };
+
         // make sure it's really a dir (not a fifo, etc.)
         clFilesScanner scanner;
-        std::vector<wxString> filesV;
-        if(scanner.Scan(rootDirs.Item(i), filesV, data->GetExtensions())) {
-            std::for_each(filesV.begin(), filesV.end(), [&](const wxString& file) { scannedFiles.insert(file); });
-        }
+        scanner.ScanWithCallbacks(rootDirs.Item(i), on_folder, on_files, data->GetFileScannerFlags());
+        clDEBUG() << "    scanning root directory:" << rootDirs.Item(i) << "..done" << endl;
     }
 
-    files.clear();
-    files.Alloc(scannedFiles.size());
-    std::for_each(scannedFiles.begin(), scannedFiles.end(), [&](const wxString& file) { files.Add(file); });
+    wxString duration;
+    duration << sw.Time() / 1000 << "." << sw.Time() % 1000;
+    clDEBUG() << "Scanning directories... done (" << duration << ")" << endl;
+    clDEBUG() << "Found" << files.size() << "files" << endl;
 
-    // Filter all non matching files
-    FilterFiles(files, data);
+    // sort the files found
+    clDEBUG() << "Sorting the matches..." << endl;
+    files.Sort([](const wxString& f1, const wxString& f2) -> int { return f1.CmpNoCase(f2); });
+    clDEBUG() << "Sorting the matches... done" << endl;
 }
 
 void SearchThread::DoSearchFiles(ThreadRequest* req)
@@ -246,6 +273,11 @@ void SearchThread::DoSearchFile(const wxString& fileName, const SearchData* data
         return;
     }
 
+    // ignore binary executables
+    if(FileUtils::IsBinaryExecutable(fileName)) {
+        return;
+    }
+
     size_t size = FileUtils::GetFileSize(fileName);
     if(size == 0) {
         return;
@@ -267,14 +299,13 @@ void SearchThread::DoSearchFile(const wxString& fileName, const SearchData* data
         return;
     }
 #endif
-    wxStringTokenizer tkz(fileData, wxT("\n"), wxTOKEN_RET_EMPTY_ALL);
+    wxArrayString lines = ::wxStringTokenize(fileData, wxT("\n"), wxTOKEN_RET_EMPTY_ALL);
 
     int lineOffset = 0;
     if(data->IsRegularExpression()) {
         // regular expression search
-        while(tkz.HasMoreTokens()) {
+        for(const wxString& line : lines) {
             // Read the next line
-            wxString line = tkz.NextToken();
             DoSearchLineRE(line, lineNumber, lineOffset, fileName, data);
             lineOffset += line.Length() + 1;
             lineNumber++;
@@ -306,10 +337,7 @@ void SearchThread::DoSearchFile(const wxString& fileName, const SearchData* data
         if(!data->IsMatchCase()) {
             findString.MakeLower();
         }
-        while(tkz.HasMoreTokens()) {
-
-            // Read the next line
-            wxString line = tkz.NextToken();
+        for(const wxString& line : lines) {
             DoSearchLine(line, lineNumber, lineOffset, fileName, data, findString, filters);
             lineOffset += line.Length() + 1;
             lineNumber++;
@@ -405,9 +433,8 @@ void SearchThread::DoSearchLine(const wxString& line, const int lineNum, const i
             if(data->IsMatchWholeWord()) {
 
                 // make sure that the word before is not in the wordChars map
-                if((pos > 0) && (m_wordCharsMap.find(modLine.GetChar(pos - 1)) != m_wordCharsMap.end())) {
+                if(pos > 0 && is_word_char(modLine.GetChar(pos - 1))) {
                     if(!AdjustLine(modLine, pos, findWhat)) {
-
                         break;
                     } else {
                         col += (int)findWhat.Length();
@@ -418,9 +445,8 @@ void SearchThread::DoSearchLine(const wxString& line, const int lineNum, const i
                 // in the wordCharsMap
                 if(pos + findWhat.Length() <= modLine.Length()) {
                     wxChar nextCh = modLine.GetChar(pos + findWhat.Length());
-                    if(m_wordCharsMap.find(nextCh) != m_wordCharsMap.end()) {
+                    if(is_word_char(nextCh)) {
                         if(!AdjustLine(modLine, pos, findWhat)) {
-
                             break;
                         } else {
                             col += (int)findWhat.Length();
@@ -476,21 +502,14 @@ void SearchThread::SendEvent(wxEventType type, wxEvtHandler* owner)
         return;
 
     wxCommandEvent event(type, GetId());
-
-    if(type == wxEVT_SEARCH_THREAD_MATCHFOUND && m_counter == 10) {
+    if(type == wxEVT_SEARCH_THREAD_MATCHFOUND) {
         // match found and we scanned 10 files
-        m_counter = 0;
         event.SetClientData(new SearchResultList(m_results));
         m_results.clear();
         SEND_ST_EVENT();
 
-    } else if(type == wxEVT_SEARCH_THREAD_MATCHFOUND) {
-        // a match event, but we did not meet the minimum number of files
-        m_counter++;
-        wxThread::Sleep(10);
-
     } else if((type == wxEVT_SEARCH_THREAD_SEARCHEND) || (type == wxEVT_SEARCH_THREAD_SEARCHCANCELED)) {
-        // search eneded, if we got any matches "buffed" send them before the
+        // search eneded, if we got any matches "buffered" send them before the
         // the summary event
         if(m_results.empty() == false) {
             wxCommandEvent evt(wxEVT_SEARCH_THREAD_MATCHFOUND, GetId());
@@ -501,13 +520,17 @@ void SearchThread::SendEvent(wxEventType type, wxEvtHandler* owner)
                 wxPostEvent(m_notifiedWindow, evt);
             }
         }
-
         m_results.clear();
-        m_counter = 0;
-
         // Now send the summary event
         event.SetClientData(type == wxEVT_SEARCH_THREAD_SEARCHEND ? new SearchSummary(m_summary) : nullptr);
         SEND_ST_EVENT();
+    }
+    // to avoid flooding the UI with search events, sleep for 1ms after each
+    // send_event call
+    ++send_count;
+    if(send_count >= 10) {
+        wxThread::Sleep(1);
+        send_count = 0;
     }
 }
 

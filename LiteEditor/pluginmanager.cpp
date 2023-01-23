@@ -44,6 +44,7 @@
 #include "file_logger.h"
 #include "fileexplorer.h"
 #include "fileview.h"
+#include "findinfilesdlg.h"
 #include "frame.h"
 #include "generalinfo.h"
 #include "language.h"
@@ -185,9 +186,9 @@ void PluginManager::Load()
 
             clDynamicLibrary* dl = new clDynamicLibrary();
             if(!dl->Load(fileName)) {
-                CL_ERROR(wxT("Failed to load plugin's dll: ") + fileName);
+                clERROR() << "Failed to load plugin's dll" << fileName << endl;
                 if(!dl->GetError().IsEmpty()) {
-                    CL_ERROR(dl->GetError());
+                    clERROR() << dl->GetError() << endl;
                 }
                 wxDELETE(dl);
                 continue;
@@ -208,16 +209,15 @@ void PluginManager::Load()
             if(success) {
                 interface_version = pfnInterfaceVersion();
             } else {
-                CL_WARNING(wxT("Failed to find GetPluginInterfaceVersion() in dll: ") + fileName);
+                clWARNING() << "Failed to find GetPluginInterfaceVersion() in dll" << fileName << endl;
                 if(!dl->GetError().IsEmpty()) {
-                    CL_WARNING(dl->GetError());
+                    clWARNING() << dl->GetError() << endl;
                 }
             }
 
             if(interface_version != PLUGIN_INTERFACE_VERSION) {
-                CL_WARNING(wxString::Format(wxT("Version interface mismatch error for plugin '%s'. Plugin's interface "
-                                                "version is '%d', CodeLite interface version is '%d'"),
-                                            fileName.c_str(), interface_version, PLUGIN_INTERFACE_VERSION));
+                clWARNING() << "Version interface mismatch error for plugin:" << fileName
+                            << ". Found:" << interface_version << "Expected:" << PLUGIN_INTERFACE_VERSION << endl;
                 wxDELETE(dl);
                 continue;
             }
@@ -248,7 +248,7 @@ void PluginManager::Load()
 
             // Can we load it?
             if(!m_pluginsData.CanLoad(*pluginInfo)) {
-                CL_WARNING(wxT("Plugin ") + pluginInfo->GetName() + wxT(" is not enabled"));
+                clWARNING() << "Plugin:" << pluginInfo->GetName() << " is not enabled" << endl;
                 wxDELETE(dl);
                 continue;
             }
@@ -256,9 +256,9 @@ void PluginManager::Load()
             // try and load the plugin
             GET_PLUGIN_CREATE_FUNC pfn = (GET_PLUGIN_CREATE_FUNC)dl->GetSymbol(wxT("CreatePlugin"), &success);
             if(!success) {
-                CL_WARNING(wxT("Failed to find CreatePlugin() in dll: ") + fileName);
+                clWARNING() << "Failed to find CreatePlugin() in dll:" << fileName << endl;
                 if(!dl->GetError().IsEmpty()) {
-                    CL_WARNING(dl->GetError());
+                    clWARNING() << dl->GetError() << endl;
                 }
 
                 m_pluginsData.DisablePlugin(pluginInfo->GetName());
@@ -267,17 +267,16 @@ void PluginManager::Load()
 
             // Construct the plugin
             IPlugin* plugin = pfn((IManager*)this);
-            CL_DEBUG(wxT("Loaded plugin: ") + plugin->GetLongName());
+            clDEBUG() << "Loaded plugin:" << plugin->GetLongName() << endl;
             m_plugins[plugin->GetShortName()] = plugin;
 
             // Load the toolbar
-            plugin->CreateToolBar(GetToolBar());
+            plugin->CreateToolBar(clMainFrame::Get()->GetPluginsToolBar());
 
             // Keep the dynamic load library
             m_dl.push_back(dl);
         }
         clMainFrame::Get()->GetDockingManager().Update();
-        GetToolBar()->Realize();
 
         // Let the plugins plug their menu in the 'Plugins' menu at the menu bar
         // the create menu will be placed as a sub menu of the 'Plugin' menu
@@ -381,6 +380,7 @@ clTreeCtrl* PluginManager::GetWorkspaceTree() { return clMainFrame::Get()->GetWo
 clTreeCtrl* PluginManager::GetFileExplorerTree() { return clMainFrame::Get()->GetFileExplorer()->GetTree(); }
 
 Notebook* PluginManager::GetOutputPaneNotebook() { return clMainFrame::Get()->GetOutputPane()->GetNotebook(); }
+Notebook* PluginManager::GetMainNotebook() { return clMainFrame::Get()->GetMainBook()->GetNotebook(); }
 
 Notebook* PluginManager::GetWorkspacePaneNotebook() { return clMainFrame::Get()->GetWorkspacePane()->GetNotebook(); }
 
@@ -742,6 +742,15 @@ size_t PluginManager::GetAllBreakpoints(clDebuggerBreakpoint::Vec_t& breakpoints
     return breakpoints.size();
 }
 
+clDebuggerBreakpoint PluginManager::CreateBreakpoint(const wxString& filepath, int line_number)
+{
+    clDebuggerBreakpoint bp;
+    bp.file = filepath;
+    bp.lineno = line_number;
+    bp.internal_id = ManagerST::Get()->GetBreakpointsMgr()->GetNextID();
+    return bp;
+}
+
 void PluginManager::DeleteAllBreakpoints() { ManagerST::Get()->GetBreakpointsMgr()->DelAllBreakpoints(); }
 
 void PluginManager::SetBreakpoints(const clDebuggerBreakpoint::Vec_t& breakpoints)
@@ -816,27 +825,50 @@ void PluginManager::LoadWorkspaceSession(const wxFileName& workspaceFile)
 {
     SessionEntry session;
     if(SessionManager::Get().GetSession(workspaceFile.GetFullPath(), session)) {
+        // notify about session loading starting
+        clCommandEvent event_loading{ wxEVT_SESSION_LOADING };
+        EventNotifier::Get()->ProcessEvent(event_loading);
+
+        // Undo any workspace/editor link while loading
+        clMainFrame::Get()->GetWorkspaceTab()->FreezeThaw(true);
         clMainFrame::Get()->GetMainBook()->RestoreSession(session);
+        clMainFrame::Get()->GetWorkspaceTab()->FreezeThaw(false);
+
         // Set this session as the 'Last' session
         ManagerST::Get()->GetBreakpointsMgr()->LoadSession(session);
         SessionManager::Get().SetLastSession(workspaceFile.GetFullPath());
+
+        // and we are done
+        clCommandEvent event_loaded{ wxEVT_SESSION_LOADED };
+        EventNotifier::Get()->AddPendingEvent(event_loaded);
     }
 }
 
 void PluginManager::OpenFindInFileForPath(const wxString& path)
 {
-    wxCommandEvent ff(wxEVT_COMMAND_MENU_SELECTED, XRCID("find_in_files"));
     wxArrayString paths;
     paths.Add(path);
-    ff.SetClientData(new wxArrayString(paths));
-    clMainFrame::Get()->GetEventHandler()->AddPendingEvent(ff);
+    OpenFindInFileForPaths(paths);
 }
 
 void PluginManager::OpenFindInFileForPaths(const wxArrayString& paths)
 {
-    wxCommandEvent ff(wxEVT_COMMAND_MENU_SELECTED, XRCID("find_in_files"));
-    ff.SetClientData(new wxArrayString(paths));
-    clMainFrame::Get()->GetEventHandler()->AddPendingEvent(ff);
+    // Fire the wxEVT_CMD_FIND_IN_FILES_SHOWING showing event
+    clFindInFilesEvent eventFifShowing(wxEVT_FINDINFILES_DLG_SHOWING);
+    if(EventNotifier::Get()->ProcessEvent(eventFifShowing))
+        return;
+
+    // Prepare the fif dialog
+    FindInFilesDialog dlg(EventNotifier::Get()->TopFrame());
+    if(!paths.empty()) {
+        dlg.SetSearchPaths(wxJoin(paths, ';'), true);
+    }
+    // Show it
+    if(dlg.ShowDialog() == wxID_OK) {
+        // Notify about the dialog dismissal
+        clFindInFilesEvent eventDismiss(wxEVT_FINDINFILES_DLG_DISMISSED);
+        EventNotifier::Get()->ProcessEvent(eventDismiss);
+    }
 }
 
 void PluginManager::ShowOutputPane(const wxString& selectedWindow) { ManagerST::Get()->ShowOutputPane(selectedWindow); }
@@ -896,9 +928,9 @@ void PluginManager::ShowToolBar(bool show)
 
 bool PluginManager::IsToolBarShown() const
 {
-    if(clMainFrame::Get()->GetMainToolBar()) {
+    if(clMainFrame::Get()->GetPluginsToolBar()) {
         // we have native toolbar
-        return clMainFrame::Get()->GetMainToolBar()->IsShown();
+        return clMainFrame::Get()->GetPluginsToolBar()->IsShown();
     }
     return false;
 }
@@ -910,7 +942,7 @@ bool PluginManager::CloseEditor(IEditor* editor, bool prompt)
 
 clEditorBar* PluginManager::GetNavigationBar() { return clMainFrame::Get()->GetMainBook()->GetEditorBar(); }
 
-clToolBar* PluginManager::GetToolBar() { return clMainFrame::Get()->GetMainToolBar(); }
+clToolBarGeneric* PluginManager::GetToolBar() { return clMainFrame::Get()->GetPluginsToolBar(); }
 
 void PluginManager::DisplayMessage(const wxString& message, int flags,
                                    const std::vector<std::pair<wxWindowID, wxString>>& buttons)
@@ -928,7 +960,7 @@ void PluginManager::ShowBuildMenu(clToolBar* toolbar, wxWindowID buttonId)
     clMainFrame::Get()->ShowBuildMenu(toolbar, buttonId);
 }
 
-clMenuBar* PluginManager::GetMenuBar() { return clMainFrame::Get()->GetMainMenuBar(); }
+wxMenuBar* PluginManager::GetMenuBar() { return clMainFrame::Get()->GetMainMenuBar(); }
 
 void PluginManager::OpenFileAndAsyncExecute(const wxString& fileName, std::function<void(IEditor*)>&& func)
 {

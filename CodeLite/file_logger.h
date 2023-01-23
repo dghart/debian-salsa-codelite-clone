@@ -265,31 +265,22 @@ template <typename T> FileLogger& operator<<(FileLogger& logger, const T& obj)
     return logger;
 }
 
-#define CL_SYSTEM(...) FileLogger(FileLogger::System).AddLogLine(wxString::Format(__VA_ARGS__), FileLogger::System);
-#define CL_ERROR(...) FileLogger(FileLogger::Error).AddLogLine(wxString::Format(__VA_ARGS__), FileLogger::Error);
-#define CL_WARNING(...) FileLogger(FileLogger::Warning).AddLogLine(wxString::Format(__VA_ARGS__), FileLogger::Warning);
-#define CL_DEBUG(...) FileLogger(FileLogger::Dbg).AddLogLine(wxString::Format(__VA_ARGS__), FileLogger::Dbg);
-#define CL_DEBUGS(s) FileLogger(FileLogger::Dbg).AddLogLine(s, FileLogger::Dbg);
-#define CL_DEBUG1(...) \
-    FileLogger(FileLogger::Developer).AddLogLine(wxString::Format(__VA_ARGS__), FileLogger::Developer);
-#define CL_DEBUG_ARR(arr) FileLogger(FileLogger::Dbg).AddLogLine(arr, FileLogger::Dbg);
-#define CL_DEBUG1_ARR(arr) FileLogger(FileLogger::Developer).AddLogLine(arr, FileLogger::Developer);
-
 // New API
 #define clDEBUG() FileLogger(FileLogger::Dbg) << FileLogger::Prefix(FileLogger::Dbg)
 #define clDEBUG1() FileLogger(FileLogger::Developer) << FileLogger::Prefix(FileLogger::Developer)
+
+// alias
+#define clTRACE() clDEBUG1()
+
 #define clERROR() FileLogger(FileLogger::Error) << FileLogger::Prefix(FileLogger::Error)
 #define clWARNING() FileLogger(FileLogger::Warning) << FileLogger::Prefix(FileLogger::Warning)
 #define clSYSTEM() FileLogger(FileLogger::System) << FileLogger::Prefix(FileLogger::System)
 
+#define LOG_IF_DEBUG if(FileLogger::CanLog(FileLogger::Dbg))
+#define LOG_IF_TRACE if(FileLogger::CanLog(FileLogger::Developer))
+#define LOG_IF_WARN if(FileLogger::CanLog(FileLogger::Developer))
+
 // A replacement for wxLogMessage
 #define clLogMessage(msg) clDEBUG() << msg
-
-class WXDLLIMPEXP_CL FileLoggerNameRegistrar
-{
-public:
-    FileLoggerNameRegistrar(const wxString& name) { FileLogger::RegisterThread(wxThread::GetCurrentId(), name); }
-    ~FileLoggerNameRegistrar() { FileLogger::UnRegisterThread(wxThread::GetCurrentId()); }
-};
 
 #endif // FILELOGGER_H

@@ -23,12 +23,13 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef __fileextmanager__
-#define __fileextmanager__
+#ifndef __FILEEXTMANAGER__
+#define __FILEEXTMANAGER__
 
 #include "codelite_exports.h"
 #include "smart_ptr.h"
 #include "wxStringHash.h"
+
 #include <map>
 #include <vector>
 #include <wx/filename.h>
@@ -98,6 +99,8 @@ public:
         TypeDiff,
         TypePatch,
         TypeJSON,
+        TypeMarkdown,
+        TypeDart,
         TypeLast,
     };
 
@@ -151,6 +154,10 @@ public:
      * @brief attempt to autodetect the file type by examining its content
      */
     static bool AutoDetectByContent(const wxString& filename, FileExtManager::FileType& fileType);
+    /**
+     * @brief given input string, return the content type
+     */
+    static bool GetContentType(const wxString& string_content, FileExtManager::FileType& fileType);
 
     /**
      * @brief return the file type only by checking its extension
@@ -160,6 +167,18 @@ public:
         return GetTypeFromExtension(wxFileName(filename));
     }
     static FileExtManager::FileType GetTypeFromExtension(const wxFileName& filename);
+
+    /**
+     * @brief return map of all supported file types
+     * the returned map contains pairs of file extension -> FileType enumerator
+     */
+    static std::unordered_map<wxString, FileExtManager::FileType> GetAllSupportedFileTypes();
+    /**
+     * @brief return map of file types grouped by languages
+     */
+    static std::unordered_map<wxString, std::vector<FileExtManager::FileType>> GetLanguageBundles();
+
+    static wxString GetLanguageFromType(FileExtManager::FileType file_type);
 };
 
 #endif // __fileextmanager__

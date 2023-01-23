@@ -73,6 +73,17 @@ public:
                     const wxString& confToBuild = wxEmptyString);
 
     /**
+     * @brief replace all file related macros $(CurrentFile*)
+     * taking into consideration remote/local paths
+     */
+    wxString ExpandFileMacros(const wxString& expression, const wxString& filepath);
+
+    /**
+     * @brief return true if macroname can be resolved as CodeLite internal macro
+     */
+    bool IsCodeLiteMacro(const wxString& macroname) const;
+
+    /**
      * @brief same as above, but don't apply environment variables
      */
     wxString ExpandNoEnv(const wxString& expression, const wxString& project,

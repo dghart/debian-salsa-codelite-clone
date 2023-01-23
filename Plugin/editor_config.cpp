@@ -30,6 +30,7 @@
 #include "dirtraverser.h"
 #include "drawingutils.h"
 #include "event_notifier.h"
+#include "file_logger.h"
 #include "globals.h"
 #include "precompiled_header.h"
 #include "workspace.h"
@@ -71,9 +72,9 @@ EditorConfig::~EditorConfig() { wxDELETE(m_doc); }
 bool EditorConfig::DoLoadDefaultSettings()
 {
     // try to load the default settings
-    m_fileName = wxFileName(m_installDir + wxT("/config/codelite.xml.default"));
-    m_fileName.MakeAbsolute();
-
+    m_fileName = wxFileName(clStandardPaths::Get().GetDataDir(), "codelite.xml.default");
+    m_fileName.AppendDir("config");
+    clSYSTEM() << "Loading default config:" << m_fileName << endl;
     if(!m_fileName.FileExists()) {
         return false;
     }
@@ -101,6 +102,7 @@ bool EditorConfig::Load()
     bool loadSuccess(false);
 
     if(!m_fileName.FileExists()) {
+        clSYSTEM() << "User configuration file:" << m_fileName << "does not exist. Loading defaults" << endl;
         loadSuccess = DoLoadDefaultSettings();
 
         if(loadSuccess) {
@@ -110,6 +112,7 @@ bool EditorConfig::Load()
 
     } else {
         userSettingsLoaded = true;
+        clSYSTEM() << "Found user configuration file:" << m_fileName << endl;
         loadSuccess = m_doc->Load(m_fileName.GetFullPath());
     }
 
@@ -119,7 +122,7 @@ bool EditorConfig::Load()
 
     // Check the codelite-version for this file
     wxString version;
-    bool found = m_doc->GetRoot()->GetPropVal(wxT("Version"), &version);
+    bool found = m_doc->GetRoot()->GetAttribute(wxT("Version"), &version);
     if(userSettingsLoaded) {
         if(!found || (found && version != this->m_version)) {
             if(DoLoadDefaultSettings() == false) {
@@ -221,7 +224,7 @@ void EditorConfig::SetTagsDatabase(const wxString& dbName)
     } else {
         // create new node
         node = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, nodeName);
-        node->AddProperty(wxT("Path"), dbName);
+        node->AddAttribute(wxT("Path"), dbName);
         m_doc->GetRoot()->AddChild(node);
     }
 
@@ -295,7 +298,7 @@ void EditorConfig::SetRecentItems(const wxArrayString& files, const wxString& no
     m_doc->GetRoot()->AddChild(node);
     for(size_t i = 0; i < files.GetCount(); i++) {
         wxXmlNode* child = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, wxT("File"));
-        child->AddProperty(wxT("Name"), files.Item(i));
+        child->AddAttribute(wxT("Name"), files.Item(i));
         node->AddChild(child);
     }
 

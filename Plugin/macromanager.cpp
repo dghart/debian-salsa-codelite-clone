@@ -34,6 +34,7 @@
 #include "imanager.h"
 #include "project.h"
 #include "workspace.h"
+#include "wxStringHash.h"
 
 #include <wx/regex.h>
 
@@ -148,6 +149,58 @@ bool MacroManager::FindVariable(const wxString& inString, wxString& name, wxStri
     return false;
 }
 
+namespace
+{
+// the below list are macros supported by CodeLite
+const std::unordered_set<wxString> CODELITE_MACROS = {
+    "WorkspaceName",
+    "WorkspaceConfiguration",
+    "WorkspacePath",
+    "OutputDirectory",
+    "ProjectOutputFile",
+    "OutputFile",
+    "ProjectWorkingDirectory",
+    "ProjectRunWorkingDirectory",
+    "ProjectPath",
+    "ProjectName",
+    "IntermediateDirectory",
+    "ConfigurationName",
+    "OutDir",
+    "ProjectFiles",
+    "ProjectFilesAbs",
+    "CurrentFileName",
+    "CurrentFilePath",
+    "CurrentFileExt",
+    "CurrentFileFullName",
+    "CurrentFileFullPath",
+    "CurrentFileRelPath",
+    "CurrentSelection",
+    "CurrentSelectionRange",
+    "Program",
+    "User",
+    "Date",
+    "CodeLitePath",
+    "CC",
+    "CFLAGS",
+    "CXX",
+    "CXXFLAGS",
+    "LDFLAGS",
+    "AS",
+    "ASFLAGS",
+    "RES",
+    "RESFLAGS",
+    "AR",
+    "MAKE",
+    "IncludePath",
+    "LibraryPath",
+    "ResourcePath",
+    "LinkLibraries",
+    "SSH_AccountName",
+    "SSH_Host",
+    "SSH_User",
+};
+} // namespace
+
 wxString MacroManager::ExpandNoEnv(const wxString& expression, const wxString& project, const wxString& confToBuild)
 {
     return DoExpand(expression, NULL, project, false, confToBuild);
@@ -158,7 +211,6 @@ wxString MacroManager::DoExpand(const wxString& expression, IManager* manager, c
 {
     wxString expandedString(expression);
     clCxxWorkspace* workspace = nullptr;
-    // IWorkspace* workspace = clWorkspaceManager::Get().IsWorkspaceOpened();
 
     if(!manager) {
         manager = clGetManager();
@@ -167,21 +219,39 @@ wxString MacroManager::DoExpand(const wxString& expression, IManager* manager, c
     wxString wspName;
     wxString wspConfig;
     wxString wspPath;
+    wxString program_to_run;
+
+    // ssh macros
+    wxString ssh_host;
+    wxString account_name;
+    wxString ssh_user;
+
+    auto w = clWorkspaceManager::Get().GetWorkspace();
+    if(w && w->IsRemote()) {
+        wxString ssh_account = w->GetSshAccount();
+        auto account = SSHAccountInfo::LoadAccount(ssh_account);
+        ssh_host = account.GetHost();
+        account_name = ssh_account;
+        ssh_user = account.GetUsername();
+    }
 
     if(clCxxWorkspaceST::Get()->IsOpen()) {
         wspName = clCxxWorkspaceST::Get()->GetName();
         wspConfig = clCxxWorkspaceST::Get()->GetSelectedConfig()
                         ? clCxxWorkspaceST::Get()->GetSelectedConfig()->GetName()
                         : wxString();
-
-        wspPath = clCxxWorkspaceST::Get()->GetFileName().GetPath();
+        wspPath = clCxxWorkspaceST::Get()->GetDir();
         workspace = clCxxWorkspaceST::Get();
     } else if(clFileSystemWorkspace::Get().IsOpen()) {
         wspName = clFileSystemWorkspace::Get().GetName();
-        wspConfig = clFileSystemWorkspace::Get().GetSettings().GetSelectedConfig()
-                        ? clFileSystemWorkspace::Get().GetSettings().GetSelectedConfig()->GetName()
-                        : wxString();
-        wspPath = clFileSystemWorkspace::Get().GetFileName().GetPath();
+        if(clFileSystemWorkspace::Get().GetSettings().GetSelectedConfig()) {
+            program_to_run = clFileSystemWorkspace::Get().GetSettings().GetSelectedConfig()->GetExecutable();
+            wspConfig = clFileSystemWorkspace::Get().GetSettings().GetSelectedConfig()->GetName();
+        }
+        wspPath = clFileSystemWorkspace::Get().GetDir();
+    } else if(clWorkspaceManager::Get().IsWorkspaceOpened()) {
+        wspPath = clWorkspaceManager::Get().GetWorkspace()->GetDir();
+        wspName = clWorkspaceManager::Get().GetWorkspace()->GetName();
     }
 
     size_t retries = 0;
@@ -192,12 +262,12 @@ wxString MacroManager::DoExpand(const wxString& expression, IManager* manager, c
         expandedString.Replace("$(WorkspaceName)", wspName);
         expandedString.Replace("$(WorkspaceConfiguration)", wspConfig);
         expandedString.Replace("$(WorkspacePath)", wspPath);
+
         if(workspace) {
             ProjectPtr proj = workspace->GetProject(project);
             if(proj) {
                 wxString prjBuildWd;
                 wxString prjRunWd;
-
                 wxString project_name(proj->GetName());
 
                 // make sure that the project name does not contain any spaces
@@ -210,6 +280,7 @@ wxString MacroManager::DoExpand(const wxString& expression, IManager* manager, c
                     expandedString.Replace("$(ProjectOutputFile)", bldConf->GetOutputFileName());
                     // An alias
                     expandedString.Replace("$(OutputFile)", bldConf->GetOutputFileName());
+                    expandedString.Replace("$(Program)", bldConf->GetCommand());
 
                     // When custom build project, use the working directory set in the
                     // custom build tab, otherwise use the project file's path
@@ -229,7 +300,6 @@ wxString MacroManager::DoExpand(const wxString& expression, IManager* manager, c
                     expandedString.Replace("$(OutDir)", bldConf->GetIntermediateDirectory());
 
                     // Compiler-related variables
-
                     wxString cFlags = bldConf->GetCCompileOptions();
                     cFlags.Replace(";", " ");
                     expandedString.Replace("$(CC)", bldConf->GetCompiler()->GetTool("CC"));
@@ -274,18 +344,32 @@ wxString MacroManager::DoExpand(const wxString& expression, IManager* manager, c
             }
         }
 
+        if(!program_to_run.empty()) {
+            expandedString.Replace("$(Program)", program_to_run);
+        }
+
         if(manager) {
             IEditor* editor = manager->GetActiveEditor();
             if(editor) {
-                wxFileName fn(editor->GetFileName());
+                wxFileName fn(editor->GetRemotePathOrLocal());
 
                 expandedString.Replace("$(CurrentFileName)", fn.GetName());
 
                 wxString fpath(fn.GetPath());
+
+                // build the relative path
+                wxString rel_path = fn.GetFullPath();
+                if(w) {
+                    wxFileName _f(fn);
+                    _f.MakeRelativeTo(w->GetDir());
+                    rel_path = _f.GetFullPath(w->IsRemote() ? wxPATH_UNIX : wxPATH_NATIVE);
+                }
+
                 fpath.Replace("\\", "/");
                 expandedString.Replace("$(CurrentFilePath)", fpath);
                 expandedString.Replace("$(CurrentFileExt)", fn.GetExt());
                 expandedString.Replace("$(CurrentFileFullName)", fn.GetFullName());
+                expandedString.Replace("$(CurrentFileRelPath)", rel_path);
 
                 wxString ffullpath(fn.GetFullPath());
                 ffullpath.Replace("\\", "/");
@@ -305,6 +389,11 @@ wxString MacroManager::DoExpand(const wxString& expression, IManager* manager, c
         expandedString.Replace("$(User)", wxGetUserName());
         expandedString.Replace("$(Date)", now.FormatDate());
 
+        // ssh related
+        expandedString.Replace("$(SSH_AccountName)", account_name);
+        expandedString.Replace("$(SSH_Host)", ssh_host);
+        expandedString.Replace("$(SSH_User)", ssh_user);
+
         if(manager && applyEnv) {
             expandedString.Replace("$(CodeLitePath)", manager->GetInstallDirectory());
 
@@ -316,4 +405,42 @@ wxString MacroManager::DoExpand(const wxString& expression, IManager* manager, c
         }
     }
     return expandedString;
+}
+
+bool MacroManager::IsCodeLiteMacro(const wxString& macroname) const { return CODELITE_MACROS.count(macroname) != 0; }
+
+wxString MacroManager::ExpandFileMacros(const wxString& expression, const wxString& filepath)
+{
+    wxString wsp_dir;
+    bool is_remote = false;
+    auto workspace = clWorkspaceManager::Get().GetWorkspace();
+    if(workspace) {
+        is_remote = workspace->IsRemote();
+        wsp_dir = workspace->GetDir();
+    }
+
+    // replace file macros
+    wxString filepath_relative;
+    wxString fullname;
+    wxString filedir;
+    wxString fullpath = filepath;
+
+    wxFileName fn{ filepath };
+    if(!wsp_dir.empty()) {
+        fn.MakeRelativeTo(wsp_dir);
+    }
+
+    filepath_relative = fn.GetFullPath(is_remote ? wxPATH_UNIX : wxPATH_NATIVE);
+    fullname = fn.GetFullName();
+    filedir = fn.GetPath(is_remote ? wxPATH_UNIX : wxPATH_NATIVE);
+
+    EnvSetter env;
+    wxString tmp_expr = expression;
+    tmp_expr.Replace("$(CurrentFileName)", fn.GetName());
+    tmp_expr.Replace("$(CurrentFilePath)", filedir);
+    tmp_expr.Replace("$(CurrentFileExt)", fn.GetExt());
+    tmp_expr.Replace("$(CurrentFileFullName)", fullname);
+    tmp_expr.Replace("$(CurrentFileFullPath)", fullpath);
+    tmp_expr.Replace("$(CurrentFileRelPath)", filepath_relative);
+    return tmp_expr;
 }

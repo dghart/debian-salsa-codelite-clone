@@ -1,5 +1,6 @@
 #include "clSystemSettings.h"
 
+#include "ColoursAndFontsManager.h"
 #include "cl_config.h"
 #include "codelite_events.h"
 #include "drawingutils.h"
@@ -22,7 +23,7 @@ wxColour clSystemSettings::panel_face;
 #define IS_MSW 1
 #define IS_MAC 0
 #define IS_GTK 0
-#elif defined(__WXMAC__)
+#elif defined(__WXOSX__)
 #define IS_MSW 0
 #define IS_MAC 1
 #define IS_GTK 0
@@ -73,7 +74,15 @@ clSystemSettings::~clSystemSettings() {}
 
 wxColour clSystemSettings::GetColour(int index)
 {
-    if(m_useCustomColours) {
+#ifdef __WXOSX__
+    if(!panel_face.IsOk()) {
+        wxDialog* __p = new wxDialog(nullptr, wxID_ANY, "", wxPoint(-1000, -1000), wxSize(1, 1));
+        panel_face = __p->GetBackgroundColour();
+        wxDELETE(__p);
+    }
+#endif
+
+    if(!IS_MAC && !IS_MSW && m_useCustomColours) {
         bool is_dark = DrawingUtils::IsDark(m_customColours.GetBgColour());
 
         if(index == wxSYS_COLOUR_TOOLBAR) {
@@ -101,6 +110,17 @@ wxColour clSystemSettings::GetColour(int index)
             return wxSystemSettings::GetColour((wxSystemColour)index);
         }
     } else {
+#ifdef __WXOSX__
+        switch(index) {
+        case wxSYS_COLOUR_TOOLBAR:
+        case wxSYS_COLOUR_3DFACE:
+            return panel_face;
+        case wxSYS_COLOUR_TOOLBARTEXT:
+            return wxSystemSettings::GetColour(wxSYS_COLOUR_MENUTEXT);
+        default:
+            return wxSystemSettings::GetColour((wxSystemColour)index);
+        }
+#else
         bool is_dark = DrawingUtils::IsDark(wxSYS_COLOUR_3DFACE);
         wxColour bg_colur = wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
 #ifdef __WXGTK__
@@ -127,6 +147,7 @@ wxColour clSystemSettings::GetColour(int index)
         } else {
             return wxSystemSettings::GetColour((wxSystemColour)index);
         }
+#endif
     }
 }
 
@@ -173,11 +194,15 @@ void clSystemSettings::DoColourChangedEvent()
 wxColour clSystemSettings::GetDefaultPanelColour()
 {
     wxColour panel_colour;
+#ifdef __WXMSW__
+    panel_colour = GetColour(wxSYS_COLOUR_3DFACE);
+#else
     panel_colour = GetColour(IS_GTK ? wxSYS_COLOUR_WINDOW : wxSYS_COLOUR_3DFACE);
 #ifdef __WXGTK__
     if(!m_useCustomColours && !DrawingUtils::IsDark(panel_colour)) {
         panel_colour = panel_colour.ChangeLightness(95);
     }
+#endif
 #endif
     return panel_colour;
 }
@@ -197,3 +222,11 @@ void clSystemSettings::OnAppActivated(wxActivateEvent& event)
 }
 
 void clSystemSettings::SampleColoursFromControls() {}
+
+bool clSystemSettings::IsLexerThemeDark()
+{
+    auto lexer = ColoursAndFontsManager::Get().GetLexer("text");
+    return lexer && lexer->IsDark();
+}
+
+bool clSystemSettings::IsDark() { return DrawingUtils::IsDark(GetDefaultPanelColour()); }

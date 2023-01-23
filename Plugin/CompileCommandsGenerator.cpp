@@ -56,7 +56,7 @@ void CompileCommandsGenerator::OnProcessTeraminated(clProcessEvent& event)
 
     static std::unordered_map<wxString, CheckSum_t> m_checksumCache;
 
-    bool generateCompileCommands = false;
+    bool generateCompileCommands = true;
     generateCompileCommands = clConfig::Get().Read(wxString("GenerateCompileCommands"), generateCompileCommands);
 
     // Process the compile_flags.txt files starting from the "compile_commands.json" root folder
@@ -135,13 +135,13 @@ void CompileCommandsGenerator::GenerateCompileCommands()
     command << codeliteMake.GetFullPath();
     ::WrapWithQuotes(command);
 
-    wxString workspaceFile = clCxxWorkspaceST::Get()->GetFileName().GetFullPath();
+    wxString workspaceFile = clCxxWorkspaceST::Get()->GetFileName();
     ::WrapWithQuotes(workspaceFile);
 
     wxString configName =
         clCxxWorkspaceST::Get()->GetSelectedConfig() ? clCxxWorkspaceST::Get()->GetSelectedConfig()->GetName() : "";
 
-    bool generateCompileCommands = false;
+    bool generateCompileCommands = true;
     generateCompileCommands = clConfig::Get().Read(wxString("GenerateCompileCommands"), generateCompileCommands);
 
     command << " --workspace=" << workspaceFile;

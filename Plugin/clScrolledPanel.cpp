@@ -13,13 +13,24 @@
 #endif
 
 clScrolledPanel::clScrolledPanel(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
-    : wxWindow(parent, id, pos, size, style)
 {
+    clScrolledPanel::Create(parent, id, pos, size, style);
     DoInitialize();
 }
 
 bool clScrolledPanel::Create(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
 {
+#if defined(__WXMSW__)
+    // avoid assert
+    if(wxSystemSettings::GetAppearance().IsDark()) {
+        if(style & wxBORDER_STATIC) {
+            style &= ~wxBORDER_STATIC;
+        }
+    } else {
+        style &= ~wxBORDER_MASK;
+        style |= wxBORDER_STATIC;
+    }
+#endif
     if(!wxWindow::Create(parent, id, pos, size, style)) {
         return false;
     }
@@ -84,7 +95,9 @@ void clScrolledPanel::DoInitialize()
         }
     });
 #endif
-    m_tmpBmp = wxBitmap(1, 1);
+
+    // use scaling factor
+    m_tmpBmp.CreateWithDIPSize(1, 1, GetDPIScaleFactor());
     m_memDC = new wxMemoryDC(m_tmpBmp);
     m_gcdc = new wxGCDC();
     DrawingUtils::GetGCDC(*m_memDC, *m_gcdc);
@@ -239,11 +252,14 @@ void clScrolledPanel::OnCharHook(wxKeyEvent& event)
     wxKeyEvent keyDown = event;
     keyDown.SetEventType(wxEVT_KEY_DOWN);
     if(DoKeyDown(keyDown)) {
+        // event was handled. Stop processing it
+        event.Skip(false);
         return;
     }
 
     // Always process the HOME/END buttons
     // The following can be processed only once
+    event.Skip(false);
     if(event.GetEventObject() == this) {
         if(event.GetKeyCode() == WXK_HOME) {
             ScrollRows(0, wxUP);
@@ -257,7 +273,13 @@ void clScrolledPanel::OnCharHook(wxKeyEvent& event)
             ScrollRows(GetPageSize(), wxUP);
         } else if(event.GetKeyCode() == WXK_PAGEDOWN) {
             ScrollRows(GetPageSize(), wxDOWN);
+        } else {
+            // propogate the event (i.e. we did not handle it here)
+            event.Skip();
         }
+    } else {
+        // propogate the event (i.e. we did not handle it here)
+        event.Skip();
     }
 }
 
@@ -378,6 +400,9 @@ wxFont clScrolledPanel::GetDefaultFont()
     int pointSize = f.GetPointSize() * ratio;
     f.SetPointSize(pointSize);
 #endif
+#elif defined(__WXMAC__)
+    float pointSize = f.GetFractionalPointSize() * 1.2;
+    f.SetFractionalPointSize(pointSize);
 #endif
     return f;
 }
@@ -388,9 +413,9 @@ void clScrolledPanel::DoPositionVScrollbar()
     wxSize vsbSize = m_vsb->GetSize();
 
     int height = clientRect.GetHeight();
-    if(m_hsb && m_hsb->IsShown()) {
-        height -= m_hsb->GetSize().GetHeight();
-    }
+    // if(m_hsb && m_hsb->IsShown()) {
+    //     height -= m_hsb->GetSize().GetHeight();
+    // }
     int width = vsbSize.GetWidth();
     int x = clientRect.GetWidth() - vsbSize.GetWidth();
     int y = 0;

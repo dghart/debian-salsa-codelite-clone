@@ -110,6 +110,7 @@ public:
     wxString GetProjectFromFile(const wxFileName& filename) const override;
     wxString GetFilesMask() const override;
     void SetProjectActive(const wxString& project) override;
+    wxString GetDebuggerName() const override;
 
     NodeJSWorkspace(bool dummy);
     virtual ~NodeJSWorkspace();
@@ -161,7 +162,8 @@ public:
     /**
      * @brief as defined by IWorkspace
      */
-    wxFileName GetFileName() const override { return GetFilename(); }
+    wxString GetFileName() const override { return GetFilename().GetFullPath(); }
+    wxString GetDir() const override { return GetFilename().GetPath(); }
     void SetFolders(const wxArrayString& folders) { this->m_folders = folders; }
     const wxArrayString& GetFolders() const { return m_folders; }
     wxArrayString& GetFolders() { return m_folders; }

@@ -145,6 +145,10 @@
 							"m_label":	"Style:",
 							"m_value":	""
 						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
+						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
 							"m_selection":	0,
@@ -166,7 +170,7 @@
 								}, {
 									"type":	"string",
 									"m_label":	"Size:",
-									"m_value":	"500,300"
+									"m_value":	"-1,-1"
 								}, {
 									"type":	"string",
 									"m_label":	"Minimum Size:",
@@ -320,6 +324,10 @@
 													"m_label":	"Style:",
 													"m_value":	""
 												}, {
+													"type":	"bool",
+													"m_label":	"Keep as a class member",
+													"m_value":	false
+												}, {
 													"type":	"choice",
 													"m_label":	"Orientation:",
 													"m_selection":	0,
@@ -393,7 +401,7 @@
 														}, {
 															"type":	"multi-string",
 															"m_label":	"Label:",
-															"m_value":	"CodeLite IDE, an open source, C/C++/PHP and JavaScript IDE"
+															"m_value":	"CodeLite, a free, open source, C/C++/Rust/Python/PHP and JavaScript IDE"
 														}, {
 															"type":	"string",
 															"m_label":	"Wrap:",
@@ -488,6 +496,10 @@
 																	"m_label":	"Style:",
 																	"m_value":	""
 																}, {
+																	"type":	"bool",
+																	"m_label":	"Keep as a class member",
+																	"m_value":	false
+																}, {
 																	"type":	"choice",
 																	"m_label":	"Orientation:",
 																	"m_selection":	0,
@@ -514,6 +526,10 @@
 																			"type":	"string",
 																			"m_label":	"Style:",
 																			"m_value":	""
+																		}, {
+																			"type":	"bool",
+																			"m_label":	"Keep as a class member",
+																			"m_value":	false
 																		}, {
 																			"type":	"string",
 																			"m_label":	"# Columns:",
@@ -682,7 +698,7 @@
 																				}, {
 																					"type":	"multi-string",
 																					"m_label":	"Label:",
-																					"m_value":	"2007 - 2022, by Eran Ifrah"
+																					"m_value":	"2007 - 2023, by Eran Ifrah"
 																				}, {
 																					"type":	"string",
 																					"m_label":	"Wrap:",
@@ -1110,6 +1126,10 @@
 													"m_label":	"Style:",
 													"m_value":	""
 												}, {
+													"type":	"bool",
+													"m_label":	"Keep as a class member",
+													"m_value":	false
+												}, {
 													"type":	"choice",
 													"m_label":	"Orientation:",
 													"m_selection":	0,
@@ -1122,7 +1142,7 @@
 													"border":	5,
 													"gbSpan":	"1,1",
 													"gbPosition":	"0,0",
-													"m_styles":	[],
+													"m_styles":	["wxTRANSPARENT_WINDOW", "wxBORDER_SIMPLE"],
 													"m_sizerFlags":	["wxEXPAND"],
 													"m_properties":	[{
 															"type":	"winid",
@@ -1131,7 +1151,7 @@
 														}, {
 															"type":	"string",
 															"m_label":	"Size:",
-															"m_value":	"-1,-1"
+															"m_value":	"300,200"
 														}, {
 															"type":	"string",
 															"m_label":	"Minimum Size:",
@@ -1159,11 +1179,11 @@
 														}, {
 															"type":	"string",
 															"m_label":	"Class Name:",
-															"m_value":	""
+															"m_value":	"clThemedSTC"
 														}, {
 															"type":	"string",
 															"m_label":	"Include File:",
-															"m_value":	""
+															"m_value":	"clThemedSTC.hpp"
 														}, {
 															"type":	"string",
 															"m_label":	"Style:",
@@ -1340,6 +1360,10 @@
 													"m_label":	"Style:",
 													"m_value":	""
 												}, {
+													"type":	"bool",
+													"m_label":	"Keep as a class member",
+													"m_value":	false
+												}, {
 													"type":	"choice",
 													"m_label":	"Orientation:",
 													"m_selection":	0,
@@ -1352,7 +1376,7 @@
 													"border":	5,
 													"gbSpan":	"1,1",
 													"gbPosition":	"0,0",
-													"m_styles":	[],
+													"m_styles":	["wxTRANSPARENT_WINDOW", "wxBORDER_SIMPLE"],
 													"m_sizerFlags":	["wxEXPAND"],
 													"m_properties":	[{
 															"type":	"winid",
@@ -1389,11 +1413,11 @@
 														}, {
 															"type":	"string",
 															"m_label":	"Class Name:",
-															"m_value":	""
+															"m_value":	"clThemedSTC"
 														}, {
 															"type":	"string",
 															"m_label":	"Include File:",
-															"m_value":	""
+															"m_value":	"clThemedSTC.hpp"
 														}, {
 															"type":	"string",
 															"m_label":	"Style:",

@@ -24,11 +24,15 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "build_config.h"
 
+#include "StringUtils.h"
 #include "build_settings_config.h"
 #include "buildmanager.h"
 #include "debuggermanager.h"
 #include "editor_config.h"
+#include "environmentconfig.h"
+#include "file_logger.h"
 #include "globals.h"
+#include "macromanager.h"
 #include "macros.h"
 #include "project.h"
 #include "wx_xml_compatibility.h"
@@ -220,7 +224,7 @@ BuildConfig::BuildConfig(wxXmlNode* node)
                 } else if(child->GetName() == "MakefileGenerationCommand") {
                     m_makeGenerationCommand = child->GetNodeContent();
                 } else if(child->GetName() == "Target") {
-                    wxString target_name = child->GetPropVal("Name", "");
+                    wxString target_name = child->GetAttribute("Name", "");
                     wxString target_cmd = child->GetNodeContent();
                     if(target_name.IsEmpty() == false) {
                         m_customTargets[target_name] = target_cmd;
@@ -325,61 +329,61 @@ wxXmlNode* BuildConfig::ToXml() const
     // Create the common nodes
     wxXmlNode* node = m_commonConfig.ToXml();
 
-    node->AddProperty("Name", m_name);
-    node->AddProperty("CompilerType", m_compilerType);
-    node->AddProperty("DebuggerType", m_debuggerType);
-    node->AddProperty("Type", m_projectType);
-    node->AddProperty("BuildCmpWithGlobalSettings", m_buildCmpWithGlobalSettings);
-    node->AddProperty("BuildLnkWithGlobalSettings", m_buildLnkWithGlobalSettings);
-    node->AddProperty("BuildResWithGlobalSettings", m_buildResWithGlobalSettings);
+    node->AddAttribute("Name", m_name);
+    node->AddAttribute("CompilerType", m_compilerType);
+    node->AddAttribute("DebuggerType", m_debuggerType);
+    node->AddAttribute("Type", m_projectType);
+    node->AddAttribute("BuildCmpWithGlobalSettings", m_buildCmpWithGlobalSettings);
+    node->AddAttribute("BuildLnkWithGlobalSettings", m_buildLnkWithGlobalSettings);
+    node->AddAttribute("BuildResWithGlobalSettings", m_buildResWithGlobalSettings);
 
     wxXmlNode* compile = XmlUtils::FindFirstByTagName(node, "Compiler");
     if(compile) {
-        compile->AddProperty("Required", BoolToString(m_compilerRequired));
-        compile->AddProperty("PreCompiledHeader", m_precompiledHeader);
-        compile->AddProperty("PCHInCommandLine", BoolToString(m_pchInCommandLine));
-        compile->AddProperty("PCHFlags", m_pchCompileFlags);
-        compile->AddProperty("PCHFlagsPolicy", wxString() << (int)m_pchPolicy);
+        compile->AddAttribute("Required", BoolToString(m_compilerRequired));
+        compile->AddAttribute("PreCompiledHeader", m_precompiledHeader);
+        compile->AddAttribute("PCHInCommandLine", BoolToString(m_pchInCommandLine));
+        compile->AddAttribute("PCHFlags", m_pchCompileFlags);
+        compile->AddAttribute("PCHFlagsPolicy", wxString() << (int)m_pchPolicy);
     }
 
     wxXmlNode* link = XmlUtils::FindFirstByTagName(node, "Linker");
     if(link) {
-        link->AddProperty("Required", BoolToString(m_linkerRequired));
+        link->AddAttribute("Required", BoolToString(m_linkerRequired));
     }
 
     wxXmlNode* resCmp = XmlUtils::FindFirstByTagName(node, "ResourceCompiler");
     if(resCmp) {
-        resCmp->AddProperty("Required", BoolToString(m_isResCmpNeeded));
+        resCmp->AddAttribute("Required", BoolToString(m_isResCmpNeeded));
     }
 
     wxXmlNode* general = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, "General");
-    general->AddProperty("OutputFile", m_outputFile);
-    general->AddProperty("IntermediateDirectory", m_intermediateDirectory);
-    general->AddProperty("Command", m_command);
-    general->AddProperty("CommandArguments", m_commandArguments);
-    general->AddProperty("UseSeparateDebugArgs", BoolToString(m_useSeparateDebugArgs));
-    general->AddProperty("DebugArguments", m_debugArgs);
-    general->AddProperty("WorkingDirectory", m_workingDirectory);
-    general->AddProperty("PauseExecWhenProcTerminates", BoolToString(m_pauseWhenExecEnds));
-    general->AddProperty("IsGUIProgram", BoolToString(m_isGUIProgram));
-    general->AddProperty("IsEnabled", BoolToString(m_isProjectEnabled));
+    general->AddAttribute("OutputFile", m_outputFile);
+    general->AddAttribute("IntermediateDirectory", m_intermediateDirectory);
+    general->AddAttribute("Command", m_command);
+    general->AddAttribute("CommandArguments", m_commandArguments);
+    general->AddAttribute("UseSeparateDebugArgs", BoolToString(m_useSeparateDebugArgs));
+    general->AddAttribute("DebugArguments", m_debugArgs);
+    general->AddAttribute("WorkingDirectory", m_workingDirectory);
+    general->AddAttribute("PauseExecWhenProcTerminates", BoolToString(m_pauseWhenExecEnds));
+    general->AddAttribute("IsGUIProgram", BoolToString(m_isGUIProgram));
+    general->AddAttribute("IsEnabled", BoolToString(m_isProjectEnabled));
     node->AddChild(general);
 
     wxXmlNode* buildSystem = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, "BuildSystem");
-    buildSystem->AddProperty("Name", m_buildSystem);
+    buildSystem->AddAttribute("Name", m_buildSystem);
     XmlUtils::SetNodeContent(buildSystem, m_buildSystemArguments);
     node->AddChild(buildSystem);
 
     wxXmlNode* debugger = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, "Debugger");
-    debugger->AddProperty("IsRemote", BoolToString(m_isDbgRemoteTarget));
-    debugger->AddProperty("RemoteHostName", m_dbgHostName);
-    debugger->AddProperty("RemoteHostPort", m_dbgHostPort);
-    debugger->AddProperty("DebuggerPath", m_debuggerPath);
-    debugger->AddProperty("IsExtended", BoolToString(m_isDbgRemoteExtended));
+    debugger->AddAttribute("IsRemote", BoolToString(m_isDbgRemoteTarget));
+    debugger->AddAttribute("RemoteHostName", m_dbgHostName);
+    debugger->AddAttribute("RemoteHostPort", m_dbgHostPort);
+    debugger->AddAttribute("DebuggerPath", m_debuggerPath);
+    debugger->AddAttribute("IsExtended", BoolToString(m_isDbgRemoteExtended));
 
     wxXmlNode* envNode = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, "Environment");
-    envNode->AddProperty("EnvVarSetName", GetEnvVarSet());
-    envNode->AddProperty("DbgSetName", GetDbgEnvSet());
+    envNode->AddAttribute("EnvVarSetName", GetEnvVarSet());
+    envNode->AddAttribute("DbgSetName", GetDbgEnvSet());
 
     // Add CDATA section with project environment variables
     wxXmlNode* envContent = new wxXmlNode(wxXML_CDATA_SECTION_NODE, wxEmptyString, m_envvars);
@@ -407,7 +411,7 @@ wxXmlNode* BuildConfig::ToXml() const
         }
 
         wxXmlNode* command = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, "Command");
-        command->AddProperty("Enabled", BoolToString(cmd.GetEnabled()));
+        command->AddAttribute("Enabled", BoolToString(cmd.GetEnabled()));
         XmlUtils::SetNodeContent(command, cmd.GetCommand());
         preBuild->AddChild(command);
     }
@@ -422,7 +426,7 @@ wxXmlNode* BuildConfig::ToXml() const
         }
 
         wxXmlNode* command = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, "Command");
-        command->AddProperty("Enabled", BoolToString(cmd.GetEnabled()));
+        command->AddAttribute("Enabled", BoolToString(cmd.GetEnabled()));
         XmlUtils::SetNodeContent(command, cmd.GetCommand());
         postBuild->AddChild(command);
     }
@@ -430,7 +434,7 @@ wxXmlNode* BuildConfig::ToXml() const
     // add postbuild commands
     wxXmlNode* customBuild = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, "CustomBuild");
     node->AddChild(customBuild);
-    customBuild->AddProperty("Enabled", BoolToString(m_enableCustomBuild));
+    customBuild->AddAttribute("Enabled", BoolToString(m_enableCustomBuild));
 
     // add the working directory of the custom build
     wxXmlNode* customBuildWd = new wxXmlNode(customBuild, wxXML_ELEMENT_NODE, "WorkingDirectory");
@@ -469,7 +473,7 @@ wxXmlNode* BuildConfig::ToXml() const
         wxString target_cmd = ir->second;
 
         wxXmlNode* customTarget = new wxXmlNode(customBuild, wxXML_ELEMENT_NODE, "Target");
-        customTarget->AddProperty("Name", target_name);
+        customTarget->AddAttribute("Name", target_name);
         XmlUtils::SetNodeContent(customTarget, target_cmd);
     }
 
@@ -485,8 +489,8 @@ wxXmlNode* BuildConfig::ToXml() const
     // Set the completion flags
     wxXmlNode* completion = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, "Completion");
     node->AddChild(completion);
-    completion->AddProperty("EnableCpp11", BoolToString(m_clangC11));
-    completion->AddProperty("EnableCpp14", BoolToString(m_clangC14));
+    completion->AddAttribute("EnableCpp11", BoolToString(m_clangC11));
+    completion->AddAttribute("EnableCpp14", BoolToString(m_clangC14));
 
     wxXmlNode* search_paths = new wxXmlNode(completion, wxXML_ELEMENT_NODE, "SearchPaths");
     XmlUtils::SetNodeContent(search_paths, m_ccSearchPaths);
@@ -530,3 +534,129 @@ wxString BuildConfig::GetWorkingDirectory() const { return NormalizePath(m_worki
 CompilerPtr BuildConfig::GetCompiler() const { return BuildSettingsConfigST::Get()->GetCompiler(GetCompilerType()); }
 
 BuilderPtr BuildConfig::GetBuilder() { return BuildManagerST::Get()->GetBuilder(GetBuildSystem()); }
+
+namespace
+{
+bool is_env_variable(const wxString& str, wxString* env_name)
+{
+    if(str.empty() || str[0] != '$') {
+        return false;
+    }
+    env_name->reserve(str.length());
+
+    // start from 1 to skip the prefix $
+    for(size_t i = 1; i < str.length(); ++i) {
+        wxChar ch = str[i];
+        if(ch == '(' || ch == ')' || ch == '{' || ch == '}')
+            continue;
+        env_name->Append(ch);
+    }
+    return true;
+}
+
+/**
+ * @brief expand an environment variable. use `env_map` to resolve any variables
+ * accepting value in the form of (one example):
+ * $PATH;C:\bin;$(LD_LIBRARY_PATH);${PYTHONPATH}
+ */
+wxString expand_env_variable(const wxString& value, const wxEnvVariableHashMap& env_map, const wxString& project_name,
+                             const wxString& config_name)
+{
+    // split the value into its parts
+    wxArrayString parts = wxStringTokenize(value, wxPATH_SEP, wxTOKEN_STRTOK);
+    wxString resolved;
+    for(const wxString& part : parts) {
+        wxArrayString resovled_array;
+        wxString env_name;
+        if(is_env_variable(part, &env_name)) {
+            // try the environment variables first
+            if(env_map.find(env_name) != env_map.end()) {
+                resolved << env_map.find(env_name)->second;
+            } else if(MacroManager::Instance()->IsCodeLiteMacro(env_name)) {
+                // try to resolve it using the macro manager
+                resolved << MacroManager::Instance()->ExpandNoEnv(part, project_name, config_name);
+            }
+        } else {
+            // literal
+            resolved << part;
+        }
+        resolved << wxPATH_SEP;
+    }
+    if(!resolved.empty()) {
+        resolved.RemoveLast();
+    }
+    return resolved;
+}
+
+} // namespace
+
+clEnvList_t BuildConfig::GetEnvironment(Project* project) const
+{
+    wxString envstr;
+    EvnVarList env = EnvironmentConfig::Instance()->GetSettings();
+
+    wxString config_name;
+    wxString project_name;
+    if(project) {
+        config_name = GetName();
+        project_name = project->GetName();
+    }
+
+    wxEnvVariableHashMap current_env_map;
+    ::wxGetEnvMap(&current_env_map);
+
+    // contains a list of env that are returned to the caller
+    // by default, we only return env modified within CodeLite
+    std::unordered_set<wxString> interesting_env_set;
+
+    // get the global enviroment variables (macros expnaded)
+    EnvMap envMap = env.GetVariables(env.GetActiveSet(), false, project_name, config_name);
+
+    // expand the global environments variables first
+    for(size_t i = 0; i < envMap.GetCount(); ++i) {
+        wxString key, value;
+        if(!envMap.Get(i, key, value))
+            continue;
+        value = expand_env_variable(value, current_env_map, project_name, config_name);
+        current_env_map.erase(key);
+        current_env_map.insert({ key, value });
+        interesting_env_set.insert(key);
+    }
+
+    // get the workspace environment variables
+    wxString workspace_env = clCxxWorkspaceST::Get()->GetEnvironmentVariabels();
+    {
+        auto arr = StringUtils::BuildEnvFromString(workspace_env);
+        for(auto& p : arr) {
+            wxString key = p.first;
+            wxString value = p.second;
+            value = expand_env_variable(value, current_env_map, project_name, config_name);
+            current_env_map.erase(key);
+            current_env_map.insert({ key, value });
+            interesting_env_set.insert(key);
+        }
+    }
+
+    // and finally, this configuration environment variables
+    wxString config_env = GetEnvvars();
+    {
+        auto arr = StringUtils::BuildEnvFromString(config_env);
+        for(auto& p : arr) {
+            wxString key = p.first;
+            wxString value = p.second;
+            value = expand_env_variable(value, current_env_map, project_name, config_name);
+            current_env_map.erase(key);
+            current_env_map.insert({ key, value });
+            interesting_env_set.insert(key);
+        }
+    }
+
+    // Serialize it
+    clEnvList_t result;
+    result.reserve(current_env_map.size());
+    for(const auto& vt : current_env_map) {
+        if(interesting_env_set.count(vt.first))
+            result.push_back({ vt.first, vt.second });
+    }
+    return result;
+}

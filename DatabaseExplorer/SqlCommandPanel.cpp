@@ -23,8 +23,9 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "DbViewerPanel.h"
 #include "SqlCommandPanel.h"
+
+#include "DbViewerPanel.h"
 #include "bitmap_loader.h"
 #include "clKeyboardManager.h"
 #include "clStatusBarMessage.h"
@@ -35,6 +36,7 @@
 #include "globals.h"
 #include "imanager.h"
 #include "lexer_configuration.h"
+
 #include <algorithm>
 #include <set>
 #include <wx/busyinfo.h>
@@ -68,21 +70,23 @@ SQLCommandPanel::SQLCommandPanel(wxWindow* parent, IDbAdapter* dbAdapter, const 
         lexerSQL->Apply(m_scintillaSQL, true);
 
         // determine how an operator and a comment are styled
-        auto lexerProperties = lexerSQL->GetLexerProperties();
-        auto operatorStyle =
-            std::find_if(lexerProperties.begin(), lexerProperties.end(), StyleProperty::FindByName("Operator"));
-        auto commentStyle =
-            std::find_if(lexerProperties.begin(), lexerProperties.end(), StyleProperty::FindByName("Comment block"));
+        const auto& lexerProperties = lexerSQL->GetLexerProperties();
+        auto operatorStyle = std::find_if(lexerProperties.begin(), lexerProperties.end(),
+                                          [](const StyleProperty& prop) { return prop.GetName() == "Operator"; });
+
+        auto commentStyle = std::find_if(lexerProperties.begin(), lexerProperties.end(),
+                                         [](const StyleProperty& prop) { return prop.GetName() == "Comment block"; });
 
         if(std::end(lexerProperties) != operatorStyle) {
-            m_OperatorStyle = operatorStyle->second.GetId();
+            m_OperatorStyle = operatorStyle->GetId();
         }
         if(std::end(lexerProperties) != commentStyle) {
-            m_CommentStyle = commentStyle->second.GetId();
+            m_CommentStyle = commentStyle->GetId();
         }
     } else {
         DbViewerPanel::InitStyledTextCtrl(m_scintillaSQL);
     }
+
     m_pDbAdapter = dbAdapter;
     m_dbName = dbName;
     m_dbTable = dbTable;
@@ -95,7 +99,7 @@ SQLCommandPanel::SQLCommandPanel(wxWindow* parent, IDbAdapter* dbAdapter, const 
         GetEventHandler()->AddPendingEvent(event);
     }
 
-    m_toolbar = new clToolBar(this);
+    m_toolbar = new clToolBarGeneric(this);
     auto images = m_toolbar->GetBitmapsCreateIfNeeded();
     m_toolbar->AddTool(wxID_OPEN, _("Load SQL Script"), images->Add("file_open"));
     m_toolbar->AddTool(wxID_EXECUTE, _("Execute SQL"), images->Add("execute"));

@@ -1,42 +1,38 @@
+if(NOT APPLE)
+    find_library(LIBHUNSPELL
+                # Fedora doesn't create a hunspell->hunspell-1.3 symlink, so explicitly look for (the current) full name
+                NAMES hunspell hunspell-1.3  hunspell-1.4 hunspell-1.5 hunspell-1.6 hunspell-1.7
+                HINTS /usr/lib /usr/lib/x86_64-linux-gnu/ /usr/lib64/ ${BREW_PREFIX}/lib
+                PATH_SUFFIXES lib)
 
+    find_path(  HUNSPELL_H
+                NAMES hunspell.h
+                HINTS
+                ENV HUNSPELL_DIR
+                PATHS
+                /usr/include /usr/local/include /usr/include/hunspell /usr/local/include/hunspell ${BREW_PREFIX}/include
+                PATH_SUFFIXES include/hunspell include)
+else()
+    CL_OSX_FIND_BREW_LIB(libhunspell-1.7.0.dylib LIBHUNSPELL)
+    CL_OSX_FIND_BREW_HEADER(hunspell/hunspell.h HUNSPELL_H)
+endif()
 
-
-find_library(LIBHUNSPELL
-            # Fedora doesn't create a hunspell->hunspell-1.3 symlink, so explicitly look for (the current) full name
-            NAMES hunspell hunspell-1.3  hunspell-1.4 hunspell-1.5 hunspell-1.6 hunspell-1.7
-			if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-				HINTS /usr/lib /usr/lib/x86_64-linux-gnu/ /usr/lib64/
-			endif()
-            PATH_SUFFIXES lib)
-
-find_path(  HUNSPELL_H
-            NAMES hunspell.h
-            HINTS
-              ENV HUNSPELL_DIR
-            PATHS
-              /usr/include /usr/local/include /usr/include/hunspell /usr/local/include/hunspell
-            PATH_SUFFIXES include/hunspell include)
-
-if ( (LIBHUNSPELL STREQUAL "LIBHUNSPELL-NOTFOUND" OR HUNSPELL_H STREQUAL "HUNSPELL_H-NOTFOUND") AND NOT APPLE )
+if(LIBHUNSPELL STREQUAL "LIBHUNSPELL-NOTFOUND" OR HUNSPELL_H STREQUAL "HUNSPELL_H-NOTFOUND")
     message("    **")
     message("    ** NOTICE ** Could not locate libhunspell. SpellChecker plugin will not be build")
     message("    ** NOTICE ** Try installing libhunspell-dev package")
     message("    **")
-else ()
-
+else()
     if (UNIX AND NOT APPLE)
-        set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC" )
-        set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC" )
+        set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC" )
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC" )
     endif()
 
-    if ( APPLE )
+    if (APPLE)
         add_definitions(-fPIC)
+        include_directories(${BREW_PREFIX}/include)
     endif()
 
-    if ( APPLE)
-        set(LIBHUNSPELL ${CL_SRC_ROOT}/sdk/hunspell/lib/osx/libhunspell-1.3.0.dylib)
-        set(HUNSPELL_H ${CL_SRC_ROOT}/sdk/hunspell/include/)
-    endif()
 
     # set the plugin name here
     set( PLUGIN_NAME "SpellCheck")
@@ -89,28 +85,13 @@ else ()
 
     # Installation destination
     CL_INSTALL_PLUGIN(${PLUGIN_NAME})
+    CL_OSX_COPY_BREW_LIB(${LIBHUNSPELL} ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/)
 
-    if(APPLE)
-        install(
-          DIRECTORY ${CL_SRC_ROOT}/SpellChecker/dics
-          DESTINATION ${CMAKE_BINARY_DIR}/codelite.app/Contents/SharedSupport
-          USE_SOURCE_PERMISSIONS
-          PATTERN ".svn" EXCLUDE
-          PATTERN ".git" EXCLUDE
-        )
-
-        # Install Hunspell library
-        install(
-          FILES ${LIBHUNSPELL}
-          DESTINATION ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/
-        )
-    else()
-        install(
-          DIRECTORY ${CL_SRC_ROOT}/SpellChecker/dics
-          DESTINATION ${CL_PREFIX}/share/codelite
-          USE_SOURCE_PERMISSIONS
-          PATTERN ".svn" EXCLUDE
-          PATTERN ".git" EXCLUDE
-        )
-    endif()
+    install(
+      DIRECTORY ${CL_SRC_ROOT}/SpellChecker/dics
+      DESTINATION ${CL_RESOURCES_DIR}
+      USE_SOURCE_PERMISSIONS
+      PATTERN ".svn" EXCLUDE
+      PATTERN ".git" EXCLUDE
+    )
 endif()

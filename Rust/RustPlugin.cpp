@@ -28,6 +28,7 @@
 #include "CargoToml.hpp"
 #include "CompilerLocatorRustc.hpp"
 #include "NewFileSystemWorkspaceDialog.h"
+#include "Platform.hpp"
 #include "RustWorkspace.hpp"
 #include "asyncprocess.h"
 #include "build_settings_config.h"
@@ -89,7 +90,7 @@ RustPlugin::RustPlugin(IManager* manager)
 
 RustPlugin::~RustPlugin() {}
 
-void RustPlugin::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
+void RustPlugin::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void RustPlugin::CreatePluginMenu(wxMenu* pluginsMenu) { wxUnusedVar(pluginsMenu); }
 
@@ -128,13 +129,30 @@ void RustPlugin::OnRustWorkspaceFileCreated(clFileSystemEvent& event)
             clWARNING() << "Failed to load file:" << workspaceFile << endl;
             return;
         }
+
+        wxString cargo_exe = "cargo";
+#ifdef __WXMSW__
+        clRustLocator rust_locator;
+        if(rust_locator.Locate()) {
+            cargo_exe = rust_locator.GetRustTool("cargo");
+            ::WrapWithQuotes(cargo_exe);
+        }
+#endif
+
         auto debug = settings.GetConfig("Debug");
         if(debug) {
             clDEBUG() << "Setting project preferences..." << endl;
-            debug->SetBuildTargets({ { "build", "cargo build" }, { "clean", "cargo clean" } });
-            debug->SetExecutable("./target/debug/" + name);
+            debug->SetBuildTargets({ { "build", cargo_exe + " build --color always" },
+                                     { "clean", cargo_exe + " clean --color always" },
+                                     { "tests", cargo_exe + " test --color always" },
+                                     { "clippy", cargo_exe + " clippy --color always" } });
+            wxFileName target_exe(workspaceFile.GetPath() + "/target/debug/" + name);
+#ifdef __WXMSW__
+            target_exe.SetExt("exe");
+#endif
+            debug->SetExecutable(target_exe.GetFullPath());
             debug->SetFileExtensions(debug->GetFileExtensions() + ";*.rs;*.toml");
-
+            debug->SetCompiler("rustc");
             // set the environment variable to point to rust-gdb
             wxString env_str;
 #if !defined(__WXMSW__)
@@ -206,14 +224,16 @@ void RustPlugin::OnNewWorkspace(clCommandEvent& e)
         }
 
         EnvSetter env;
-        wxFileName cargo;
-        if(!::clFindExecutable("cargo", cargo)) {
+        wxString cargo_exe;
+        if(!ThePlatform->Which("cargo", &cargo_exe)) {
             wxMessageBox(_("Could not locate cargo in your PATH"), "CodeLite", wxICON_ERROR | wxCENTRE);
             return;
         }
 
+        ::WrapWithQuotes(cargo_exe);
+
         wxString command;
-        command << "cargo new " << dlg.GetWorkspaceName();
+        command << cargo_exe << " new " << dlg.GetWorkspaceName();
         IProcess::Ptr_t process(::CreateSyncProcess(command, IProcessCreateDefault | IProcessCreateWithHiddenConsole,
                                                     dlg.GetWorkspacePath()));
         if(!process) {
@@ -226,7 +246,8 @@ void RustPlugin::OnNewWorkspace(clCommandEvent& e)
         wxFileName cargoToml(dlg.GetWorkspacePath(), "Cargo.toml");
         cargoToml.AppendDir(dlg.GetWorkspaceName());
         if(cargoToml.FileExists()) {
-            // we successfully created a new cargo workspace, now, load it (using the standard file system workspace)
+            // we successfully created a new cargo workspace, now, load it (using the standard file system
+            // workspace)
             clFileSystemWorkspace::Get().New(cargoToml.GetPath(), cargoToml.GetDirs().Last());
         }
     }
@@ -262,6 +283,7 @@ void RustPlugin::OnBuildErrorLineClicked(clBuildEvent& event)
     // build the file path:
     // the compiler report the file in relative path to the `Cargo.toml` file
     if(!m_cargoTomlFile.FileExists()) {
+        event.Skip(true); // let others handle this
         return;
     }
 
@@ -269,6 +291,7 @@ void RustPlugin::OnBuildErrorLineClicked(clBuildEvent& event)
     strfile << wxFILE_SEP_PATH << event.GetFileName();
     wxFileName fnFile(strfile);
     if(!fnFile.FileExists()) {
+        event.Skip(true); // let others handle this
         return;
     }
 
@@ -345,16 +368,18 @@ void RustPlugin::OnWorkspaceLoaded(clWorkspaceEvent& event)
         if(cargo_toml.FileExists()) {
             m_cargoTomlFile = cargo_toml;
         } else {
-            // try one directory below
-            clFilesScanner scanner;
-            scanner.Scan(workspaceFile.GetPath(), "*.toml", wxEmptyString, wxEmptyString,
-                         [&](const wxString& path) -> bool {
-                             if(path.Contains("Cargo.toml")) {
-                                 m_cargoTomlFile = path;
-                                 return false;
-                             }
-                             return true;
-                         });
+            // We might placed our Cargo.toml in one of the children folers (1 level below)
+            // check them
+            wxArrayString dirs;
+            wxDir::GetAllFiles(workspaceFile.GetPath(), &dirs, wxEmptyString, wxDIR_DIRS | wxDIR_NO_FOLLOW);
+            for(const auto& dir : dirs) {
+                cargo_toml = wxFileName(workspaceFile.GetPath(), "Cargo.toml");
+                cargo_toml.AppendDir(dir);
+                if(cargo_toml.FileExists()) {
+                    m_cargoTomlFile = cargo_toml;
+                    break;
+                }
+            }
         }
     }
     clDEBUG() << "Cargo.toml file found:" << m_cargoTomlFile << endl;

@@ -25,6 +25,28 @@
 #include <wx/wupdlock.h>
 #include <wx/xrc/xmlres.h>
 
+namespace
+{
+bool should_colour_item_in_gray(clTreeCtrlData* entry)
+{
+    if(!entry)
+        return false;
+
+    if(FileUtils::IsHidden(entry->GetPath()))
+        return true;
+
+    if(entry->IsFolder()) {
+        // folders with CMakeCache.txt are build folders and are treated
+        // as non interesting folders
+        wxFileName cmake_cache(entry->GetPath(), "CMakeCache.txt");
+        if(cmake_cache.FileExists()) {
+            return true;
+        }
+    }
+    return false;
+}
+} // namespace
+
 clTreeCtrlPanel::clTreeCtrlPanel(wxWindow* parent)
     : clTreeCtrlPanelBase(parent)
     , m_newfileTemplate("Untitled.txt")
@@ -33,12 +55,11 @@ clTreeCtrlPanel::clTreeCtrlPanel(wxWindow* parent)
     ::MSWSetNativeTheme(GetTreeCtrl());
     GetTreeCtrl()->SetFont(DrawingUtils::GetDefaultGuiFont());
 
-    m_toolbar = new clEnhancedToolBar(this);
+    m_toolbar = new clToolBar(this);
     GetSizer()->Insert(0, m_toolbar, 0, wxEXPAND);
-    clBitmapList* images = new clBitmapList;
+    auto images = m_toolbar->GetBitmapsCreateIfNeeded();
     m_toolbar->AddTool(XRCID("link_editor"), _("Link Editor"), images->Add("link_editor"), "", wxITEM_CHECK);
     m_toolbar->AddTool(XRCID("collapse_folders"), _("Fold Tree"), images->Add("fold"), "", wxITEM_NORMAL);
-    m_toolbar->AssignBitmaps(images);
 
     Bind(
         wxEVT_TOOL,
@@ -115,6 +136,17 @@ void clTreeCtrlPanel::OnContextMenu(wxTreeEvent& event)
         menu.AppendSeparator();
         menu.Append(XRCID("tree_ctrl_open_containig_folder"), _("Open Containing Folder"));
         menu.Append(XRCID("tree_ctrl_open_shell_folder"), _("Open Shell"));
+        menu.AppendSeparator();
+        menu.Append(XRCID("copy-path"), _("Copy path"));
+        menu.Bind(
+            wxEVT_MENU,
+            [cd](wxCommandEvent& event) {
+                event.Skip();
+                CHECK_PTR_RET(cd);
+                ::CopyToClipboard(cd->GetPath());
+                clGetManager()->SetStatusMessage(_("Path copied to clipboard"));
+            },
+            XRCID("copy-path"));
 
         if(IsTopLevelFolder(item)) {
             menu.AppendSeparator();
@@ -159,6 +191,17 @@ void clTreeCtrlPanel::OnContextMenu(wxTreeEvent& event)
         menu.AppendSeparator();
         menu.Append(XRCID("tree_ctrl_open_containig_folder"), _("Open Containing Folder"));
         menu.Append(XRCID("tree_ctrl_open_shell_folder"), _("Open Shell"));
+        menu.AppendSeparator();
+        menu.Append(XRCID("copy-path"), _("Copy path"));
+        menu.Bind(
+            wxEVT_MENU,
+            [cd](wxCommandEvent& event) {
+                event.Skip();
+                CHECK_PTR_RET(cd);
+                ::CopyToClipboard(cd->GetPath());
+                clGetManager()->SetStatusMessage(_("Path copied to clipboard"));
+            },
+            XRCID("copy-path"));
 
         // Now that we added the basic menu, let the plugin
         // adjust it
@@ -315,15 +358,26 @@ wxTreeItemId clTreeCtrlPanel::DoAddFile(const wxTreeItemId& parent, const wxStri
     clTreeCtrlData* cd = new clTreeCtrlData(clTreeCtrlData::kFile);
     cd->SetPath(filename.GetFullPath());
 
-    int imgIdx = clBitmaps::Get().GetLoader()->GetMimeImageId(filename.GetFullName());
+    bool isHidden = should_colour_item_in_gray(cd);
+    int imgIdx = clBitmaps::Get().GetLoader()->GetMimeImageId(filename.GetFullName(), isHidden);
     if(imgIdx == wxNOT_FOUND) {
-        imgIdx = clBitmaps::Get().GetLoader()->GetMimeImageId(FileExtManager::TypeText);
+        imgIdx = clBitmaps::Get().GetLoader()->GetMimeImageId(FileExtManager::TypeText, isHidden);
     }
-    wxTreeItemId fileItem = GetTreeCtrl()->AppendItem(parent, filename.GetFullName(), imgIdx, imgIdx, cd);
+
+    wxString fullname = filename.GetFullName();
+    wxTreeItemId fileItem = GetTreeCtrl()->AppendItem(parent, fullname, imgIdx, imgIdx, cd);
+
     // Add this entry to the index
     if(parentData->GetIndex()) {
         parentData->GetIndex()->Add(filename.GetFullName(), fileItem);
     }
+
+    // use gray text for hidden items
+    if(isHidden) {
+        // a hidden item, use a disabled colour
+        GetTreeCtrl()->SetItemTextColour(fileItem, GetTreeCtrl()->GetColours().GetGrayText());
+    }
+
     return fileItem;
 }
 
@@ -359,9 +413,17 @@ wxTreeItemId clTreeCtrlPanel::DoAddFolder(const wxTreeItemId& parent, const wxSt
         }
     }
 
-    int imgIdx = clBitmaps::Get().GetLoader()->GetMimeImageId(FileExtManager::TypeFolder);
-    int imgOpenedIDx = clBitmaps::Get().GetLoader()->GetMimeImageId(FileExtManager::TypeFolderExpanded);
+    bool isHiddenFolder = should_colour_item_in_gray(cd);
+    int imgIdx = clBitmaps::Get().GetLoader()->GetMimeImageId(FileExtManager::TypeFolder, isHiddenFolder);
+    int imgOpenedIDx = clBitmaps::Get().GetLoader()->GetMimeImageId(FileExtManager::TypeFolderExpanded, isHiddenFolder);
+
     wxTreeItemId itemFolder = GetTreeCtrl()->AppendItem(parent, displayName, imgIdx, imgOpenedIDx, cd);
+
+    // use gray text for hidden items
+    if(isHiddenFolder) {
+        // a hidden item, use a disabled colour
+        GetTreeCtrl()->SetItemTextColour(itemFolder, GetTreeCtrl()->GetColours().GetGrayText());
+    }
 
     // Add this entry to the index
     if(parentData->GetIndex()) {
@@ -1081,7 +1143,7 @@ void clTreeCtrlPanel::OnRenameFolder(wxCommandEvent& event)
     wxFileName newFullPath(oldFullPath);
     newFullPath.RemoveLastDir();
     newFullPath.AppendDir(newName);
-    clDEBUG1() << "Renaming:" << oldFullPath.GetPath() << "->" << newFullPath.GetPath();
+    LOG_IF_TRACE { clDEBUG1() << "Renaming:" << oldFullPath.GetPath() << "->" << newFullPath.GetPath(); }
     if(::wxRename(oldFullPath.GetPath(), newFullPath.GetPath()) == 0) {
         // Rename was successful
         d->SetPath(newFullPath.GetPath());

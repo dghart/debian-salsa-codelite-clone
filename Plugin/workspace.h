@@ -65,6 +65,7 @@ public:
     bool IsProjectSupported() const override;
     wxString GetProjectFromFile(const wxFileName& filename) const override;
     void SetProjectActive(const wxString& project) override;
+    wxString GetDebuggerName() const override;
 
 public:
     typedef std::unordered_map<wxString, ProjectPtr> ProjectMap_t;
@@ -182,7 +183,9 @@ public:
      */
     void CreateCompileFlags() const;
 
-    wxFileName GetFileName() const override { return GetWorkspaceFileName(); }
+    wxString GetFileName() const override { return GetWorkspaceFileName().GetFullPath(); }
+    wxString GetDir() const override { return GetWorkspaceFileName().GetPath(); }
+
     void SetStartupDir(const wxString& startupDir) { this->m_startupDir = startupDir; }
     const wxString& GetStartupDir() const { return m_startupDir; }
 
@@ -503,6 +506,11 @@ public:
      * @brief return list of files that are exluded for a given workspace configuration
      */
     size_t GetExcludeFilesForConfig(std::vector<wxString>& files, const wxString& workspaceConfigName = "");
+
+    /**
+     * @brief return the workspce environment
+     */
+    clEnvList_t GetEnvironment() const override;
 
 private:
     /**

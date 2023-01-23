@@ -1,9 +1,14 @@
-#include "CompilerLocatorCLANG.h"
 #include "LSPClangdDetector.hpp"
+
+#include "CompilerLocatorCLANG.h"
+#include "MSYS2.hpp"
+#include "Platform.hpp"
 #include "asyncprocess.h"
 #include "clFilesCollector.h"
 #include "file_logger.h"
 #include "globals.h"
+#include "procutils.h"
+
 #include <wx/filename.h>
 #include <wx/regex.h>
 
@@ -16,77 +21,14 @@ LSPClangdDetector::~LSPClangdDetector() {}
 
 bool LSPClangdDetector::DoLocate()
 {
-#if defined(__WXMSW__)
-    // Try the installation folder first
-    wxFileName clangdExe(clStandardPaths::Get().GetExecutablePath());
-    clangdExe.AppendDir("lsp");
-    clangdExe.SetName("clangd");
-    if(clangdExe.FileExists() && clangdExe.IsFileExecutable()) {
-        ConfigureFile(clangdExe);
-        return true;
+    wxString path;
+    if(!ThePlatform->WhichWithVersion("clangd", { 12, 13, 14, 15, 16, 17, 18, 19, 20 }, &path)) {
+        return false;
     }
 
-#elif defined(__WXOSX__)
-    // Try the installation folder first
-    wxFileName clangdExe(clStandardPaths::Get().GetBinaryFullPath("clangd"));
-    if(clangdExe.FileExists()) {
-        ConfigureFile(clangdExe);
-        return true;
-    }
-#elif defined(__WXGTK__)
-    // try the obvious name first: "clangd"
-    wxFileName fnClangdExe("/usr/bin", "clangd");
-    if(fnClangdExe.FileExists()) {
-        clSYSTEM() << "Found clangd ==>" << fnClangdExe << endl;
-        ConfigureFile(fnClangdExe);
-        return true;
-    }
-    wxArrayString suffix;
-    for(size_t i = 20; i >= 7; --i) {
-        fnClangdExe.SetFullName(wxString() << "clangd-" << i);
-        if(fnClangdExe.FileExists()) {
-            clSYSTEM() << "Found clangd ==>" << fnClangdExe << endl;
-            ConfigureFile(fnClangdExe);
-            return true;
-        }
-    }
-#endif
-    CompilerLocatorCLANG locator;
-    wxFileName fnClangd;
-#if defined(__WXMSW__)
-    fnClangd.SetExt("exe");
-#endif
-
-    if(locator.Locate()) {
-        static wxRegEx reClangd("clangd([0-9\\-]*)", wxRE_DEFAULT);
-        const auto& compilers = locator.GetCompilers();
-        if(compilers.empty()) {
-            return false;
-        }
-
-        for(const auto& compiler : compilers) {
-            wxFileName cxx = compiler->GetTool("CXX");
-            if(!cxx.IsOk()) {
-                continue;
-            }
-            clFilesScanner scanner;
-            clFilesScanner::EntryData::Vec_t files;
-            if(scanner.ScanNoRecurse(cxx.GetPath(), files, "clangd*")) {
-                // Check for the existence of clangd
-                for(const auto& d : files) {
-                    if(!(d.flags & clFilesScanner::kIsFile)) {
-                        continue;
-                    }
-                    fnClangd = d.fullpath;
-                    clDEBUG() << "==> Found" << fnClangd;
-                    ConfigureFile(fnClangd);
-                    // Stop at the first match
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
+    clDEBUG() << "Found clangd ==>" << path << endl;
+    ConfigureFile(path);
+    return true;
 }
 
 void LSPClangdDetector::ConfigureFile(const wxFileName& clangdExe)
@@ -96,7 +38,7 @@ void LSPClangdDetector::ConfigureFile(const wxFileName& clangdExe)
     command << clangdExe.GetFullPath();
     ::WrapWithQuotes(command);
 
-    command << " -limit-results=500 -header-insertion-decorators=0";
+    command << " -limit-results=250 -header-insertion-decorators=0 --compile-commands-dir=$(WorkspacePath)";
     SetCommand(command);
     // Add support for the languages
     GetLangugaes().Add("c");

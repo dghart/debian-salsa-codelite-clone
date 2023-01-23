@@ -1,4 +1,5 @@
 #include "php.h"
+
 #include "NewPHPProjectWizard.h"
 #include "PHPDebugPane.h"
 #include "PHPXDebugSetupWizard.h"
@@ -28,6 +29,7 @@
 #include "ssh_workspace_settings.h"
 #include "wxCodeCompletionBox.h"
 #include "xdebugevent.h"
+
 #include <cl_config.h>
 #include <cl_standard_paths.h>
 #include <ctags_manager.h>
@@ -194,7 +196,7 @@ bool PhpPlugin::IsWorkspaceViewDetached()
     return detachedPanes.Index(PHPStrings::PHP_WORKSPACE_VIEW_TITLE) != wxNOT_FOUND;
 }
 
-void PhpPlugin::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
+void PhpPlugin::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void PhpPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
 {
@@ -496,7 +498,7 @@ void PhpPlugin::OnNewProject(clNewProjectEvent& e)
     }
 }
 
-void PhpPlugin::DoPlaceMenuBar(clMenuBar* menuBar)
+void PhpPlugin::DoPlaceMenuBar(wxMenuBar* menuBar)
 {
     // Add our menu bar
     wxMenu* phpMenuBarMenu = new wxMenu();
@@ -536,7 +538,6 @@ void PhpPlugin::OnReloadWorkspace(clCommandEvent& e)
 void PhpPlugin::OnLoadURL(PHPEvent& e)
 {
     e.Skip();
-    CL_DEBUG("Loading URL: " + e.GetUrl());
     ::wxLaunchDefaultBrowser(e.GetUrl());
 }
 

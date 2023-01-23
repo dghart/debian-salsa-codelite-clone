@@ -2,8 +2,8 @@
 
 #include "clControlWithItems.h"
 #include "clScrolledPanel.h"
+#include "file_logger.h"
 
-#include <file_logger.h>
 #include <wx/cursor.h>
 #include <wx/dcbuffer.h>
 #include <wx/dcclient.h>
@@ -108,6 +108,11 @@ void clHeaderBar::Render(wxDC& dc, const clColours& colours)
     // Set the DC origin to reflect the h-scrollbar
     clControlWithItems* parent = dynamic_cast<clControlWithItems*>(GetParent());
     dc.SetDeviceOrigin(-parent->GetFirstColumn(), 0);
+    if(parent->IsDisabled()) {
+        _colours.SetItemTextColour(_colours.GetGrayText());
+        _colours.SetSelItemTextColour(_colours.GetGrayText());
+    }
+
     for(size_t i = 0; i < size(); ++i) {
         bool is_last = (i == (size() - 1));
         Item(i).Render(dc, _colours, m_flags);
@@ -251,7 +256,7 @@ void clHeaderBar::DoCancelDrag()
     }
 }
 
-void clHeaderBar::SetColumnsWidth(const vector<size_t>& v_width)
+void clHeaderBar::SetColumnsWidth(const std::vector<size_t>& v_width)
 {
     if(v_width.size() != m_columns.size()) {
         return;

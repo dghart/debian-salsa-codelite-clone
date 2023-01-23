@@ -2,11 +2,18 @@
 #define CLCELLVALUE_H
 
 #include "codelite_exports.h"
+#include "drawingutils.h"
 
 #include <vector>
 #include <wx/colour.h>
 #include <wx/font.h>
 #include <wx/string.h>
+
+enum class eCellButtonType {
+    BT_NONE = -1,
+    BT_DROPDOWN_ARROW = 0,
+    BT_ELLIPSIS = 1,
+};
 
 class WXDLLIMPEXP_SDK clCellValue
 {
@@ -15,20 +22,27 @@ public:
         kTypeNull = 0,
         kTypeString = 1,
         kTypeBool = 2,
-        kTypeChoice = 3,
+        kTypeButton = 3,
+        kTypeColour = 4,
+        kTypeOnlyButton = 5,
     };
+    typedef std::vector<clCellValue> Vect_t;
 
 protected:
     bool m_boolValue = false;
     wxString m_stringValue;
     eType m_type = kTypeNull;
+    eCellButtonType m_button_type = eCellButtonType::BT_NONE;
     int m_bitmapIndex = wxNOT_FOUND;
     int m_bitmapSelectedIndex = wxNOT_FOUND;
     wxFont m_font;
     wxColour m_textColour;
     wxColour m_bgColour;
     wxRect m_checkboxRect;
-    wxRect m_dropDownRect;
+    wxRect m_buttonRect;
+    wxColour m_colourValue;
+    wxString m_buttonUnicodeSymbol;
+    eButtonState m_button_state = eButtonState::kNormal;
 
 public:
     clCellValue();
@@ -42,9 +56,31 @@ public:
     void SetType(eType type) { m_type = type; }
     void SetValue(const wxString& text);
     void SetValue(bool b) { this->m_boolValue = b; }
+    void SetValue(const wxColour& c) { this->m_colourValue = c; }
     const wxString& GetValueString() const;
     bool GetValueBool() const { return m_boolValue; }
-    bool IsChoice() const { return m_type == kTypeChoice; }
+    const wxColour& GetValueColour() const { return m_colourValue; }
+
+    void SetButtonState(const eButtonState& button_state) { this->m_button_state = button_state; }
+    const eButtonState& GetButtonState() const { return m_button_state; }
+
+    /**
+     * @brief this cell has button in addition to ...
+     */
+    bool HasButton() const { return m_type == kTypeButton; }
+
+    /**
+     * @brief the entire cell is a button
+     */
+    bool IsButton() const { return m_type == kTypeOnlyButton; }
+
+    bool IsColour() const { return m_type == kTypeColour; }
+    eCellButtonType GetButtonType() const { return m_button_type; }
+    void SetButtonType(eCellButtonType type, const wxString& unicode_symbol)
+    {
+        m_button_type = type;
+        m_buttonUnicodeSymbol = unicode_symbol;
+    }
 
     int GetBitmapIndex() const { return m_bitmapIndex; }
     int GetBitmapSelectedIndex() const { return m_bitmapSelectedIndex; }
@@ -58,9 +94,9 @@ public:
     const wxColour& GetTextColour() const { return m_textColour; }
     void SetCheckboxRect(const wxRect& checkboxRect) { this->m_checkboxRect = checkboxRect; }
     const wxRect& GetCheckboxRect() const { return m_checkboxRect; }
-    void SetDropDownRect(const wxRect& dropDownRect) { this->m_dropDownRect = dropDownRect; }
-    const wxRect& GetDropDownRect() const { return m_dropDownRect; }
-    typedef std::vector<clCellValue> Vect_t;
+    void SetButtonRect(const wxRect& dropDownRect) { this->m_buttonRect = dropDownRect; }
+    const wxRect& GetButtonRect() const { return m_buttonRect; }
+    const wxString& GetButtonUnicodeSymbol() const { return m_buttonUnicodeSymbol; }
 };
 
 #endif // CLCELLVALUE_H

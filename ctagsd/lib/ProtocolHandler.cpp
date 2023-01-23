@@ -43,7 +43,7 @@ FileLogger& operator<<(FileLogger& logger, const TagEntry& tag)
     return logger;
 }
 
-FileLogger& operator<<(FileLogger& logger, const vector<TagEntryPtr>& tags)
+FileLogger& operator<<(FileLogger& logger, const std::vector<TagEntryPtr>& tags)
 {
     for(const auto& tag : tags) {
         logger << (*tag) << endl;
@@ -190,7 +190,7 @@ void ProtocolHandler::parse_buffer(const wxFileName& filename, const wxString& b
     db->OpenDatabase(dbfile);
     clDEBUG() << "Generating ctags file..." << endl;
 
-    vector<TagEntryPtr> tags;
+    std::vector<TagEntryPtr> tags;
     if(CTags::ParseBuffer(filename, buffer, settings.GetCodeliteIndexer(), settings.GetMacroTable(), tags) == 0) {
         clDEBUG() << "Failed to generate ctags file for buffer. file:" << endl;
         return;
@@ -217,20 +217,23 @@ void ProtocolHandler::parse_file(const wxFileName& filename, const CTagsdSetting
     parse_files({ filename.GetFullPath() }, settings);
 }
 
-void ProtocolHandler::do_parse_chunk(ITagsStoragePtr db, const vector<wxString>& file_list, size_t chunk_id,
+void ProtocolHandler::do_parse_chunk(ITagsStoragePtr db, const std::vector<wxString>& file_list, size_t chunk_id,
                                      const CTagsdSettings& settings)
 {
-    vector<TagEntryPtr> tags;
-    clDEBUG() << "Parsing chunk (" << chunk_id << ") of" << file_list.size() << "files" << endl;
+    std::vector<TagEntryPtr> tags;
+    LOG_IF_DEBUG { clDEBUG() << "Parsing chunk (" << chunk_id << ") of" << file_list.size() << "files" << endl; }
     if(CTags::ParseFiles(file_list, settings.GetCodeliteIndexer(), settings.GetMacroTable(), tags) == 0) {
         clDEBUG() << "0 tags generated. processed:" << file_list.size()
                   << "files. Indexer:" << settings.GetCodeliteIndexer() << endl;
         return;
     }
 
-    clDEBUG1() << "Success" << endl;
-    clDEBUG1() << "Updating symbols database..." << endl;
-    clDEBUG() << "Storing" << tags.size() << "tags" << endl;
+    LOG_IF_TRACE
+    {
+        clDEBUG1() << "Success" << endl;
+        clDEBUG1() << "Updating symbols database..." << endl;
+    }
+    LOG_IF_DEBUG { clDEBUG() << "Storing" << tags.size() << "tags" << endl; }
     db->Begin();
 
     time_t update_time = time(nullptr);
@@ -249,7 +252,7 @@ void ProtocolHandler::do_parse_chunk(ITagsStoragePtr db, const vector<wxString>&
     db->Commit();
 }
 
-void ProtocolHandler::parse_files(const vector<wxString>& file_list, const CTagsdSettings& settings)
+void ProtocolHandler::parse_files(const std::vector<wxString>& file_list, const CTagsdSettings& settings)
 {
     clDEBUG() << "Parsing" << file_list.size() << "files" << endl;
     clDEBUG() << "Removing un-modified and unwanted files..." << endl;
@@ -268,7 +271,7 @@ void ProtocolHandler::parse_files(const vector<wxString>& file_list, const CTags
     }
 
     TagsManagerST::Get()->FilterNonNeededFilesForRetaging(files_to_parse, db);
-    vector<wxString> filtered_file_list = { files_to_parse.begin(), files_to_parse.end() };
+    std::vector<wxString> filtered_file_list = { files_to_parse.begin(), files_to_parse.end() };
     clDEBUG() << "There are total of" << filtered_file_list.size() << "files that require parsing" << endl;
     clDEBUG() << "Generating ctags file..." << endl;
 
@@ -295,27 +298,28 @@ void ProtocolHandler::parse_files(const vector<wxString>& file_list, const CTags
         if((start_offset + chunk_size) > filtered_file_list.size()) {
             iter_end = filtered_file_list.end();
         }
-        vector<wxString> chunk_vec{ iter_start, iter_end };
+        std::vector<wxString> chunk_vec{ iter_start, iter_end };
         do_parse_chunk(db, chunk_vec, i, settings);
     }
     clDEBUG() << "Success" << endl;
 }
 
-vector<wxString> ProtocolHandler::update_additional_scopes_for_file(const wxString& filepath)
+std::vector<wxString> ProtocolHandler::update_additional_scopes_for_file(const wxString& filepath)
 {
     // we need to visit each node in the file graph and create a set of all the namespaces
-    vector<wxString> additional_scopes;
+    std::vector<wxString> additional_scopes;
     if(m_additional_scopes.count(filepath)) {
         additional_scopes = m_additional_scopes[filepath];
     } else {
         wxStringSet_t visited;
         wxStringSet_t ns;
-        vector<wxString> Q;
+        std::vector<wxString> Q;
         Q.push_back(filepath);
         while(!Q.empty()) {
             // pop the front of queue
             wxString file = Q.front();
-            Q.erase(Q.begin());
+            Q.front() = Q.back();
+            Q.pop_back();
 
             // sanity
             if(m_parsed_files_info.count(file) == 0 // no info for this file
@@ -423,7 +427,7 @@ bool ProtocolHandler::do_comments_exist_for_file(const wxString& filepath) const
 //---------------------------------------------------------------------------------
 
 // Request <-->
-void ProtocolHandler::on_initialize(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_initialize(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     // start the parser thread
     clDEBUG() << "Received `initialize` request" << endl;
@@ -502,7 +506,7 @@ void ProtocolHandler::on_initialize(unique_ptr<JSON>&& msg, Channel::ptr_t chann
     remove_db_if_needed(fn_db_path.GetFullPath());
 
     wxString indexer_path = m_settings.GetCodeliteIndexer();
-    vector<wxString> files_to_parse = { files.begin(), files.end() };
+    std::vector<wxString> files_to_parse = { files.begin(), files.end() };
     clDEBUG() << "on_initialize(): parsing files..." << endl;
     ProtocolHandler::parse_files(files_to_parse, m_settings);
     clDEBUG() << "on_initialize(): parsing files... Success" << endl;
@@ -523,7 +527,7 @@ void ProtocolHandler::on_initialize(unique_ptr<JSON>&& msg, Channel::ptr_t chann
 }
 
 // Request <-->
-void ProtocolHandler::on_unsupported_message(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_unsupported_message(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     wxString message;
     message << _("unsupported message: `") << msg->toElement()["method"].toString() << "`";
@@ -531,7 +535,7 @@ void ProtocolHandler::on_unsupported_message(unique_ptr<JSON>&& msg, Channel::pt
 }
 
 // Notification -->
-void ProtocolHandler::on_initialized(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_initialized(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     // a notification
     wxUnusedVar(msg);
@@ -540,7 +544,7 @@ void ProtocolHandler::on_initialized(unique_ptr<JSON>&& msg, Channel::ptr_t chan
 }
 
 // Notification -->
-void ProtocolHandler::on_did_open(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_did_open(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     wxUnusedVar(channel);
     // keep the file content in the internal map
@@ -566,7 +570,7 @@ void ProtocolHandler::on_did_open(unique_ptr<JSON>&& msg, Channel::ptr_t channel
 }
 
 // Notification -->
-void ProtocolHandler::on_did_close(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_did_close(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     wxUnusedVar(channel);
     auto json = msg->toElement();
@@ -582,7 +586,7 @@ void ProtocolHandler::on_did_close(unique_ptr<JSON>&& msg, Channel::ptr_t channe
 }
 
 // Notification -->
-void ProtocolHandler::on_did_change(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_did_change(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     static wxStringSet_t empty_set;
 
@@ -633,6 +637,7 @@ void ProtocolHandler::on_did_change(unique_ptr<JSON>&& msg, Channel::ptr_t chann
 
     if(line_count_before != line_count_after || !new_includes.empty()) {
         // parse the file buffer
+        clDEBUG() << "Re-parsing file:" << filepath << endl;
         wxString indexer_path = m_settings.GetCodeliteIndexer();
         wxString settings_folder = m_settings_folder;
         ParseThreadTaskFunc buffer_parse_task = [=]() {
@@ -641,18 +646,19 @@ void ProtocolHandler::on_did_change(unique_ptr<JSON>&& msg, Channel::ptr_t chann
             clDEBUG() << "on_did_change(): parsing file task ... Success" << endl;
             return eParseThreadCallbackRC::RC_SUCCESS;
         };
-        m_parse_thread.queue_parse_request(move(buffer_parse_task));
+        clDEBUG() << "Pushing parse request to worker thread" << endl;
+        m_parse_thread.queue_parse_request(std::move(buffer_parse_task));
 
         // parse the files included by this file
         if(!new_includes.empty()) {
-            vector<wxString> includes_to_parse{ new_includes.begin(), new_includes.end() };
+            std::vector<wxString> includes_to_parse{ new_includes.begin(), new_includes.end() };
             ParseThreadTaskFunc headers_parse_task = [=]() {
                 clDEBUG() << "on_did_change(): parsing header files" << includes_to_parse << endl;
                 ProtocolHandler::parse_files(includes_to_parse, m_settings);
                 clDEBUG() << "on_did_change(): parsing header files ... Success" << endl;
                 return eParseThreadCallbackRC::RC_SUCCESS;
             };
-            m_parse_thread.queue_parse_request(move(headers_parse_task));
+            m_parse_thread.queue_parse_request(std::move(headers_parse_task));
         }
     } else {
         clDEBUG() << "No real change detected. Will not re-parse the file" << endl;
@@ -683,18 +689,21 @@ wxString ProtocolHandler::minimize_buffer(const wxString& filepath, int line, in
         }
 
         text = helper.truncate_file_to_location(truncated_text, line, character, flag);
-        clDEBUG1() << "Minimized file into:" << endl;
-        clDEBUG1() << text << endl;
+        LOG_IF_TRACE
+        {
+            clDEBUG1() << "Minimized file into:" << endl;
+            clDEBUG1() << text << endl;
+        }
     } else {
         // use the entire file content
         text = helper.truncate_file_to_location(m_filesOpened[filepath], line, character, flag);
-        clDEBUG1() << "Unable to minimize the buffer, using the complete buffer" << endl;
+        LOG_IF_TRACE { clDEBUG1() << "Unable to minimize the buffer, using the complete buffer" << endl; }
     }
     return text;
 }
 
 // Request <-->
-void ProtocolHandler::on_completion(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_completion(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     auto json = msg->toElement();
     size_t id = json["id"].toSize_t();
@@ -716,7 +725,7 @@ void ProtocolHandler::on_completion(unique_ptr<JSON>&& msg, Channel::ptr_t chann
     const wxString& full_buffer = m_filesOpened[filepath];
     bool is_include_completion = false;
     wxString file_name;
-    vector<TagEntryPtr> candidates;
+    std::vector<TagEntryPtr> candidates;
 
     wxArrayString lines = ::wxStringTokenize(full_buffer, "\n", wxTOKEN_RET_EMPTY_ALL);
     if(line < (int)lines.size()) {
@@ -732,50 +741,53 @@ void ProtocolHandler::on_completion(unique_ptr<JSON>&& msg, Channel::ptr_t chann
         clDEBUG() << "File Completion:" << filepath << endl;
         m_completer->get_file_completions(file_name, candidates, suffix);
     } else {
-        clDEBUG() << "  --> minimize_buffer() " << endl;
+        LOG_IF_DEBUG { clDEBUG() << "  --> minimize_buffer() " << endl; }
         wxString minimized_buffer = minimize_buffer(filepath, line, character, full_buffer);
-        clDEBUG() << "  <-- minimize_buffer() " << endl;
-
-        clDEBUG1() << "Success" << endl;
-        clDEBUG1() << "Getting expression..." << endl;
-        clDEBUG() << "  --> helper.get_expression() " << endl;
+        LOG_IF_DEBUG { clDEBUG() << "  <-- minimize_buffer() " << endl; }
+        LOG_IF_TRACE
+        {
+            clDEBUG1() << "Success" << endl;
+            clDEBUG1() << "Getting expression..." << endl;
+        }
+        LOG_IF_DEBUG { clDEBUG() << "  --> helper.get_expression() " << endl; }
         wxString expression = helper.get_expression(minimized_buffer, false, &last_word);
-        clDEBUG() << "  <-- helper.get_expression() " << endl;
-
-        clDEBUG1() << "Success" << endl;
-        clDEBUG() << "resolving expression:" << expression << endl;
-
+        LOG_IF_DEBUG { clDEBUG() << "  <-- helper.get_expression() " << endl; }
+        LOG_IF_TRACE { clDEBUG1() << "Success" << endl; }
+        LOG_IF_DEBUG { clDEBUG() << "resolving expression:" << expression << endl; }
         bool is_trigger_char =
             !expression.empty() && (expression.Last() == '>' || expression.Last() == ':' || expression.Last() == '.');
         bool is_function_calltip = !expression.empty() && expression.Last() == '(';
 
-        clDEBUG() << "  --> update_additional_scopes_for_file() " << endl;
-        vector<wxString> visible_scopes = update_additional_scopes_for_file(filepath);
-        clDEBUG() << "  -<-- update_additional_scopes_for_file() " << endl;
+        LOG_IF_DEBUG { clDEBUG() << "  --> update_additional_scopes_for_file() " << endl; }
+        std::vector<wxString> visible_scopes = update_additional_scopes_for_file(filepath);
+        LOG_IF_DEBUG { clDEBUG() << "  -<-- update_additional_scopes_for_file() " << endl; }
 
         if(is_trigger_char) {
             // ----------------------------------
             // code completion
             // ----------------------------------
-            clDEBUG() << "CodeComplete expression:" << expression << endl;
+            LOG_IF_DEBUG { clDEBUG() << "CodeComplete expression:" << expression << endl; }
             CxxRemainder remainder;
 
-            clDEBUG() << "  --> m_completer->set_text() " << endl;
+            LOG_IF_DEBUG { clDEBUG() << "  --> m_completer->set_text() " << endl; }
             m_completer->set_text(minimized_buffer, filepath, line);
-            clDEBUG() << "  <-- m_completer->set_text() " << endl;
+            LOG_IF_DEBUG { clDEBUG() << "  <-- m_completer->set_text() " << endl; }
 
-            clDEBUG() << "  <-- m_completer->code_complete() " << endl;
+            LOG_IF_DEBUG { clDEBUG() << "  <-- m_completer->code_complete() " << endl; }
             TagEntryPtr resolved = m_completer->code_complete(expression, visible_scopes, &remainder);
-            clDEBUG() << "  <-- m_completer->code_complete() " << endl;
+            LOG_IF_DEBUG { clDEBUG() << "  <-- m_completer->code_complete() " << endl; }
 
             if(resolved) {
-                clDEBUG() << "resolved into:" << resolved->GetPath() << endl;
-                clDEBUG() << "filter:" << remainder.filter << endl;
+                LOG_IF_DEBUG
+                {
+                    clDEBUG() << "resolved into:" << resolved->GetPath() << endl;
+                    clDEBUG() << "filter:" << remainder.filter << endl;
+                }
                 m_completer->get_completions(resolved, remainder.operand_string, remainder.filter, candidates,
                                              visible_scopes);
             }
-            clDEBUG() << "Number of completion entries:" << candidates.size() << endl;
-            clDEBUG1() << candidates << endl;
+            LOG_IF_DEBUG { clDEBUG() << "Number of completion entries:" << candidates.size() << endl; }
+            LOG_IF_TRACE { clDEBUG1() << candidates << endl; }
         } else if(is_function_calltip) {
             // TODO:
             // function calltip
@@ -844,7 +856,7 @@ void ProtocolHandler::on_completion(unique_ptr<JSON>&& msg, Channel::ptr_t chann
 }
 
 // Notificatin -->
-void ProtocolHandler::on_did_save(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_did_save(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     wxUnusedVar(channel);
     JSONItem json = msg->toElement();
@@ -868,7 +880,7 @@ void ProtocolHandler::on_did_save(unique_ptr<JSON>&& msg, Channel::ptr_t channel
     TagsManagerST::Get()->GetDatabase()->DeleteByFileName({}, filepath, true);
 
     // re-parse the file
-    vector<wxString> files;
+    std::vector<wxString> files;
     files.push_back(filepath);
 
     wxArrayString includes = get_files_to_parse(get_first_level_includes(filepath));
@@ -885,7 +897,7 @@ void ProtocolHandler::on_did_save(unique_ptr<JSON>&& msg, Channel::ptr_t channel
         return eParseThreadCallbackRC::RC_SUCCESS;
     };
 
-    m_parse_thread.queue_parse_request(move(task));
+    m_parse_thread.queue_parse_request(std::move(task));
     TagsManagerST::Get()->GetDatabase()->ClearCache();
 
     // clear the cached "using namespace"
@@ -912,23 +924,23 @@ void add_to_types_set(const wxString& name, wxStringSet_t& types, const wxString
 } // namespace
 
 // Request <-->
-void ProtocolHandler::on_semantic_tokens(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_semantic_tokens(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     JSONItem json = msg->toElement();
-    clDEBUG1() << json.format() << endl;
+    LOG_IF_TRACE { clDEBUG1() << json.format() << endl; }
     wxString filepath_uri = json["params"]["textDocument"]["uri"].toString();
     wxString filepath = wxFileSystem::URLToFileName(filepath_uri).GetFullPath();
     clDEBUG() << "textDocument/semanticTokens/full: for file" << filepath << endl;
 
     // use CTags to gather local variables
     wxString tmpdir = clStandardPaths::Get().GetTempDir();
-    vector<TagEntryPtr> tags;
+    std::vector<TagEntryPtr> tags;
 
     // get list of local tags
     CTags::ParseLocals(filepath, m_filesOpened[filepath], m_settings.GetCodeliteIndexer(), m_settings.GetMacroTable(),
                        tags);
 
-    clDEBUG1() << "File tags:" << tags.size() << endl;
+    LOG_IF_TRACE { clDEBUG1() << "File tags:" << tags.size() << endl; }
     wxStringSet_t locals_set;
     wxStringSet_t types_set;
 
@@ -967,9 +979,9 @@ void ProtocolHandler::on_semantic_tokens(unique_ptr<JSON>&& msg, Channel::ptr_t 
         }
     }
 
-    clDEBUG1() << "The following semantic tokens were found:" << endl;
-    clDEBUG1() << "Locals:" << locals_set << endl;
-    clDEBUG1() << "Types:" << types_set << endl;
+    LOG_IF_TRACE { clDEBUG1() << "The following semantic tokens were found:" << endl; }
+    LOG_IF_TRACE { clDEBUG1() << "Locals:" << locals_set << endl; }
+    LOG_IF_TRACE { clDEBUG1() << "Types:" << types_set << endl; }
 
     const wxString& buffer = m_filesOpened[filepath];
 
@@ -979,9 +991,9 @@ void ProtocolHandler::on_semantic_tokens(unique_ptr<JSON>&& msg, Channel::ptr_t 
 
     wxStringSet_t visited;
 
-    unordered_map<wxString, TokenWrapper> variables;
-    unordered_map<wxString, TokenWrapper> classes;
-    unordered_map<wxString, TokenWrapper> functions;
+    std::unordered_map<wxString, TokenWrapper> variables;
+    std::unordered_map<wxString, TokenWrapper> classes;
+    std::unordered_map<wxString, TokenWrapper> functions;
 
     while(tokenizer.next(&token_wrapper.token)) {
         const auto& tok = token_wrapper.token;
@@ -1024,7 +1036,7 @@ void ProtocolHandler::on_semantic_tokens(unique_ptr<JSON>&& msg, Channel::ptr_t 
     }
 
     // remove all duplicate entries
-    vector<TokenWrapper> tokens_vec;
+    std::vector<TokenWrapper> tokens_vec;
     tokens_vec.reserve(functions.size() + variables.size() + classes.size());
 
     for(const auto& vt : classes) {
@@ -1056,18 +1068,18 @@ void ProtocolHandler::on_semantic_tokens(unique_ptr<JSON>&& msg, Channel::ptr_t 
     JSONItem response = root.toElement();
     auto result = build_result(response, id, cJSON_Object);
 
-    vector<int> encoding;
+    std::vector<int> encoding;
     encoding.reserve(5 * tokens_vec.size());
 
     clDEBUG() << "Found" << tokens_vec.size() << "semantic tokens" << endl;
     LSPUtils::encode_semantic_tokens(tokens_vec, &encoding);
     result.addProperty("data", encoding);
-    clDEBUG1() << response.format() << endl;
+    LOG_IF_TRACE { clDEBUG1() << response.format() << endl; }
     channel->write_reply(response);
 }
 
 // Request <-->
-void ProtocolHandler::on_workspace_symbol(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_workspace_symbol(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     auto json = msg->toElement();
     size_t id = json["id"].toSize_t();
@@ -1075,7 +1087,7 @@ void ProtocolHandler::on_workspace_symbol(unique_ptr<JSON>&& msg, Channel::ptr_t
     wxString query = json["params"]["query"].toString();
     wxArrayString parts = ::wxStringTokenize(query, " \t", wxTOKEN_STRTOK);
 
-    vector<TagEntryPtr> tags;
+    std::vector<TagEntryPtr> tags;
     TagsManagerST::Get()->GetTagsByPartialNames(parts, tags);
 
     // build the reply
@@ -1091,7 +1103,7 @@ void ProtocolHandler::on_workspace_symbol(unique_ptr<JSON>&& msg, Channel::ptr_t
 }
 
 // Request <-->
-void ProtocolHandler::on_document_symbol(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_document_symbol(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     wxUnusedVar(msg);
     wxUnusedVar(channel);
@@ -1099,7 +1111,7 @@ void ProtocolHandler::on_document_symbol(unique_ptr<JSON>&& msg, Channel::ptr_t 
     auto json = msg->toElement();
     size_t id = json["id"].toSize_t();
 
-    clDEBUG1() << json.format() << endl;
+    LOG_IF_TRACE { clDEBUG1() << json.format() << endl; }
     wxString filepath_uri = json["params"]["textDocument"]["uri"].toString();
     wxString filepath = wxFileSystem::URLToFileName(filepath_uri).GetFullPath();
     clDEBUG() << "textDocument/documentSymbol: for file" << filepath << endl;
@@ -1108,7 +1120,7 @@ void ProtocolHandler::on_document_symbol(unique_ptr<JSON>&& msg, Channel::ptr_t 
         return;
 
     // parse hte buffer
-    vector<TagEntryPtr> tags;
+    std::vector<TagEntryPtr> tags;
     CTags::ParseBuffer(filepath, m_filesOpened[filepath], m_settings.GetCodeliteIndexer(), m_settings.GetMacroTable(),
                        tags);
     if(tags.empty()) {
@@ -1116,7 +1128,7 @@ void ProtocolHandler::on_document_symbol(unique_ptr<JSON>&& msg, Channel::ptr_t 
     }
 
     // remove parameters from the list
-    vector<TagEntryPtr> tags_no_parameters;
+    std::vector<TagEntryPtr> tags_no_parameters;
     tags_no_parameters.reserve(tags.size());
     for(auto tag : tags) {
         if(tag->IsParameter()) {
@@ -1139,17 +1151,17 @@ void ProtocolHandler::on_document_symbol(unique_ptr<JSON>&& msg, Channel::ptr_t 
 }
 
 // Request <-->
-void ProtocolHandler::on_document_signature_help(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_document_signature_help(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     wxUnusedVar(channel);
 
     auto json = msg->toElement();
     size_t id = json["id"].toSize_t();
 
-    clDEBUG1() << json.format() << endl;
+    LOG_IF_TRACE { clDEBUG1() << json.format() << endl; }
     wxString filepath_uri = json["params"]["textDocument"]["uri"].toString();
     wxString filepath = wxFileSystem::URLToFileName(filepath_uri).GetFullPath();
-    clDEBUG1() << "textDocument/signatureHelp: for file" << filepath << endl;
+    LOG_IF_TRACE { clDEBUG1() << "textDocument/signatureHelp: for file" << filepath << endl; }
 
     if(!ensure_file_content_exists(filepath, channel, id))
         return;
@@ -1164,16 +1176,16 @@ void ProtocolHandler::on_document_signature_help(unique_ptr<JSON>&& msg, Channel
         minimize_buffer(filepath, line, character, m_filesOpened[filepath], CompletionHelper::TRUNCATE_EXACT_POS);
     wxString expression = helper.get_expression(text, true, &last_word);
 
-    vector<TagEntryPtr> candidates;
-    vector<wxString> visible_scopes = update_additional_scopes_for_file(filepath);
+    std::vector<TagEntryPtr> candidates;
+    std::vector<wxString> visible_scopes = update_additional_scopes_for_file(filepath);
     m_completer->word_complete(filepath, line + 1, expression, text, visible_scopes, true, candidates);
 
     // filter everything and just keep the methods tags
-    vector<TagEntryPtr> matches;
+    std::vector<TagEntryPtr> matches;
     matches.reserve(candidates.size() * 5);
     for(TagEntryPtr match : candidates) {
         if(match->IsClass() || match->IsStruct()) {
-            vector<TagEntryPtr> ctors;
+            std::vector<TagEntryPtr> ctors;
             m_completer->get_class_constructors(match, ctors);
             matches.insert(matches.end(), ctors.begin(), ctors.end());
         } else if(match->IsMethod()) {
@@ -1221,17 +1233,17 @@ void ProtocolHandler::on_document_signature_help(unique_ptr<JSON>&& msg, Channel
     channel->write_reply(response);
 }
 
-void ProtocolHandler::on_hover(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_hover(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
     auto json = msg->toElement();
     size_t id = json["id"].toSize_t();
-    clDEBUG1() << json.format() << endl;
+    LOG_IF_TRACE { clDEBUG1() << json.format() << endl; }
 
-    vector<TagEntryPtr> tags;
-    do_find_definition_tags(move(msg), channel, true, tags, nullptr);
+    std::vector<TagEntryPtr> tags;
+    do_find_definition_tags(std::move(msg), channel, true, tags, nullptr);
 
     // format tip from tag
-    vector<TagEntryPtr> function_tag_arr;
+    std::vector<TagEntryPtr> function_tag_arr;
     wxStringSet_t visited;
     CompletionHelper helper;
 
@@ -1355,15 +1367,15 @@ void ProtocolHandler::on_hover(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
     channel->write_reply(response);
 }
 
-size_t ProtocolHandler::do_find_definition_tags(unique_ptr<JSON>&& msg, Channel::ptr_t channel,
-                                                bool try_definition_first, vector<TagEntryPtr>& tags,
+size_t ProtocolHandler::do_find_definition_tags(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel,
+                                                bool try_definition_first, std::vector<TagEntryPtr>& tags,
                                                 wxString* file_match)
 {
     auto json = msg->toElement();
     size_t id = json["id"].toSize_t();
     tags.clear();
 
-    clDEBUG1() << json.format() << endl;
+    LOG_IF_TRACE { clDEBUG1() << json.format() << endl; }
     wxString filepath_uri = json["params"]["textDocument"]["uri"].toString();
     wxString filepath = wxFileSystem::URLToFileName(filepath_uri).GetFullPath();
     clDEBUG() << "textDocument/definition: for file" << filepath << endl;
@@ -1401,7 +1413,7 @@ size_t ProtocolHandler::do_find_definition_tags(unique_ptr<JSON>&& msg, Channel:
         clDEBUG() << "Found include file:" << *file_match << endl;
         for(const wxString& search_path : m_search_paths) {
             wxString full_path = search_path + "/" + *file_match;
-            clDEBUG1() << "Trying path:" << full_path << endl;
+            LOG_IF_TRACE { clDEBUG1() << "Trying path:" << full_path << endl; }
             wxFileName fn(full_path);
             fn.Normalize(wxPATH_NORM_ENV_VARS | wxPATH_NORM_DOTS | wxPATH_NORM_TILDE | wxPATH_NORM_ABSOLUTE);
             if(fn.FileExists()) {
@@ -1412,7 +1424,7 @@ size_t ProtocolHandler::do_find_definition_tags(unique_ptr<JSON>&& msg, Channel:
             }
         }
     } else {
-        vector<wxString> visible_scopes = update_additional_scopes_for_file(filepath);
+        std::vector<wxString> visible_scopes = update_additional_scopes_for_file(filepath);
         m_completer->find_definition(filepath, line + 1, expression, text, visible_scopes, tags);
         clDEBUG() << " --> Match found:" << tags.size() << "matches" << endl;
         clDEBUG() << tags << endl;
@@ -1420,12 +1432,12 @@ size_t ProtocolHandler::do_find_definition_tags(unique_ptr<JSON>&& msg, Channel:
     return tags.size();
 }
 
-void ProtocolHandler::do_definition(unique_ptr<JSON>&& msg, Channel::ptr_t channel, bool try_definition_first)
+void ProtocolHandler::do_definition(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel, bool try_definition_first)
 {
-    vector<TagEntryPtr> tags;
+    std::vector<TagEntryPtr> tags;
     wxString file_match;
     size_t id = msg->toElement()["id"].toSize_t();
-    do_find_definition_tags(move(msg), channel, try_definition_first, tags, &file_match);
+    do_find_definition_tags(std::move(msg), channel, try_definition_first, tags, &file_match);
 
     // build the result
     JSON root(cJSON_Object);
@@ -1467,14 +1479,14 @@ void ProtocolHandler::do_definition(unique_ptr<JSON>&& msg, Channel::ptr_t chann
     channel->write_reply(response);
 }
 
-void ProtocolHandler::on_declaration(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_declaration(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
-    do_definition(move(msg), channel, false);
+    do_definition(std::move(msg), channel, false);
 }
 
-void ProtocolHandler::on_definition(unique_ptr<JSON>&& msg, Channel::ptr_t channel)
+void ProtocolHandler::on_definition(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel)
 {
-    do_definition(move(msg), channel, true);
+    do_definition(std::move(msg), channel, true);
 }
 
 wxArrayString ProtocolHandler::FilterNonWantedNamespaces(const wxArrayString& namespace_arr) const
@@ -1548,7 +1560,7 @@ void ProtocolHandler::parse_file_for_includes_and_using_namespace(const wxString
 wxArrayString ProtocolHandler::get_files_to_parse(const wxArrayString& files)
 {
     clDEBUG() << "Scanning for files to parse (base list contains:" << files.size() << "files)" << endl;
-    deque<wxString> files_to_parse{ files.begin(), files.end() };
+    std::deque<wxString> files_to_parse{ files.begin(), files.end() };
 
     wxArrayString result;
     result.reserve(10000);
@@ -1588,7 +1600,7 @@ wxArrayString ProtocolHandler::get_first_level_includes(const wxString& filepath
 
 size_t ProtocolHandler::get_includes_recrusively(const wxString& filepath, wxStringSet_t* output)
 {
-    deque<wxString> Q;
+    std::deque<wxString> Q;
     Q.push_back(filepath);
     output->insert(filepath);
 

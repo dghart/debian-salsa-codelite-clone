@@ -246,37 +246,69 @@ wxRect clControlWithItems::GetItemsRect() const
     return clientRect;
 }
 
-void clControlWithItems::RenderItems(wxDC& dc, const clRowEntry::Vec_t& items)
+void clControlWithItems::RenderItems(wxDC& dc, long tree_style, const clRowEntry::Vec_t& items)
 {
     AssignRects(items);
-    vector<size_t> max_widths;
 
-    // calculate the width of the cells
-    for(size_t i = 0; i < items.size(); ++i) {
-        clRowEntry* curitem = items[i];
-        auto v_width = curitem->GetColumnWidths(this, dc);
-        if(max_widths.empty()) {
-            max_widths.swap(v_width);
-        } else {
-            for(size_t index = 0; index < v_width.size(); ++index) {
-                max_widths[index] = wxMax(max_widths[index], v_width[index]);
+    // Did the user pass wxTR_COLUMN_WIDTH_NEVER_SHRINKS or wxDV_DYNAMIC_COLUMN_WIDTH ?
+    if(m_recalcColumnWidthOnPaint) {
+        std::vector<size_t> max_widths;
+
+        // calculate the width of the cells
+        for(size_t i = 0; i < items.size(); ++i) {
+            clRowEntry* curitem = items[i];
+            auto v_width = curitem->GetColumnWidths(this, dc);
+            if(max_widths.empty()) {
+                max_widths.swap(v_width);
+            } else {
+                for(size_t index = 0; index < v_width.size(); ++index) {
+                    max_widths[index] = wxMax(max_widths[index], v_width[index]);
+                }
             }
+        }
+
+        if(GetHeader()) {
+            GetHeader()->SetColumnsWidth(max_widths);
         }
     }
 
-    if(GetHeader()) {
-        GetHeader()->SetColumnsWidth(max_widths);
-    }
-
+    int lines_drawn = 0;
+    wxRect clientRect = GetItemsRect();
+    int cury = clientRect.y;
+    int row_index = 0;
     for(size_t i = 0; i < items.size(); ++i) {
         clRowEntry* curitem = items[i];
         if(curitem->IsHidden()) {
             continue;
         }
         if(m_customRenderer) {
-            m_customRenderer->Render(this, dc, m_colours, i, curitem);
+            m_customRenderer->RenderItem(this, dc, m_colours, i, curitem);
         } else {
             curitem->Render(this, dc, m_colours, i, &GetSearch());
+        }
+        cury += m_lineHeight;
+        ++row_index;
+        ++lines_drawn;
+    }
+
+    int header_bar_width = m_viewHeader ? m_viewHeader->GetWidth() : wxNOT_FOUND;
+    int width = wxMax(clientRect.GetWidth(), header_bar_width);
+
+    int max_items = GetNumLineCanFitOnScreen();
+    int fake_items_count = max_items - lines_drawn;
+    if(fake_items_count > 0) {
+        for(size_t i = 0; i < (size_t)fake_items_count; ++i) {
+            wxRect fake_entry_rect{ 0, cury, width, m_lineHeight };
+            clRowEntry fake_entry{ nullptr, false, wxEmptyString };
+            fake_entry.SetRects(fake_entry_rect, {});
+            if(m_customRenderer) {
+                m_customRenderer->RenderItemBackground(dc, tree_style, m_colours, row_index, &fake_entry);
+
+            } else {
+                fake_entry.RenderBackground(dc, tree_style, m_colours, row_index);
+            }
+            ++row_index;
+            cury += m_lineHeight;
         }
     }
 }
@@ -334,15 +366,19 @@ void clControlWithItems::UpdateScrollBar()
 
 void clControlWithItems::Render(wxDC& dc)
 {
-    // draw the background on the entire client area
-    dc.SetPen(GetColours().GetBgColour());
-    dc.SetBrush(GetColours().GetBgColour());
-    dc.DrawRectangle(GetClientRect());
+    if(m_customRenderer) {
+        m_customRenderer->RenderBackground(dc, GetClientRect(), 0, GetColours());
+    } else {
+        // draw the background on the entire client area
+        dc.SetPen(GetColours().GetBgColour());
+        dc.SetBrush(GetColours().GetBgColour());
+        dc.DrawRectangle(GetClientRect());
 
-    // draw the background on the entire client area
-    dc.SetPen(GetColours().GetBgColour());
-    dc.SetBrush(GetColours().GetBgColour());
-    dc.DrawRectangle(GetClientArea());
+        // draw the background on the entire client area
+        dc.SetPen(GetColours().GetBgColour());
+        dc.SetBrush(GetColours().GetBgColour());
+        dc.DrawRectangle(GetClientArea());
+    }
 
     // Set the device origin to the X-offset
     dc.SetDeviceOrigin(-m_firstColumn, 0);
@@ -478,10 +514,10 @@ void clControlWithItems::AssignRects(const clRowEntry::Vec_t& items)
             curitem->SetRects(wxRect(-100, -100, 0, 0), wxRect(-100, -100, 0, 0));
             continue;
         }
-        wxRect itemRect = wxRect(0, y, width, m_lineHeight);
+        wxRect itemRect = wxRect(clientRect.GetX(), y, width, m_lineHeight);
         wxRect buttonRect;
         if(curitem->HasChildren()) {
-            buttonRect = wxRect((curitem->GetIndentsCount() * GetIndent()), y, m_lineHeight, m_lineHeight);
+            buttonRect = wxRect(itemRect.x + (curitem->GetIndentsCount() * GetIndent()), y, m_lineHeight, m_lineHeight);
         }
         curitem->SetRects(itemRect, buttonRect);
         y += m_lineHeight;
@@ -652,4 +688,10 @@ bool clSearchText::Matches(const wxString& findWhat, size_t col, const wxString&
         }
     }
     return false;
+}
+
+void clControlWithItems::SetDisabled(bool b)
+{
+    m_disableView = b;
+    Refresh();
 }

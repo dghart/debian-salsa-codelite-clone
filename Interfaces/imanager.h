@@ -28,10 +28,9 @@
 
 #include "Notebook.h"
 #include "bitmap_loader.h"
-#include "clMenuBar.hpp"
 #include "clStatusBar.h"
 #include "clTab.h"
-#include "clThemedMenuBar.hpp"
+#include "clToolBar.h"
 #include "debugger.h"
 #include "iconfigtool.h"
 #include "ieditor.h"
@@ -57,7 +56,6 @@ class BuildSettingsConfig;
 class NavMgr;
 class IMacroManager;
 class wxAuiManager;
-class clToolBar;
 
 //--------------------------
 // Auxulary class
@@ -132,9 +130,11 @@ public:
         }
     }
 
-    virtual clToolBar* GetToolBar() = 0;
+    /// Return the plugins' toolbar managed by CodeLite
+    virtual clToolBarGeneric* GetToolBar() = 0;
 
-    virtual clMenuBar* GetMenuBar() = 0;
+    /// Return applicaion menu bar
+    virtual wxMenuBar* GetMenuBar() = 0;
 
     /**
      * @brief show the output pane and if provided, select 'selectedWindow'
@@ -245,6 +245,11 @@ public:
      * @sa Notebook
      */
     virtual Notebook* GetOutputPaneNotebook() = 0;
+
+    /**
+     * @brief return the main editor notebook
+     */
+    virtual Notebook* GetMainNotebook() = 0;
 
     /**
      * @brief append text line to the tab in the "Output View"
@@ -586,6 +591,11 @@ public:
      * @brief return a vector of all the current breakpoints set by the user
      */
     virtual size_t GetAllBreakpoints(clDebuggerBreakpoint::Vec_t& breakpoints) = 0;
+
+    /**
+     * @brief create a simple breakpoint from file:line
+     */
+    virtual clDebuggerBreakpoint CreateBreakpoint(const wxString& filepath, int line_number) = 0;
 
     /**
      * @brief delete all breakpoints assigned by the user

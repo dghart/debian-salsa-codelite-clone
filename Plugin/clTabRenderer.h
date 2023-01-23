@@ -67,11 +67,11 @@ enum NotebookStyle {
     /// Allow DnD between different book controls
     kNotebook_AllowForeignDnD = (1 << 10),
 
-    /// Place the tabs on the right
-    kNotebook_RightTabs = (1 << 11),
+    /// We keep this flag for backward compatability
+    kNotebook_RightTabs = 0,
 
-    /// Place th tabs on the left
-    kNotebook_LeftTabs = (1 << 12),
+    /// We keep this flag for backward compatability
+    kNotebook_LeftTabs = 0,
 
     /// The notebook colours are changing based on the current editor theme
     kNotebook_DynamicColours = (1 << 13),
@@ -86,8 +86,6 @@ enum NotebookStyle {
     kNotebook_Default = kNotebook_ShowFileListButton,
 
 };
-
-#define IS_VERTICAL_TABS(style) ((style & kNotebook_RightTabs) || (style & kNotebook_LeftTabs))
 
 class clTabRenderer;
 class WXDLLIMPEXP_SDK clTabColours
@@ -150,6 +148,7 @@ public:
     int m_height;
     int m_vTabsWidth;
     int m_textWidth;
+    bool m_isModified = false;
     eButtonState m_xButtonState = eButtonState::kNormal;
 
 public:
@@ -192,6 +191,7 @@ public:
     const wxBitmap& GetBitmap(int index, bool disabled) const;
     bool HasDisableBitmap() const;
     bool HasBitmap() const;
+    bool IsModified() const { return m_isModified; }
 };
 
 class WXDLLIMPEXP_SDK clTabRenderer
@@ -221,8 +221,8 @@ protected:
 public:
     clTabRenderer(const wxString& name, const wxWindow* parent);
     virtual ~clTabRenderer() {}
-    virtual void Draw(wxWindow* parent, wxDC& dc, wxDC& fontDC, const clTabInfo& tabInfo, const clTabColours& colours,
-                      size_t style, eButtonState buttonState) = 0;
+    virtual void Draw(wxWindow* parent, wxDC& dc, wxDC& fontDC, const clTabInfo& tabInfo, size_t tabIndex,
+                      const clTabColours& colours, size_t style, eButtonState tabState, eButtonState xButtonState) = 0;
     virtual void DrawBottomRect(wxWindow* parent, clTabInfo::Ptr_t activeTab, const wxRect& clientRect, wxDC& dc,
                                 const clTabColours& colours, size_t style) = 0;
 

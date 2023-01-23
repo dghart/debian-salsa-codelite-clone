@@ -235,6 +235,10 @@ GitConsole::GitConsole(wxWindow* parent, GitPlugin* git)
     });
 
     EventNotifier::Get()->Bind(wxEVT_SYS_COLOURS_CHANGED, &GitConsole::OnSysColoursChanged, this);
+
+    // force font/colours udpate
+    clCommandEvent dummy;
+    OnSysColoursChanged(dummy);
 }
 
 GitConsole::~GitConsole()
@@ -577,7 +581,7 @@ void GitConsole::ShowProgress(const wxString& message, bool pulse)
 void GitConsole::UpdateProgress(unsigned long current, const wxString& message)
 {
     wxString trimmedMessage = message;
-    m_gauge->SetValue(current);
+    m_gauge->SetValue(wxMin(current, m_gauge->GetRange()));
     // m_staticTextGauge->SetLabel(trimmedMessage.Trim().Trim(false));
 }
 

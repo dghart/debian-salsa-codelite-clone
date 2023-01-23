@@ -26,10 +26,11 @@
 #define __outputtabwindow__
 
 #include "clFindResultsStyler.h"
+#include "clToolBar.h"
+
 #include <wx/panel.h>
 #include <wx/stc/stc.h>
 
-class clToolBar;
 class wxBoxSizer;
 
 class QuickFindBar;
@@ -80,6 +81,7 @@ public:
     virtual ~OutputTabWindow();
 
     virtual void Clear();
+    void ScrollToBottom();
     const wxString& GetCaption() const { return m_name; }
     wxStyledTextCtrl* GetSci() { return m_sci; }
     virtual void AppendText(const wxString& text);

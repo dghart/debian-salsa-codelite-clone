@@ -47,7 +47,7 @@ void OutlineTab::OnOutlineSymbols(LSPEvent& event)
     RenderSymbols(event.GetSymbolsInformation(), event.GetFileName());
 }
 
-void OutlineTab::RenderSymbols(const vector<LSP::SymbolInformation>& symbols, const wxString& filename)
+void OutlineTab::RenderSymbols(const std::vector<LSP::SymbolInformation>& symbols, const wxString& filename)
 {
     ClearView();
 
@@ -87,7 +87,7 @@ void OutlineTab::RenderSymbols(const vector<LSP::SymbolInformation>& symbols, co
     wxColour module_colour = lexer->GetProperty(wxSTC_P_STRING).GetFgColour();
     wxColour function_colour = lexer->GetProperty(wxSTC_P_DEFNAME).GetFgColour();
     wxColour operator_colour = lexer->GetProperty(wxSTC_P_OPERATOR).GetFgColour();
-    vector<pair<wxString, int>> containers;
+    std::vector<std::pair<wxString, int>> containers;
 
     constexpr int INITIAL_DEPTH = 0;
     constexpr int DEPTH_WIDTH = 2;

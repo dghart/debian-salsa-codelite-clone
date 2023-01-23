@@ -1,15 +1,38 @@
 cmake_minimum_required(VERSION 3.0)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+
+include(OSXInstall)
+
 #------------------------------------
 # install script
 #------------------------------------
 macro(codelite_install_script _script_)
     set (EXE_PERM OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
+    install(FILES ${_script_} DESTINATION ${CL_INSTALL_BIN} PERMISSIONS ${EXE_PERM})
+endmacro()
+
+#------------------------------------
+# install an executable
+#------------------------------------
+macro(codelite_install_executable TARGET)
     if(APPLE)
-        install(FILES ${_script_} DESTINATION ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/ PERMISSIONS ${EXE_PERM})
+        install(TARGETS ${TARGET} DESTINATION ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/)
+        cl_install_name_tool_std(${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/${TARGET})
     else()
-        # On non OSX, we place the non plugins next to the plugins
-        install(FILES ${_script_} DESTINATION ${CL_PREFIX}/bin PERMISSIONS ${EXE_PERM})
+        set(EXE_PERM
+            OWNER_EXECUTE
+            OWNER_WRITE
+            OWNER_READ
+            GROUP_EXECUTE
+            GROUP_READ
+            WORLD_EXECUTE
+            WORLD_READ)
+
+        install(
+            TARGETS ${TARGET}
+            DESTINATION ${CL_INSTALL_BIN}
+            PERMISSIONS ${EXE_PERM})
     endif()
 endmacro()
 
@@ -18,7 +41,7 @@ function(get_distro_name DISTRO_NAME)
                     OUTPUT_VARIABLE _DISTRO_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
     execute_process(COMMAND /bin/bash "-c" "cat /etc/os-release |grep VERSION_ID=|cut -d = -f 2"
                     OUTPUT_VARIABLE _VERSION_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
-    
+
     # clean the output
     string (REPLACE "\"" "" _DISTRO_ID "${_DISTRO_ID}")
     string (REPLACE "\"" "" _VERSION_ID "${_VERSION_ID}")
@@ -29,17 +52,31 @@ function(get_distro_name DISTRO_NAME)
     if (POS GREATER -1)
         set (${DISTRO_NAME} "fedora_${_VERSION_ID}" PARENT_SCOPE)
     endif()
-    
+
     string(FIND ${_DISTRO_ID} "ubuntu" POS)
     if (POS GREATER -1)
         set (${DISTRO_NAME} "${_DISTRO_ID}_${_VERSION_ID}" PARENT_SCOPE)
     endif()
-    
+
     string(FIND ${_DISTRO_ID} "debian" POS)
     if (POS GREATER -1)
         set (${DISTRO_NAME} "${_DISTRO_ID}_${_VERSION_ID}" PARENT_SCOPE)
     endif()
 endfunction()
+
+if(MINGW)
+    macro(msys_install_clang64_tool tool_name install_dir)
+        # locate the dependencies
+        execute_process(COMMAND sh -c "ldd /clang64/bin/${tool_name} | grep clang64|cut -d'=' -f2|cut -d' ' -f2|xargs cygpath -w"
+                        OUTPUT_VARIABLE TOOL_DEPS OUTPUT_STRIP_TRAILING_WHITESPACE)
+        string(REPLACE "\n" ";" TOOL_DEPS ${TOOL_DEPS})
+        list(APPEND TOOL_DEPS "${MSYS2_BASE}/clang64/bin/${tool_name}")
+        foreach(TOOL ${TOOL_DEPS})
+            string(REPLACE "\\" "/" TOOL "${TOOL}")
+            install(FILES "${TOOL}" DESTINATION ${install_dir})
+        endforeach()
+    endmacro()
+endif()
 
 set(PCH_HEADERS_LIST
     <wx/wxprec.h>
@@ -89,7 +126,7 @@ set(PCH_HEADERS_LIST
     )
 macro(codelite_add_exported_pch _TARGET_)
     target_precompile_headers(
-        ${_TARGET_} 
+        ${_TARGET_}
     PUBLIC
         ${PCH_HEADERS_LIST}
     )
@@ -97,10 +134,26 @@ endmacro()
 
 macro(codelite_add_pch _TARGET_)
     target_precompile_headers(
-        ${_TARGET_} 
+        ${_TARGET_}
     PRIVATE
         ${PCH_HEADERS_LIST}
     )
+endmacro()
+
+#------------------------------------
+# install a library (shared object, but not a plugin)
+#------------------------------------
+macro(codelite_install_library_target TARGET)
+    if(APPLE)
+        install(TARGETS ${TARGET} DESTINATION ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS/)
+        cl_install_name_tool_std("${CL_INSTALL_BIN}/lib${TARGET}.dylib")
+    elseif(MINGW)
+        # under windows (MinGW) we install libraries under the "bin" folder
+        install(TARGETS ${TARGET} DESTINATION "${CL_INSTALL_BIN}")
+    else()
+        # Under linux, we install libraries in the plugins directory
+        install(TARGETS ${TARGET} DESTINATION ${PLUGINS_DIR})
+    endif()
 endmacro()
 
 # Determine if we are running on Windows using MSYS2 shell or using MinGW tools (but not using MSYS)

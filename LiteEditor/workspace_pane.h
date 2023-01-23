@@ -30,6 +30,7 @@
 #include "clTabRenderer.h"
 #include "cl_command_event.h"
 #include "cl_defs.h"
+
 #include <map>
 #include <wx/bitmap.h>
 #include <wx/filename.h>
@@ -91,12 +92,12 @@ protected:
     void OnWorkspaceBookFileListMenu(clContextMenuEvent& event);
 
 public:
-    WorkspacePane(wxWindow* parent, const wxString& caption, wxAuiManager* mgr);
+    WorkspacePane(wxWindow* parent, const wxString& caption, wxAuiManager* mgr, long style);
     ~WorkspacePane();
 
     void UpdateProgress(int val);
     void ClearProgress();
-    void ApplySavedTabOrder() const;
+    void ApplySavedTabOrder(bool update_ui) const;
     void SaveWorkspaceViewTabOrder() const;
     bool IsTabVisible(int flag);
 

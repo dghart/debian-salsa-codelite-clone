@@ -26,6 +26,7 @@
 #include "syntaxhighlightdlg.h"
 
 #include "ColoursAndFontsManager.h"
+#include "FontUtils.hpp"
 #include "NewThemeDialog.h"
 #include "ThemeImporterCXX.hpp"
 #include "ThemeImporterManager.hpp"
@@ -60,33 +61,39 @@
 
 #define CXX_AND_JAVASCRIPT "c++"
 
-bool SyntaxHighlightDlg::m_globalBgColourChangedTooltipShown = false;
+namespace
+{
+enum CodeLiteAppearance : int {
+    SYSTEM_DEFAULT = 0,
+    FORCE_DARK = 1,
+};
+}
 
-const wxString sampleText = "class Demo {\n"
-                            "private:\n"
-                            "    std::string m_str;\n"
-                            "    int m_integer;\n"
-                            "    \n"
-                            "public:\n"
-                            "    /**\n"
-                            "     * Creates a new demo.\n"
-                            "     * @param o The object\n"
-                            "     */\n"
-                            "    CallMethod(const Demo& other) {\n"
-                            "        std::string a_string = \"hello world\";\n"
-                            "        m_str = other.m_str;\n"
-                            "        m_integer = other.m_integer;\n"
-                            "    }\n"
-                            "}";
+const wxString sampleText = R"(class Demo {
+private:
+    std::string m_str;
+    int m_integer = 0;
 
-#define DARK_ICONS _("Dark Theme Icons Set")
-#define LIGHT_ICONS _("Light Theme Icons Set")
+public:
+    /**
+     * Creates a new demo.
+     * @param o The object
+     */
+    CallMethod(const Demo& other) {
+        std::string a_string = "hello world";
+        m_str = other.m_str;
+        m_integer = other.m_integer;
+    }
+
+    /// Return a pointer
+    const std::string* GetPointer() const {
+        return &m_str;
+    }
+};
+)";
 
 SyntaxHighlightDlg::SyntaxHighlightDlg(wxWindow* parent)
     : SyntaxHighlightBaseDlg(parent)
-    , m_isModified(false)
-    , m_globalThemeChanged(false)
-    , m_globalBgColourChanged(false)
 {
     // Get list of available lexers
     wxString lexerName;
@@ -118,32 +125,11 @@ SyntaxHighlightDlg::SyntaxHighlightDlg(wxWindow* parent)
     m_choiceGlobalTheme->SetStringSelection(ColoursAndFontsManager::Get().GetGlobalTheme());
 
     // Set the current editor font to the default one
-    // but first check that we have entry in the configuration file
-    // for this
-    bool found_font = false;
-    wxFont font;
-    clConfig::Get().Read("GlobalThemeFont", [&found_font](const JSONItem& item) { found_font = true; });
-
-    if(found_font) {
-        wxMessageBox("Font found!");
-        wxFont font = clConfig::Get().Read("GlobalThemeFont", wxNullFont);
-        m_fontPickerGlobal->SetSelectedFont(font);
-    }
-
+    wxFont font = clConfig::Get().Read("GlobalThemeFont", FontUtils::GetDefaultMonospacedFont());
+    m_fontPickerGlobal->SetSelectedFont(font);
     DoUpdatePreview();
 
-    // incase we don't have initial font display, use the preview window's font
-    if(!found_font) {
-        wxFont initialFont = m_stcPreview->StyleGetFont(0);
-        if(initialFont.IsOk()) {
-            m_fontPickerGlobal->SetSelectedFont(initialFont);
-        }
-    }
     m_isModified = true;
-
-    // for now, we only allow selection with fg colour
-    m_checkBoxCustomSelectionFgColour->SetValue(true);
-    m_checkBoxCustomSelectionFgColour->Enable(false);
 
     SetName("SyntaxHighlightDlg");
     WindowAttrManager::Load(this);
@@ -163,17 +149,17 @@ SyntaxHighlightDlg::SyntaxHighlightDlg(wxWindow* parent)
     m_toolbar->Bind(wxEVT_TOOL, &SyntaxHighlightDlg::OnRestoreDefaults, this, XRCID("revert_changes"));
     m_toolbar->Bind(wxEVT_TOOL, &SyntaxHighlightDlg::OnImportEclipseTheme, this, XRCID("import_eclipse_theme"));
 
+#if !defined(__WXMSW__)
+    m_choiceAppearance->SetSelection(CodeLiteAppearance::SYSTEM_DEFAULT);
+    m_choiceAppearance->Enable(false);
+#else
+    int appearance = clConfig::Get().Read("CodeLiteAppearance", CodeLiteAppearance::SYSTEM_DEFAULT);
+    m_choiceAppearance->SetSelection(appearance);
+#endif
     // Theme handling
-    wxColour baseColour = clConfig::Get().Read("BaseColour", clSystemSettings::GetDefaultPanelColour());
-    m_colourPickerBaseColour->SetColour(baseColour);
-    m_useBaseColourInitial = clConfig::Get().Read("UseCustomBaseColour", false);
-    m_useBaseColourEnding = m_useBaseColourInitial;
-    m_cbUseCustomBaseColour->SetValue(m_useBaseColourInitial);
-    if(m_cbUseCustomBaseColour) {
-        m_initialTheme = DrawingUtils::IsDark(baseColour) ? kTHEME_DARK : kTHEME_LIGHT;
-        m_endingTheme = m_initialTheme;
-    }
-    ::clSetTLWindowBestSizeAndPosition(this);
+
+    GetSizer()->Fit(this);
+    CentreOnParent();
 }
 
 void SyntaxHighlightDlg::DoUpdatePreview()
@@ -182,29 +168,17 @@ void SyntaxHighlightDlg::DoUpdatePreview()
     LexerConf::Ptr_t previewLexer =
         ColoursAndFontsManager::Get().GetLexer("c++", m_choiceGlobalTheme->GetStringSelection());
 
-    int class_index = 1;
-    int locals_index = 1;
-    int methods_index = 1;
-    int other_index = 1;
-
     if(previewLexer) {
         previewLexer->Apply(m_stcPreview, true);
-        class_index = previewLexer->GetWordSetClassIndex();
-        locals_index = previewLexer->GetWordSetLocalsIndex();
-        methods_index = previewLexer->GetWordSetFunctionsIndex();
-        other_index = previewLexer->GetWordSetOthersIndex();
+        previewLexer->ApplyWordSet(m_stcPreview, LexerConf::WS_CLASS, "Demo std string");
+        previewLexer->ApplyWordSet(m_stcPreview, LexerConf::WS_VARIABLES, "other m_integer m_str a_string");
+        previewLexer->ApplyWordSet(m_stcPreview, LexerConf::WS_FUNCTIONS, "CallMethod GetPointer");
     }
-
-    m_stcPreview->SetKeyWords(class_index, "Demo std string");
-    m_stcPreview->SetKeyWords(locals_index, "other");
-    m_stcPreview->SetKeyWords(methods_index, "CallMethod");
-    m_stcPreview->SetKeyWords(other_index, wxEmptyString);
 
     m_stcPreview->SetEditable(true);
     m_stcPreview->SetText(sampleText);
     m_stcPreview->HideSelection(true);
     m_stcPreview->SetEditable(false);
-
     ::clRecalculateSTCHScrollBar(m_stcPreview);
 }
 
@@ -310,8 +284,9 @@ void SyntaxHighlightDlg::SaveChanges()
     }
 
     // Save the base colour changes
-    clConfig::Get().Write("BaseColour", m_colourPickerBaseColour->GetColour());
-    clConfig::Get().Write("UseCustomBaseColour", m_cbUseCustomBaseColour->IsChecked());
+#if defined(__WXMSW__)
+    clConfig::Get().Write("CodeLiteAppearance", m_choiceAppearance->GetSelection());
+#endif
 
     // Update the text selection colours
     UpdateTextSelectionColours();
@@ -338,15 +313,15 @@ void SyntaxHighlightDlg::OnColourChanged(wxColourPickerEvent& event)
     wxObject* obj = event.GetEventObject();
     if(obj == m_colourPicker) {
         wxColour colour = event.GetColour();
-        StyleProperty::Map_t::iterator iter = GetSelectedStyle();
-        iter->second.SetFgColour(colour.GetAsString(wxC2S_HTML_SYNTAX));
+        StyleProperty::Vec_t::iterator iter = GetSelectedStyle();
+        iter->SetFgColour(colour.GetAsString(wxC2S_HTML_SYNTAX));
 
     } else if(obj == m_bgColourPicker) {
 
         wxColour colour = event.GetColour();
-        StyleProperty::Map_t::iterator iter = GetSelectedStyle();
+        StyleProperty::Vec_t::iterator iter = GetSelectedStyle();
 
-        iter->second.SetBgColour(colour.GetAsString(wxC2S_HTML_SYNTAX));
+        iter->SetBgColour(colour.GetAsString(wxC2S_HTML_SYNTAX));
 
     } else if(obj == m_globalBgColourPicker) {
         wxColour colour = event.GetColour();
@@ -396,10 +371,10 @@ void SyntaxHighlightDlg::OnEolFilled(wxCommandEvent& event)
 {
     CHECK_PTR_RET(m_lexer);
     m_isModified = true;
-    StyleProperty::Map_t& properties = m_lexer->GetLexerProperties();
-    StyleProperty::Map_t::iterator iter = GetSelectedStyle();
+    StyleProperty::Vec_t& properties = m_lexer->GetLexerProperties();
+    StyleProperty::Vec_t::iterator iter = GetSelectedStyle();
     if(iter != properties.end()) {
-        iter->second.SetEolFilled(event.IsChecked());
+        iter->SetEolFilled(event.IsChecked());
     }
 }
 
@@ -408,19 +383,19 @@ void SyntaxHighlightDlg::OnFontChanged(wxFontPickerEvent& event)
     CHECK_PTR_RET(m_lexer);
     m_isModified = true;
 
-    StyleProperty::Map_t& properties = m_lexer->GetLexerProperties();
+    StyleProperty::Vec_t& properties = m_lexer->GetLexerProperties();
     // update f
     wxObject* obj = event.GetEventObject();
     if(obj == m_fontPicker) {
         wxFont f = event.GetFont();
-        StyleProperty::Map_t::iterator iter = GetSelectedStyle();
-        DoFontChanged(iter->second, f);
+        StyleProperty::Vec_t::iterator iter = GetSelectedStyle();
+        DoFontChanged(*iter, f);
 
     } else if(obj == m_globalFontPicker) {
         wxFont f = event.GetFont();
-        StyleProperty::Map_t::iterator iter = properties.begin();
+        StyleProperty::Vec_t::iterator iter = properties.begin();
         for(; iter != properties.end(); ++iter) {
-            DoFontChanged(iter->second, f);
+            DoFontChanged(*iter, f);
         }
         // update the style f picker as well
         m_fontPicker->SetSelectedFont(f);
@@ -434,21 +409,18 @@ void SyntaxHighlightDlg::OnItemSelected(wxCommandEvent& event)
 
     // update colour picker & font pickers
     wxString selectionString = event.GetString();
-    StyleProperty::Map_t& properties = m_lexer->GetLexerProperties();
-    StyleProperty::Map_t::iterator iter = properties.begin();
-    for(; iter != properties.end(); ++iter) {
-        if(iter->second.GetName() == selectionString) {
+    StyleProperty::Vec_t& properties = m_lexer->GetLexerProperties();
+    wxFont default_font = FontUtils::GetDefaultMonospacedFont();
+
+    for(const auto& p : properties) {
+        if(p.GetName() == selectionString) {
             // update font & color
-            StyleProperty p = iter->second;
             wxString colour = p.GetFgColour();
             wxString bgColour = p.GetBgColour();
 
-            int size = p.GetFontSize();
-            wxString face = p.GetFaceName();
-            bool bold = p.IsBold();
+            wxFont font = default_font;
+            p.FromAttributes(&font);
 
-            wxFont font = wxFont(size, wxFONTFAMILY_TELETYPE, p.GetItalic() ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL,
-                                 bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL, p.GetUnderlined(), face);
             m_fontPicker->SetSelectedFont(font);
             m_bgColourPicker->SetColour(bgColour);
             m_colourPicker->SetColour(colour);
@@ -486,11 +458,11 @@ void SyntaxHighlightDlg::OnStyleWithingPreProcessorUI(wxUpdateUIEvent& event)
 {
     CHECK_PTR_RET(m_lexer);
 
-    StyleProperty::Map_t& properties = m_lexer->GetLexerProperties();
-    StyleProperty::Map_t::iterator iter = GetSelectedStyle();
+    StyleProperty::Vec_t& properties = m_lexer->GetLexerProperties();
+    StyleProperty::Vec_t::iterator iter = GetSelectedStyle();
     if(iter == properties.end())
         event.Enable(false);
-    else if(iter->second.GetName() == "Preprocessor")
+    else if(iter->GetName() == "Preprocessor")
         event.Enable(true);
     else
         event.Enable(false);
@@ -508,15 +480,15 @@ void SyntaxHighlightDlg::CreateLexerPage()
 {
     CHECK_PTR_RET(m_lexer);
 
-    const StyleProperty::Map_t& m_propertyList = m_lexer->GetLexerProperties();
-    StyleProperty::Map_t::const_iterator it = m_propertyList.begin();
+    const StyleProperty::Vec_t& m_propertyList = m_lexer->GetLexerProperties();
+    StyleProperty::Vec_t::const_iterator it = m_propertyList.begin();
     StyleProperty selTextProperties;
 
     for(; it != m_propertyList.end(); it++) {
-        if(it->second.GetId() != SEL_TEXT_ATTR_ID) {
-            m_properties->Append(it->second.GetName());
+        if(it->GetId() != SEL_TEXT_ATTR_ID) {
+            m_properties->Append(it->GetName());
         } else {
-            selTextProperties = it->second;
+            selTextProperties = *it;
         }
     }
 
@@ -531,7 +503,7 @@ void SyntaxHighlightDlg::CreateLexerPage()
 
     wxFont initialFont = ColoursAndFontsManager::Get().GetGlobalFont();
     if(!initialFont.IsOk()) {
-        initialFont = DrawingUtils::GetDefaultFixedFont();
+        initialFont = FontUtils::GetDefaultMonospacedFont();
     }
 
     initialStyleWithinPreProcessor = m_lexer->GetStyleWithinPreProcessor();
@@ -553,7 +525,6 @@ void SyntaxHighlightDlg::CreateLexerPage()
               << ", fg:" << selTextProperties.GetFgColour() << endl;
     m_colourPickerSelTextBgColour->SetColour(selTextProperties.GetBgColour());
     m_colourPickerSelTextFgColour->SetColour(selTextProperties.GetFgColour());
-    m_checkBoxCustomSelectionFgColour->SetValue(true);
 
     if(m_propertyList.empty()) {
         m_fontPicker->Enable(false);
@@ -573,11 +544,12 @@ void SyntaxHighlightDlg::CreateLexerPage()
     }
 }
 
-StyleProperty::Map_t::iterator SyntaxHighlightDlg::GetSelectedStyle()
+StyleProperty::Vec_t::iterator SyntaxHighlightDlg::GetSelectedStyle()
 {
     wxString selectedProperty = m_properties->GetStringSelection();
-    StyleProperty::Map_t& lexerProperties = m_lexer->GetLexerProperties();
-    return std::find_if(lexerProperties.begin(), lexerProperties.end(), StyleProperty::FindByName(selectedProperty));
+    StyleProperty::Vec_t& lexerProperties = m_lexer->GetLexerProperties();
+    return std::find_if(lexerProperties.begin(), lexerProperties.end(),
+                        [&selectedProperty](const StyleProperty& prop) { return prop.GetName() == selectedProperty; });
 }
 
 void SyntaxHighlightDlg::OnLexerSelected(wxCommandEvent& event)
@@ -600,14 +572,6 @@ void SyntaxHighlightDlg::OnButtonApplyUI(wxUpdateUIEvent& event) { event.Enable(
 void SyntaxHighlightDlg::OnTextSelFgUI(wxUpdateUIEvent& event) { event.Enable(true); }
 
 void SyntaxHighlightDlg::OnSelTextFgChanged(wxColourPickerEvent& event)
-{
-    CHECK_PTR_RET(m_lexer);
-    event.Skip();
-    m_isModified = true;
-    UpdateTextSelectionColours();
-}
-
-void SyntaxHighlightDlg::OnUseCustomFgTextColour(wxCommandEvent& event)
 {
     CHECK_PTR_RET(m_lexer);
     event.Skip();
@@ -709,6 +673,11 @@ void SyntaxHighlightDlg::OnImportEclipseTheme(wxCommandEvent& event)
 
         wxBusyCursor bc;
         wxString theme_name = ColoursAndFontsManager::Get().ImportEclipseTheme(path);
+        if(theme_name.empty()) {
+            ::wxMessageBox(_("Failed to import theme file: ") + path + _("\nInvalid file"), "CodeLite",
+                           wxICON_WARNING | wxOK | wxOK_DEFAULT, this);
+            return;
+        }
 
         wxString message;
         message << _("Theme : '") << theme_name << _("' imported successfully!");
@@ -738,7 +707,7 @@ void SyntaxHighlightDlg::OnImportEclipseTheme(wxCommandEvent& event)
 void SyntaxHighlightDlg::OnLoadEclipseThemeWebsite(wxCommandEvent& event)
 {
     wxUnusedVar(event);
-    ::wxLaunchDefaultBrowser("http://eclipsecolorthemes.org/");
+    ::wxLaunchDefaultBrowser("https://eclipse-color-themes.web.app/");
 }
 
 void SyntaxHighlightDlg::OnGlobalThemeSelected(wxCommandEvent& event)
@@ -748,16 +717,6 @@ void SyntaxHighlightDlg::OnGlobalThemeSelected(wxCommandEvent& event)
         ColoursAndFontsManager::Get().GetLexer("text", m_choiceGlobalTheme->GetStringSelection());
 
     LoadLexer(m_choiceGlobalTheme->GetStringSelection());
-    if(previewLexer && previewLexer->IsDark() && m_cbUseCustomBaseColour->IsChecked()) {
-        wxColour bgColour = ColoursAndFontsManager::Get().GetBackgroundColourFromLexer(previewLexer);
-        m_colourPickerBaseColour->SetColour(bgColour);
-        m_endingTheme = kTHEME_DARK;
-    } else if(previewLexer && m_cbUseCustomBaseColour->IsChecked()) {
-        // Light colour
-        wxColour bgColour = ColoursAndFontsManager::Get().GetBackgroundColourFromLexer(previewLexer);
-        m_colourPickerBaseColour->SetColour(bgColour);
-        m_endingTheme = kTHEME_LIGHT;
-    }
     m_globalThemeChanged = true;
     m_isModified = true;
 }
@@ -771,13 +730,13 @@ void SyntaxHighlightDlg::OnGlobalFontSelected(wxFontPickerEvent& event)
 
 void SyntaxHighlightDlg::DoSetGlobalBgColour(const wxColour& colour)
 {
-    StyleProperty::Map_t& properties = m_lexer->GetLexerProperties();
-    StyleProperty::Map_t::iterator iter = properties.begin();
+    StyleProperty::Vec_t& properties = m_lexer->GetLexerProperties();
+    StyleProperty::Vec_t::iterator iter = properties.begin();
     for(; iter != properties.end(); ++iter) {
         // Dont change the text selection using the global font picker
-        if(iter->second.GetName() == wxT("Text Selection"))
+        if(iter->GetName() == wxT("Text Selection"))
             continue;
-        iter->second.SetBgColour(colour.GetAsString(wxC2S_HTML_SYNTAX));
+        iter->SetBgColour(colour.GetAsString(wxC2S_HTML_SYNTAX));
     }
 
     // update the style background colour as well
@@ -811,50 +770,38 @@ void SyntaxHighlightDlg::DoExport(const wxArrayString& lexers)
     ::wxMessageBox(_("Settings have been saved into:\n") + zw.GetFilename().GetFullPath());
 }
 
-void SyntaxHighlightDlg::OnUseCustomColourUI(wxUpdateUIEvent& event)
-{
-    event.Enable(m_cbUseCustomBaseColour->IsChecked());
-}
-void SyntaxHighlightDlg::OnCustomBaseColourPIcked(wxColourPickerEvent& event)
-{
-    m_isModified = true;
-    m_endingTheme = DrawingUtils::IsDark(event.GetColour()) ? kTHEME_DARK : kTHEME_LIGHT;
-    event.Skip();
-}
-
-void SyntaxHighlightDlg::OnUseCustomBaseColour(wxCommandEvent& event)
-{
-    m_isModified = true;
-    m_useBaseColourEnding = event.IsChecked();
-    if(event.IsChecked()) {
-        // Adjust the colour to the selected theme
-        LexerConf::Ptr_t lexer =
-            ColoursAndFontsManager::Get().GetLexer("text", m_choiceGlobalTheme->GetStringSelection());
-        wxColour bgColour = ColoursAndFontsManager::Get().GetBackgroundColourFromLexer(lexer);
-        if(bgColour.IsOk()) {
-            m_colourPickerBaseColour->SetColour(bgColour);
-        }
-    }
-    m_endingTheme = DrawingUtils::IsDark(m_colourPickerBaseColour->GetColour()) ? kTHEME_DARK : kTHEME_LIGHT;
-    event.Skip();
-}
-
-bool SyntaxHighlightDlg::IsRestartRequired() const { return false; }
-void SyntaxHighlightDlg::OnUseCustomBaseColourUI(wxUpdateUIEvent& event)
-{
-#if CL_USE_NATIVEBOOK
-    event.Enable(false);
-    event.Check(false);
-#else
-    event.Enable(true);
-#endif
-}
+bool SyntaxHighlightDlg::IsRestartRequired() const { return m_promptForRestart; }
 
 void SyntaxHighlightDlg::DoFontChanged(StyleProperty& sp, const wxFont& font)
 {
-    sp.SetBold(font.GetWeight() == wxFONTWEIGHT_BOLD);
-    sp.SetFaceName(font.GetFaceName());
-    sp.SetFontSize(font.GetPointSize());
-    sp.SetUnderlined(font.GetUnderlined());
-    sp.SetItalic(font.GetStyle() == wxFONTSTYLE_ITALIC);
+    sp.SetFontInfoDesc(FontUtils::GetFontInfo(font));
+}
+
+void SyntaxHighlightDlg::OnCodeLiteAppearance(wxCommandEvent& event)
+{
+#if defined(__WXMSW__)
+    int selection = event.GetSelection();
+    switch(selection) {
+    default:
+    case CodeLiteAppearance::SYSTEM_DEFAULT:
+        // in case it was something else..
+        selection = CodeLiteAppearance::SYSTEM_DEFAULT;
+        break;
+    case CodeLiteAppearance::FORCE_DARK:
+        break;
+    }
+
+    // save the new value
+    clConfig::Get().Write("CodeLiteAppearance", selection);
+    m_promptForRestart = true;
+#else
+    wxUnusedVar(event);
+#endif
+}
+
+void SyntaxHighlightDlg::OnCollapse(wxCollapsiblePaneEvent& event)
+{
+    event.Skip();
+    // re-center the dialog
+    CentreOnParent();
 }

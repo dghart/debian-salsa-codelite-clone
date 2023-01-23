@@ -6,6 +6,8 @@
 #include "event_notifier.h"
 #include "file_logger.h"
 
+wxDEFINE_EVENT(wxEVT_TERMINALVIEWCTRL_LINE_ADDED, clCommandEvent);
+
 namespace
 {
 class MyAnsiCodeRenderer : public clControlWithItemsRowRenderer
@@ -14,40 +16,74 @@ class MyAnsiCodeRenderer : public clControlWithItemsRowRenderer
     wxFont m_font;
     clDataViewListCtrl* m_ctrl = nullptr;
 
+private:
+    void DoRenderBackground(wxDC& dc, const wxRect& rect, const clColours& colours)
+    {
+        wxColour bg_colour = colours.GetBgColour();
+        if(clSystemSettings::IsDark() && DrawingUtils::IsDark(colours.GetBgColour())) {
+            bg_colour = clSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX);
+        }
+
+        dc.SetBrush(bg_colour);
+        dc.SetPen(bg_colour);
+        dc.DrawRectangle(rect);
+    }
+
 public:
     MyAnsiCodeRenderer(clDataViewListCtrl* ctrl)
         : m_ctrl(ctrl)
     {
+        wxUnusedVar(m_ctrl);
     }
 
     void SetFont(const wxFont& f) { this->m_font = f; }
-    void Render(wxWindow* window, wxDC& dc, const clColours& colours, int row_index, clRowEntry* entry) override
+
+    void RenderBackground(wxDC& dc, const wxRect& rect, long tree_style, const clColours& colours) override
+    {
+        wxUnusedVar(tree_style);
+        DoRenderBackground(dc, rect, colours);
+    }
+
+    /// just the draw the item background
+    void RenderItemBackground(wxDC& dc, long tree_style, const clColours& colours, int row_index,
+                              clRowEntry* entry) override
+    {
+        wxUnusedVar(dc);
+        wxUnusedVar(tree_style);
+        wxUnusedVar(colours);
+        wxUnusedVar(row_index);
+        wxUnusedVar(entry);
+    }
+
+    /// render item background and all text and stuff
+    void RenderItem(wxWindow* window, wxDC& dc, const clColours& colours, int row_index, clRowEntry* entry) override
     {
         wxUnusedVar(window);
-        wxUnusedVar(row_index);
-        bool zebraColouring = (m_ctrl->HasStyle(wxTR_ROW_LINES) || m_ctrl->HasStyle(wxDV_ROW_LINES));
-        bool even_row = ((row_index % 2) == 0);
 
         // draw the ascii line
         handler.Reset();
         handler.Parse(entry->GetLabel(0));
 
+        // draw item background
+        DoRenderBackground(dc, entry->GetItemRect(), colours);
+
+        // initialise the default style
+        clRenderDefaultStyle ds;
+        ds.font = m_font;
+
         if(entry->IsSelected()) {
+            ds.bg_colour = colours.GetSelItemBgColour();
+            ds.fg_colour = colours.GetSelItemTextColour();
+
             dc.SetPen(colours.GetSelItemBgColour());
             dc.SetBrush(colours.GetSelItemBgColour());
             dc.DrawRectangle(entry->GetItemRect());
-        } else if(zebraColouring) {
-            wxColour bg_colour = even_row ? colours.GetAlternateColour() : colours.GetItemBgColour();
-            dc.SetPen(bg_colour);
-            dc.SetBrush(bg_colour);
-            dc.DrawRectangle(entry->GetItemRect());
+            handler.RenderNoStyle(dc, ds, 0, entry->GetItemRect(), colours.IsLightTheme());
+        } else {
+            ds.bg_colour = colours.GetItemBgColour();
+            ds.fg_colour = colours.GetItemTextColour();
+            handler.Render(dc, ds, 0, entry->GetItemRect(), colours.IsLightTheme());
         }
-
-        clRenderDefaultStyle ds;
-        ds.bg_colour = colours.GetBgColour();
-        ds.fg_colour = colours.GetItemTextColour();
-        ds.font = m_font;
-        handler.Render(dc, ds, 0, entry->GetItemRect(), colours.IsLightTheme());
     }
 };
 } // namespace
@@ -86,14 +122,15 @@ void clTerminalViewCtrl::ApplyStyle()
         MyAnsiCodeRenderer* r = static_cast<MyAnsiCodeRenderer*>(m_renderer);
         wxFont f = m_rendererFont;
         if(!f.IsOk()) {
-            f = lexer->GetFontForSyle(0, this);
+            f = lexer->GetFontForStyle(0, this);
         }
+
         r->SetFont(f);
         clDataViewListCtrl::SetDefaultFont(f);
 
+        // construct colours based on the current lexer
         clColours colours;
-        colours.InitFromColour(lexer->GetProperty(0).GetBgColour());
-        colours.SetItemTextColour(lexer->GetProperty(0).GetFgColour());
+        colours.FromLexer(lexer);
         SetColours(colours);
     }
 }
@@ -116,6 +153,9 @@ void clTerminalViewCtrl::AddLine(const wxString& text, bool text_ends_with_cr, w
         ScrollToBottom();
     }
     m_overwriteLastLine = text_ends_with_cr;
+
+    clCommandEvent event_line_added{ wxEVT_TERMINALVIEWCTRL_LINE_ADDED };
+    GetEventHandler()->AddPendingEvent(event_line_added);
 }
 
 clAnsiEscapeCodeColourBuilder& clTerminalViewCtrl::GetBuilder(bool clear_it)

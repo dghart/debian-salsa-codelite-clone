@@ -138,7 +138,7 @@ bool BuilderNMake::Export(const wxString& project, const wxString& confToBuild, 
 
     wxArrayString depsArr = proj->GetDependencies(bld_conf_name);
 
-    CL_DEBUG("Generating Makefile...");
+    clDEBUG() << "Generating Makefile..." << endl;
     // Filter all disabled projects from the dependencies array
     wxArrayString updatedDepsArr;
     for(size_t i = 0; i < depsArr.GetCount(); ++i) {
@@ -464,7 +464,7 @@ bool BuilderNMake::Export(const wxString& project, const wxString& confToBuild, 
     wxStringInputStream content(text);
     output << content;
 
-    CL_DEBUG("Generating Makefile...is completed");
+    clDEBUG() << "Generating Makefile...is completed" << endl;
     return true;
 }
 
@@ -1326,9 +1326,7 @@ void BuilderNMake::CreateConfigsVariables(ProjectPtr proj, BuildConfigPtr bldCon
         wxString rcBuildOpts = bldConf->GetResCompileOptions();
         rcBuildOpts.Replace(";", " ");
         text << "RcCmpOptions           =" << rcBuildOpts << "\n";
-        wxString rcCompilerstr(cmp->GetTool("ResourceCompiler"));
-        rcCompilerstr.Replace("/", "\\");
-        text << "RcCompilerName         =" << rcCompilerstr << "\n";
+        text << "RcCompilerName         =" << cmp->GetTool("ResourceCompiler") << "\n";
     }
 
     wxString linkOpt = bldConf->GetLinkOptions();

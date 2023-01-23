@@ -1,6 +1,7 @@
 #include "LanguageServerEntry.h"
 
 #include "LanguageServerProtocol.h"
+#include "StringUtils.h"
 #include "globals.h"
 
 LanguageServerEntry::LanguageServerEntry()
@@ -21,8 +22,6 @@ void LanguageServerEntry::FromJSON(const JSONItem& json)
     m_connectionString = json.namedObject("connectionString").toString("stdio");
     m_priority = json.namedObject("priority").toInt(m_priority);
     m_disaplayDiagnostics = json.namedObject("displayDiagnostics").toBool(m_disaplayDiagnostics); // defaults to true
-    m_remoteLSP = json["remoteLSP"].toBool(m_remoteLSP);
-    m_sshAccount = json["sshAccount"].toString(m_sshAccount);
 
     // we no longer are using exepath + args, instead a single "command" is used
     wxString commandDefault = m_exepath;
@@ -32,25 +31,7 @@ void LanguageServerEntry::FromJSON(const JSONItem& json)
             commandDefault << " " << m_args;
         }
     }
-
-    // read the environment variables
-    auto env = json["environment"];
-    size_t envSize = env.arraySize();
-    for(size_t i = 0; i < envSize; ++i) {
-        wxString envline = env[i].toString();
-        if(envline.IsEmpty()) {
-            continue;
-        }
-        wxString env_name = envline.BeforeFirst('=');
-        wxString env_value = envline.AfterFirst('=');
-        if(env_name.empty() || env_value.empty()) {
-            continue;
-        }
-        m_env.push_back({ env_name, env_value });
-    }
-
     m_command = json.namedObject("command").toString(commandDefault);
-    m_initOptions = json["initOptions"].toString();
 }
 
 JSONItem LanguageServerEntry::ToJSON() const
@@ -66,16 +47,6 @@ JSONItem LanguageServerEntry::ToJSON() const
     json.addProperty("priority", m_priority);
     json.addProperty("displayDiagnostics", m_disaplayDiagnostics);
     json.addProperty("command", m_command);
-    json.addProperty("initOptions", m_initOptions);
-    json.addProperty("remoteLSP", m_remoteLSP);
-    json.addProperty("sshAccount", m_sshAccount);
-
-    // Write the environment variables
-    wxArrayString envArr;
-    for(const auto& env_entry : m_env) {
-        envArr.Add(env_entry.first + "=" + env_entry.second);
-    }
-    json.addProperty("environment", envArr);
     return json;
 }
 
@@ -103,4 +74,17 @@ bool LanguageServerEntry::IsAutoRestart() const
     wxString command = GetCommand();
     command.Trim().Trim(false);
     return !command.IsEmpty();
+}
+
+wxString LanguageServerEntry::GetCommand(bool pretty) const
+{
+    auto cmd_arr = StringUtils::BuildCommandArrayFromString(m_command);
+    return StringUtils::BuildCommandStringFromArray(cmd_arr,
+                                                    pretty ? StringUtils::WITH_COMMENT_PREFIX : StringUtils::ONE_LINER);
+}
+
+void LanguageServerEntry::SetCommand(const wxString& command)
+{
+    auto cmd_arr = StringUtils::BuildCommandArrayFromString(command);
+    m_command = StringUtils::BuildCommandStringFromArray(cmd_arr);
 }

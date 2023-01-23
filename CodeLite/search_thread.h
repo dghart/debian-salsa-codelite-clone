@@ -26,16 +26,20 @@
 #define SEARCH_THREAD_H
 
 #include "JSON.h"
+#include "clFilesCollector.h"
 #include "codelite_exports.h"
 #include "singleton.h"
 #include "worker_thread.h"
 #include "wx/event.h"
 #include "wx/filename.h"
 #include "wxStringHash.h"
+
 #include <deque>
 #include <list>
 #include <map>
+#include <vector>
 #include <wx/regex.h>
+#include <wx/stopwatch.h>
 #include <wx/string.h>
 
 class wxEvtHandler;
@@ -72,6 +76,7 @@ class WXDLLIMPEXP_CL SearchData : public ThreadRequest
     wxEvtHandler* m_owner;
     wxString m_encoding;
     wxArrayString m_excludePatterns;
+    size_t m_file_scanner_flags = clFilesScanner::SF_DONT_FOLLOW_SYMLINKS | clFilesScanner::SF_EXCLUDE_HIDDEN_DIRS;
     friend class SearchThread;
 
 private:
@@ -106,6 +111,8 @@ public:
     //------------------------------------------
     // Setters / Getters
     //------------------------------------------
+    size_t GetFileScannerFlags() const { return m_file_scanner_flags; }
+    void SetFileScannerFlags(size_t flags) { m_file_scanner_flags = flags; }
     bool IsMatchCase() const { return m_flags & wxSD_MATCHCASE ? true : false; }
     bool IsEnablePipeSupport() const { return m_flags & wxSD_ENABLE_PIPE_SUPPORT; }
     void SetEnablePipeSupport(bool b) { SetOption(wxSD_ENABLE_PIPE_SUPPORT, b); }
@@ -252,7 +259,7 @@ public:
     }
 };
 
-typedef std::list<SearchResult> SearchResultList;
+typedef std::vector<SearchResult> SearchResultList;
 
 class WXDLLIMPEXP_CL SearchSummary : public wxObject
 {
@@ -334,7 +341,6 @@ class WXDLLIMPEXP_CL SearchThread : public WorkerThread
 {
     friend class SearchThreadST;
     wxString m_wordChars;
-    std::unordered_map<wxChar, bool> m_wordCharsMap; //< Internal
     SearchResultList m_results;
     bool m_stopSearch;
     SearchSummary m_summary;
@@ -342,7 +348,8 @@ class WXDLLIMPEXP_CL SearchThread : public WorkerThread
     wxRegEx m_regex;
     bool m_matchCase;
     wxCriticalSection m_cs;
-    int m_counter = 0;
+    wxStopWatch m_stopWatch;
+    long m_msPassed = 0;
 
 public:
     /**
@@ -372,15 +379,6 @@ public:
      */
     void StopSearch(bool stop = true);
 
-    /**
-     *  The search thread has several functions that operate on words,
-     *  which are defined to be contiguous sequences of characters from a particular set of characters.
-     *  Defines which characters are members of that set. The default is set to:
-     * "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
-     * \param chars sequence of characters that are considered part of a word
-     */
-    void SetWordChars(const wxString& chars);
-
 private:
     /**
      * Return files to search
@@ -388,11 +386,6 @@ private:
      * \param data search data
      */
     void GetFiles(const SearchData* data, wxArrayString& files);
-
-    /**
-     * Index the word chars from the array into a map
-     */
-    void IndexWordChars();
 
     // Test to see if user asked to cancel the search
     bool TestStopSearch();
