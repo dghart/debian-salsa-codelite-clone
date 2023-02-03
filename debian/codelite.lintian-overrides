@@ -1,0 +1,5 @@
+# Probably a false positive: there is no "ProtocolL" in the source
+# but there are instances of  "...ProtocolList"
+codelite binary: spelling-error-in-binary
+
+
