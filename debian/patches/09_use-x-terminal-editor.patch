@@ -8,11 +8,9 @@ Forwarded: not-needed
  LiteEditor/manager.cpp | 2 +-
  2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/LiteEditor/app.cpp b/LiteEditor/app.cpp
-index 4fa1fa5..fd2a9f4 100644
 --- a/LiteEditor/app.cpp
 +++ b/LiteEditor/app.cpp
-@@ -203,7 +203,9 @@ static void WaitForDebugger(int signo)
+@@ -202,7 +202,9 @@
          char command[256];
          memset(command, 0, sizeof(command));
  
@@ -23,11 +21,9 @@ index 4fa1fa5..fd2a9f4 100644
              sprintf(command, "gnome-terminal -t 'gdb' -e 'gdb -p %d'", getpid());
          } else if(ExeLocator::Locate(wxT("konsole"), where)) {
              sprintf(command, "konsole -T 'gdb' -e 'gdb -p %d'", getpid());
-diff --git a/LiteEditor/manager.cpp b/LiteEditor/manager.cpp
-index 0bc0d30..703a048 100644
 --- a/LiteEditor/manager.cpp
 +++ b/LiteEditor/manager.cpp
-@@ -1901,7 +1901,7 @@ void Manager::DbgStart(long attachPid)
+@@ -1965,7 +1965,7 @@
      wxString terminal;
      wxArrayString tokens;
      wxArrayString configuredTerminal;

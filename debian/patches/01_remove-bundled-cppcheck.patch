@@ -7,14 +7,12 @@ Forwarded: not-needed
  CMakeLists.txt | 1 -
  1 file changed, 1 deletion(-)
 
-diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 0c72f91..d4cc003 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -715,7 +715,6 @@ else()
-         add_subdirectory(codelitegcc)
-         add_subdirectory(codelite_make)
-         add_subdirectory(codelite_terminal)
+@@ -915,7 +915,6 @@
+             # makedirs
+             add_subdirectory(TestDir)
+         endif()
 -        add_subdirectory(sdk/codelite_cppcheck)
          add_subdirectory(codelite_echo)
          add_subdirectory(ctagsd)

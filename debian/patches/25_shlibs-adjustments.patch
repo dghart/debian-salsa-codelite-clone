@@ -17,54 +17,36 @@ Forwarded: not-needed
  sdk/wxshapeframework/CMakeLists.txt | 2 +-
  4 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/CodeLite/CMakeLists.txt b/CodeLite/CMakeLists.txt
-index 839eec6..adf2f39 100644
---- a/CodeLite/CMakeLists.txt
-+++ b/CodeLite/CMakeLists.txt
-@@ -115,6 +115,7 @@ endif()
- 
- # Define the output
- add_library(libcodelite SHARED ${SRCS})
-+set_target_properties(libcodelite PROPERTIES SOVERSION 0)
- target_link_libraries(libcodelite
-                       ${LINKER_OPTIONS}
-                       ${wxWidgets_LIBRARIES}
-diff --git a/Plugin/CMakeLists.txt b/Plugin/CMakeLists.txt
-index 08c3071..a8b0a25 100644
 --- a/Plugin/CMakeLists.txt
 +++ b/Plugin/CMakeLists.txt
-@@ -86,7 +86,7 @@ FILE(GLOB SRCS "*.cpp")
+@@ -85,7 +85,7 @@
  
  # Define the output
  add_library(plugin SHARED ${SRCS})
 -
 +set_target_properties(plugin PROPERTIES SOVERSION 0)
  if(GTK2_FOUND)
-     target_link_libraries(plugin ${LINKER_OPTIONS} ${ADDITIONAL_LIBRARIES} ${GTK2_LIBRARIES} ${wxWidgets_LIBRARIES} -L"${CL_LIBPATH}" libcodelite)
- elseif (GTK3_FOUND)
-diff --git a/sdk/databaselayer/CMakeLists.txt b/sdk/databaselayer/CMakeLists.txt
-index 4097155..35cd79e 100644
+     target_link_libraries(
+         plugin
 --- a/sdk/databaselayer/CMakeLists.txt
 +++ b/sdk/databaselayer/CMakeLists.txt
-@@ -71,7 +71,7 @@ endif(UNIX AND NOT APPLE)
- endif ( WITH_MYSQL )
+@@ -73,7 +73,7 @@
+ endif(WITH_MYSQL)
  
  # Define the output
 -add_library(databaselayersqlite SHARED ${SRCS} ${MYSQL_SRCS})
 +add_library(databaselayersqlite STATIC ${SRCS} ${MYSQL_SRCS})
  target_link_libraries(databaselayersqlite ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES} ${SQLite3_LIBRARIES})
  
- if(APPLE)
-diff --git a/sdk/wxshapeframework/CMakeLists.txt b/sdk/wxshapeframework/CMakeLists.txt
-index 95ca1ad..f4ef623 100644
+ codelite_install_library_target(databaselayersqlite)
 --- a/sdk/wxshapeframework/CMakeLists.txt
 +++ b/sdk/wxshapeframework/CMakeLists.txt
-@@ -36,7 +36,7 @@ endif()
- FILE(GLOB SRCS "src/*.cpp" "src/wxxmlserializer/*.cpp")
+@@ -32,7 +32,7 @@
+ file(GLOB SRCS "src/*.cpp" "src/wxxmlserializer/*.cpp")
  
  # Define the output
 -add_library(wxshapeframework SHARED ${SRCS})
 +add_library(wxshapeframework STATIC ${SRCS})
  
- 
  target_link_libraries(wxshapeframework ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES})
+ 

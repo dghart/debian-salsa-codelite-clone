@@ -8,24 +8,20 @@ Forwarded: not-needed
  LiteEditor/frame.cpp                   | 5 -----
  2 files changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/LiteEditor/editorsettingsmiscpanel.cpp b/LiteEditor/editorsettingsmiscpanel.cpp
-index 0cea220..e38dd14 100644
 --- a/LiteEditor/editorsettingsmiscpanel.cpp
 +++ b/LiteEditor/editorsettingsmiscpanel.cpp
-@@ -83,7 +83,7 @@ EditorSettingsMiscPanel::EditorSettingsMiscPanel(wxWindow* parent)
-     m_fileEncoding->SetSelection(iCurrSelId);
+@@ -59,7 +59,7 @@
+                 UPDATE_CLCONFIG_TEXT_CB(kConfigFrameTitlePattern));
  
-     m_singleAppInstance->SetValue(clConfig::Get().Read(kConfigSingleInstance, false));
--    m_versionCheckOnStartup->SetValue(clConfig::Get().Read(kConfigCheckForNewVersion, true));
-+    m_versionCheckOnStartup->SetValue(clConfig::Get().Read(kConfigCheckForNewVersion, false));
-     m_maxItemsFindReplace->ChangeValue(::wxIntToString(clConfig::Get().Read(kConfigMaxItemsInFindReplaceDialog, 15)));
-     m_spinCtrlMaxOpenTabs->ChangeValue(::wxIntToString(clConfig::Get().Read(kConfigMaxOpenedTabs, 15)));
-     m_choice4->SetStringSelection(
-diff --git a/LiteEditor/frame.cpp b/LiteEditor/frame.cpp
-index ad9888f..24cc269 100644
+     AddHeader(_("Startup"));
+-    AddProperty(_("Check for new version on startup"), clConfig::Get().Read(kConfigCheckForNewVersion, true),
++    AddProperty(_("Check for new version on startup"), clConfig::Get().Read(kConfigCheckForNewVersion, false),
+                 UPDATE_CLCONFIG_BOOL_CB(kConfigCheckForNewVersion));
+     AddProperty(_("Only prompt for stable releases"), clConfig::Get().Read("PromptForNewReleaseOnly", false),
+                 UPDATE_CLCONFIG_BOOL_CB("PromptForNewReleaseOnly"));
 --- a/LiteEditor/frame.cpp
 +++ b/LiteEditor/frame.cpp
-@@ -2802,11 +2802,6 @@ void clMainFrame::OnTimer(wxTimerEvent& event)
+@@ -2741,11 +2741,6 @@
          clLogMessage("Running under Cygwin environment");
      }
  

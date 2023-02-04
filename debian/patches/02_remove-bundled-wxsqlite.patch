@@ -9,11 +9,9 @@ Forwarded: not-needed
  wxcrafter/CMakeLists.txt | 2 +-
  3 files changed, 3 insertions(+), 6 deletions(-)
 
-diff --git a/CMakeLists.txt b/CMakeLists.txt
-index d4cc003..fbeacfc 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -631,7 +631,6 @@ if( NOT SQLite3_FOUND )
+@@ -819,7 +819,6 @@
  endif()
  
  # build the Core part of CodeLite (regardless of the final target)
@@ -21,7 +19,7 @@ index d4cc003..fbeacfc 100644
  add_subdirectory(sdk/wxshapeframework)
  add_subdirectory(sdk/databaselayer)
  add_subdirectory(CodeLite)
-@@ -728,9 +727,7 @@ else()
+@@ -928,9 +927,7 @@
          add_dependencies(wxsqlite3 sqlite3lib)
      endif()
  
@@ -32,29 +30,25 @@ index d4cc003..fbeacfc 100644
      add_dependencies(plugin libcodelite)
  
      if(NOT SDK_ONLY)
-diff --git a/CodeLite/CMakeLists.txt b/CodeLite/CMakeLists.txt
-index 20606f5..839eec6 100644
 --- a/CodeLite/CMakeLists.txt
 +++ b/CodeLite/CMakeLists.txt
-@@ -120,7 +120,7 @@ target_link_libraries(libcodelite
-                       ${wxWidgets_LIBRARIES}
-                       -L"${CL_LIBPATH}"
-                       ${SQLite3_LIBRARIES}
--                      wxsqlite3
-+                      -lwxsqlite3-3.0
-                       ${LIBSSH_LIB}
-                       ${GTK_LIBS}
-                       ${ADDITIONAL_LIBRARIES}
-diff --git a/wxcrafter/CMakeLists.txt b/wxcrafter/CMakeLists.txt
-index 62dc609..37c3bbb 100644
+@@ -122,7 +122,7 @@
+     ${wxWidgets_LIBRARIES}
+     -L"${CL_LIBPATH}"
+     ${SQLite3_LIBRARIES}
+-    wxsqlite3
++    -lwxsqlite3-3.2
+     ${LIBSSH_LIB}
+     ${GTK_LIBS}
+     ${ADDITIONAL_LIBRARIES}
 --- a/wxcrafter/CMakeLists.txt
 +++ b/wxcrafter/CMakeLists.txt
-@@ -111,7 +111,7 @@ if ( NOT WXC_APP )
- 
- if (NOT OFFICIAL_CL_BUILD)
-     target_link_libraries(${PLUGIN_NAME} ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES}
--                          wxsqlite3
-+                          -lwxsqlite3-3.0
-                           ${SQLite3_LIBRARIES}
-                           libcodelite
-                           plugin)
+@@ -125,7 +125,7 @@
+             ${PLUGIN_NAME}
+             ${LINKER_OPTIONS}
+             ${wxWidgets_LIBRARIES}
+-            wxsqlite3
++            -lwxsqlite3-3.2
+             ${SQLite3_LIBRARIES}
+             libcodelite
+             plugin)

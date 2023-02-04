@@ -9,11 +9,9 @@ Subject: Move most helper binaries to /usr/lib/codelite
  Plugin/pipedprocess.cpp        | 3 +--
  4 files changed, 4 insertions(+), 7 deletions(-)
 
-diff --git a/CodeLite/cl_standard_paths.cpp b/CodeLite/cl_standard_paths.cpp
-index 036bcb6..23871df 100644
 --- a/CodeLite/cl_standard_paths.cpp
 +++ b/CodeLite/cl_standard_paths.cpp
-@@ -119,8 +119,7 @@ wxString clStandardPaths::GetDataDir() const
+@@ -119,8 +119,7 @@
  
  wxString clStandardPaths::GetBinFolder() const
  {
@@ -23,8 +21,6 @@ index 036bcb6..23871df 100644
  }
  
  wxString clStandardPaths::GetBinaryFullPath(const wxString& toolname) const
-diff --git a/CodeLite/macros.h b/CodeLite/macros.h
-index 04d9345..e19a21d 100644
 --- a/CodeLite/macros.h
 +++ b/CodeLite/macros.h
 @@ -110,7 +110,7 @@
@@ -36,11 +32,9 @@ index 04d9345..e19a21d 100644
  #elif defined(__WXMAC__)
  #define TERMINAL_CMD wxString::Format(wxT("%s/OpenTerm '$(CMD)'"), clStandardPaths::Get().GetDataDir().c_str())
  #else
-diff --git a/LiteEditor/app.cpp b/LiteEditor/app.cpp
-index fd2a9f4..75629c5 100644
 --- a/LiteEditor/app.cpp
 +++ b/LiteEditor/app.cpp
-@@ -653,8 +653,7 @@ bool CodeLiteApp::OnInit()
+@@ -699,8 +699,7 @@
  #endif
      wxString oldpath;
      wxGetEnv(wxT("PATH"), &oldpath);
@@ -50,11 +44,9 @@ index fd2a9f4..75629c5 100644
      wxString newpath;
      wxGetEnv(wxT("PATH"), &newpath);
  
-diff --git a/Plugin/pipedprocess.cpp b/Plugin/pipedprocess.cpp
-index 16613f6..cbfb515 100644
 --- a/Plugin/pipedprocess.cpp
 +++ b/Plugin/pipedprocess.cpp
-@@ -49,8 +49,7 @@ void PipedProcess::Terminate()
+@@ -49,8 +49,7 @@
  {
  #ifdef __WXGTK__
      wxString cmd;

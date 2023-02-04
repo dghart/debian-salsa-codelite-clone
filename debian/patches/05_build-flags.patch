@@ -11,38 +11,50 @@ Forwarded: not-needed
  CMakeLists.txt | 17 -----------------
  1 file changed, 17 deletions(-)
 
-diff --git a/CMakeLists.txt b/CMakeLists.txt
-index fbeacfc..a030c69 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -394,20 +394,6 @@ else ()
-     set ( DEBUG_BUILD 0 )
+@@ -555,32 +555,7 @@
+     set(DEBUG_BUILD 0)
      set(CMAKE_INSTALL_DO_STRIP TRUE)
      message("-- CMAKE_INSTALL_DO_STRIP is " ${CMAKE_INSTALL_DO_STRIP})
 -    if(UNIX AND NOT APPLE)
--        ## Avoid hardening-no-relro wrarning messages from lintian
+-        # Avoid hardening-no-relro wrarning message from lintian
 -        if(EXISTS "/usr/bin/dpkg-buildflags")
--            execute_process(COMMAND /usr/bin/dpkg-buildflags --get CFLAGS OUTPUT_VARIABLE EXTRA_CFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
--            execute_process(COMMAND /usr/bin/dpkg-buildflags --get CPPFLAGS OUTPUT_VARIABLE EXTRA_CPPFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
--            execute_process(COMMAND /usr/bin/dpkg-buildflags --get CXXFLAGS OUTPUT_VARIABLE EXTRA_CXXFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
--            execute_process(COMMAND /usr/bin/dpkg-buildflags --get LDFLAGS OUTPUT_VARIABLE EXTRA_LDFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+-            execute_process(
+-                COMMAND /usr/bin/dpkg-buildflags --get CFLAGS
+-                OUTPUT_VARIABLE EXTRA_CFLAGS
+-                OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+-            execute_process(
+-                COMMAND /usr/bin/dpkg-buildflags --get CPPFLAGS
+-                OUTPUT_VARIABLE EXTRA_CPPFLAGS
+-                OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+-            execute_process(
+-                COMMAND /usr/bin/dpkg-buildflags --get CXXFLAGS
+-                OUTPUT_VARIABLE EXTRA_CXXFLAGS
+-                OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+-            execute_process(
+-                COMMAND /usr/bin/dpkg-buildflags --get LDFLAGS
+-                OUTPUT_VARIABLE EXTRA_LDFLAGS
+-                OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
 -            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXXFLAGS}")
 -            add_definitions(${EXTRA_CPPFLAGS})
 -            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS}")
 -            set(LINKER_OPTIONS "${EXTRA_LDFLAGS}")
--            list(APPEND LINKER_OPTIONS "-s") ## strip binaries
+-            list(APPEND LINKER_OPTIONS "-s") # strip binaries
 -        endif()
 -    endif()
++
  
-     set( CL_PCH_FILE "${CL_SRC_ROOT}/PCH/precompiled_header_release.h")
-     set( CL_PCH_TARGET "precompiled_header_release.h.gch")
-@@ -428,9 +414,6 @@ else ()
+     set(CL_PCH_FILE "${CL_SRC_ROOT}/PCH/precompiled_header_release.h")
+     set(CL_PCH_TARGET "precompiled_header_release.h.gch")
+@@ -601,9 +576,7 @@
      message("-- Shared Objects will be written into ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
  
-     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")        ## Optimize
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2") # Optimize
 -    if(CMAKE_COMPILER_IS_GNUCXX)
--        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s")  ## Strip binary
+-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s") # Strip binary
 -    endif(CMAKE_COMPILER_IS_GNUCXX)
++
  
-     ## In release, add NDEBUG unless explicitly told not to
-     if (NOT PREVENT_WX_ASSERTS MATCHES 0)
+     # In release, add NDEBUG unless explicitly told not to
+     if(NOT PREVENT_WX_ASSERTS MATCHES 0)
