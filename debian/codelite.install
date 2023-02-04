@@ -8,7 +8,7 @@ usr/bin/codelite-terminal       usr/lib/codelite
 usr/bin/codelite_exec           usr/lib/codelite
 usr/bin/codelite_kill_children  usr/lib/codelite
 usr/bin/codelite_xterm          usr/lib/codelite
-usr/lib/codelite/liblibcodelite.so usr/lib/codelite/liblibcodelite.so.0
+usr/lib/codelite/liblibcodelite.so
 usr/lib/codelite/libplugin.so.0
 usr/lib/codelite/debuggers
 usr/lib/codelite/DebugAdapterClient.so
