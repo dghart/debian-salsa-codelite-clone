@@ -4,6 +4,9 @@ include /usr/share/dpkg/architecture.mk
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
+export DEB_CFLAGS_MAINT_APPEND = -gdwarf-4 
+export DEB_CXXFLAGS_MAINT_APPEND = -gdwarf-4 
+
 CONFIG_EXTRA = \
     -DCMAKE_INSTALL_LIBDIR=lib
 
@@ -21,10 +24,6 @@ override_dh_auto_configure:
 
 override_dh_install:
 	dh_install
-ifneq (,$(filter $(DEB_HOST_ARCH),$(ARCH_LLDB)))
-	dh_install -pcodelite-plugins usr/bin/codelite-lldb usr/lib/codelite
-	dh_install -pcodelite-plugins usr/lib/codelite/LLDBDebugger.so
-endif
 # Remove the .py extension from a script with language-extension
 	mv debian/codelite/usr/bin/codelite_open_helper.py debian/codelite/usr/bin/codelite_open_helper
 
