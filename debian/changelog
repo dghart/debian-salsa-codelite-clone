@@ -1,3 +1,27 @@
+codelite (17.0.0+dfsg-1) unstable; urgency=medium
+
+  * QA upload.
+  * New upstream release.
+  * debian/control:
+    - Bump standards to 4.6.2.
+  * debian/copyright:
+    - Update copyright date
+    - Add copyright for new module
+  * debian/patches:
+    - Refresh patches.
+    - Drop 1 patch applied upstream.
+    - Merge 2 patches.
+  * debian/codelite-plugins.links:
+    - Remove 2 unneeded entries, and the now-empty file.
+  * debian/rules:
+    - Added -gdwarf-4 to cflags and cxxflags as dwz cannot cope with DWARFv5.
+    - Remove no longer needed dh_install entries.
+  * Update lintian overrides.
+  * Update d/codelite.install and codelite-plugins.install.
+  * Change the upstream tarball url.
+
+ -- David Hart <david@codelite.org>  Sun, 05 Feb 2023 11:07:18 +0000
+
 codelite (16.0.0+dfsg2-3) unstable; urgency=medium
 
   * QA upload.
